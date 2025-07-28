@@ -331,6 +331,10 @@ def rebuild_players_r(players_df, rounds_df, k=24):
 
 # region Auth & Sidebar UI
 # ---------- Login / Registrierung ----------
+# --- Modal flags (Einzel / Doppel / Rundlauf) ---
+for _flag in ("show_single_modal", "show_double_modal", "show_round_modal"):
+    if _flag not in st.session_state:
+        st.session_state[_flag] = False
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "current_player" not in st.session_state:
@@ -553,6 +557,93 @@ if not st.session_state.logged_in:
 
 current_player = st.session_state.current_player
 
+# -------- Modal: Einzel-Match eintragen --------
+if st.session_state.show_single_modal:
+    with st.modal("Einzelmatch eintragen"):
+        st.write(f"Eingeloggt als **{st.session_state.current_player}**")
+        pa = st.number_input("Deine Punkte", 0, 21, 11, key="m_pa")
+        gegner = st.selectbox("Gegner wählen", players[players.Name != current_player]["Name"],
+                              index=None, placeholder="Spieler wählen", key="m_opponent")
+        pb = st.number_input("Punkte Gegner", 0, 21, 8, key="m_pb")
+
+        confirm_col, cancel_col = st.columns(2)
+        if confirm_col.button("Speichern"):
+            if gegner is None:
+                st.warning("Bitte Gegner wählen.")
+            elif gegner == current_player:
+                st.error("Gegner darf nicht identisch sein.")
+            else:
+                pending.loc[len(pending)] = [
+                    datetime.now(ZoneInfo("Europe/Berlin")),
+                    current_player, gegner, pa, pb, True, False
+                ]
+                save_csv(pending, PENDING)
+                st.success("Match gespeichert – wartet auf Bestätigung.")
+                st.session_state.show_single_modal = False
+                st.experimental_rerun()
+        if cancel_col.button("Abbrechen"):
+            st.session_state.show_single_modal = False
+            st.experimental_rerun()
+
+# -------- Modal: Doppel-Match eintragen --------
+if st.session_state.show_double_modal:
+    with st.modal("Doppelmatch eintragen"):
+        st.write("Spieler auswählen")
+        a1 = st.selectbox("A1", players.Name, index=None, placeholder="Spieler wählen", key="md_a1")
+        a2 = st.selectbox("A2", players[players.Name != a1].Name, index=None, placeholder="Spieler wählen", key="md_a2")
+        b1 = st.selectbox("B1", players[~players.Name.isin([a1,a2])].Name, index=None, placeholder="Spieler wählen", key="md_b1")
+        b2 = st.selectbox("B2", players[~players.Name.isin([a1,a2,b1])].Name, index=None, placeholder="Spieler wählen", key="md_b2")
+        pA = st.number_input("Punkte Team A", 0, 21, 11, key="md_pA")
+        pB = st.number_input("Punkte Team B", 0, 21, 8,  key="md_pB")
+
+        save_disabled = any(x is None for x in (a1,a2,b1,b2))
+        c1,c2 = st.columns(2)
+        if c1.button("Speichern", disabled=save_disabled):
+            pending_d.loc[len(pending_d)] = [
+                datetime.now(ZoneInfo("Europe/Berlin")), a1, a2, b1, b2, pA, pB, True, False
+            ]
+            save_csv(pending_d, PENDING_D)
+            st.success("Doppel gespeichert – wartet auf Bestätigung.")
+            st.session_state.show_double_modal = False
+            st.experimental_rerun()
+        if c2.button("Abbrechen"):
+            st.session_state.show_double_modal = False
+            st.experimental_rerun()
+
+# -------- Modal: Rundlauf eintragen --------
+if st.session_state.show_round_modal:
+    with st.modal("Rundlauf eintragen"):
+        teilnehmer = st.multiselect("Teilnehmer (min. 3)", players.Name, key="mr_teil")
+        if len(teilnehmer) >= 3:
+            fins = st.columns(2)
+            fin1 = fins[0].selectbox("Finalist 1", teilnehmer, index=None, placeholder="Spieler wählen", key="mr_f1")
+            fin2 = fins[1].selectbox("Finalist 2", [p for p in teilnehmer if p != fin1],
+                                     index=None, placeholder="Spieler wählen", key="mr_f2")
+            sieger_options = [p for p in (fin1, fin2) if p is not None]
+            sieger = st.selectbox("Sieger", sieger_options, index=None, placeholder="Sieger wählen", key="mr_win")
+        else:
+            fin1 = fin2 = sieger = None
+
+        c1,c2 = st.columns(2)
+        if c1.button("Speichern", disabled=(sieger is None)):
+            new_row = {
+                "Datum": datetime.now(ZoneInfo("Europe/Berlin")),
+                "Teilnehmer": ";".join(teilnehmer),
+                "Finalist1": fin1,
+                "Finalist2": fin2,
+                "Sieger": sieger,
+                "creator": current_player,
+                "confirmed_by": current_player,
+            }
+            pending_r.loc[len(pending_r)] = new_row
+            save_csv(pending_r, PENDING_R)
+            st.success("Rundlauf gespeichert – wartet auf Bestätigung.")
+            st.session_state.show_round_modal = False
+            st.experimental_rerun()
+        if c2.button("Abbrechen"):
+            st.session_state.show_round_modal = False
+            st.experimental_rerun()
+
 # region Home Ansicht
 if st.session_state.view_mode == "home":
     st.title("🏓 Tischtennis-Dashboard")
@@ -584,13 +675,17 @@ if st.session_state.view_mode == "home":
     st.divider()
     bcols = st.columns(4)
     if bcols[0].button("➕ Einzel", use_container_width=True):
-        st.session_state.view_mode = "spiel";  st.rerun()
+        st.session_state.show_single_modal = True
+        st.experimental_rerun()
     if bcols[1].button("➕ Doppel", use_container_width=True):
-        st.session_state.view_mode = "doppel"; st.rerun()
+        st.session_state.show_double_modal = True
+        st.experimental_rerun()
     if bcols[2].button("➕ Rundlauf", use_container_width=True):
-        st.session_state.view_mode = "round";  st.rerun()
+        st.session_state.show_round_modal = True
+        st.experimental_rerun()
     if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
-        st.session_state.view_mode = "spiel";  st.rerun()
+        st.session_state.view_mode = "spiel"   # Einzel-Ansicht zeigt Expander
+        st.rerun()
 
     st.stop()
 
@@ -735,289 +830,13 @@ if st.session_state.view_mode == "regeln":
 # endregion
 
 # region Doppel Ansicht
-if st.session_state.view_mode == "doppel":
-    st.title("Doppelmatch eintragen")
-    if len(players) < 4:
-        st.info("Mindestens vier Spieler registrieren.")
-    else:
-        c = st.columns(4)
-        a1 = c[0].selectbox("A1", players.Name, index=None, placeholder="Spieler wählen", key="d_a1")
-        a2 = c[1].selectbox("A2", players[players.Name != a1].Name, index=None, placeholder="Spieler wählen", key="d_a2")
-        b1 = c[2].selectbox("B1", players[~players.Name.isin([a1,a2])].Name, index=None, placeholder="Spieler wählen", key="d_b1")
-        b2 = c[3].selectbox("B2", players[~players.Name.isin([a1,a2,b1])].Name, index=None, placeholder="Spieler wählen", key="d_b2")
-        pA = st.number_input("Punkte A", 0, 21, 11, key="d_pA")
-        pB = st.number_input("Punkte B", 0, 21, 8, key="d_pB")
-        save_disabled = any(x is None for x in (a1, a2, b1, b2))
-        if st.button("Doppel speichern", disabled=save_disabled):
-            pending_d.loc[len(pending_d)] = [
-                datetime.now(ZoneInfo("Europe/Berlin")), a1, a2, b1, b2, pA, pB, True, False
-            ]
-            save_csv(pending_d, PENDING_D)
-            st.success("Doppel gespeichert – wartet auf Bestätigung.")
-
-    # Bestätigungs‑Expander
-    with st.expander("Offene Doppel"):
-        to_conf = pending_d[((pending_d.A1==current_player)|(pending_d.A2==current_player)) & (~pending_d.confA) |
-                            ((pending_d.B1==current_player)|(pending_d.B2==current_player)) & (~pending_d.confB)]
-        if to_conf.empty:
-            st.info("Keine offenen Doppel")
-        else:
-            for idx,row in to_conf.iterrows():
-                st.write(f"{row.A1}&{row.A2}  {row.PunkteA}:{row.PunkteB}  {row.B1}&{row.B2}")
-                col1,col2 = st.columns(2)
-                if col1.button("Bestätigen ✅", key=f"d_ok_{idx}"):
-                    pending_d.at[idx, "confA" if current_player in (row.A1,row.A2) else "confB"] = True
-                    if pending_d.at[idx,"confA"] and pending_d.at[idx,"confB"]:
-                        doubles = pd.concat(
-                            [doubles, pending_d.loc[[idx], pending_d.columns[:-2]]],
-                            ignore_index=True
-                        )
-                        pending_d.drop(idx, inplace=True)
-                        players = rebuild_players_d(players, doubles)
-                        save_csv(doubles, DOUBLES)
-                    save_csv(pending_d, PENDING_D)
-                    save_csv(players, PLAYERS)
-                    st.rerun()
-                if col2.button("Ablehnen ❌", key=f"d_no_{idx}"):
-                    pending_d.drop(idx, inplace=True)
-                    save_csv(pending_d, PENDING_D)
-                    st.rerun()
-
-    st.subheader("Doppel-Leaderboard")
-    d_leader = (
-        players[players["D_Spiele"] > 0][["Name","D_ELO","D_Siege","D_Niederlagen","D_Spiele"]]
-        .rename(columns={
-            "D_ELO": "ELO",
-            "D_Siege": "Siege",
-            "D_Niederlagen": "Niederlagen",
-            "D_Spiele": "Spiele",
-        })
-        .sort_values("ELO", ascending=False)
-        .reset_index(drop=True)
-    )
-    if d_leader.empty:
-        st.info("Noch keine bestätigten Doppelmatches.")
-    else:
-        st.dataframe(d_leader)
-
-    # ---------- Letzte 5 Doppelmatches ----------
-    st.subheader("Letzte 5 Doppelmatches")
-    if doubles.empty:
-        st.info("Noch keine Doppelmatches eingetragen.")
-    else:
-        recent_d = (
-            doubles.sort_values("Datum", ascending=False)
-                   .head(5)
-                   .reset_index(drop=True)
-        )
-        recent_d["Datum"] = recent_d["Datum"].dt.strftime("%d.%m.%Y")
-        recent_d_display = recent_d[["Datum", "A1", "A2", "B1", "B2", "PunkteA", "PunkteB"]]
-        st.dataframe(recent_d_display)
-    st.stop()
+# (Deaktiviert: Modal ersetzt Ansicht)
 # endregion
 
 # region Einzel Ansicht
-# Zeige den folgenden Block nur im Einzel‑Modus
-if st.session_state.view_mode == "spiel":
-    # ---------- Match erfassen ----------
-    st.title("AK-Tischtennis")
-    st.subheader("Match eintragen")
-
-    if len(players) < 2:
-        st.info("Mindestens zwei Spieler registrieren, um ein Match anzulegen.")
-    else:
-        st.markdown(f"**Eingeloggt als:** {current_player}")
-        pa = st.number_input("Punkte (dein Ergebnis)", 0, 21, 11)
-        b = st.selectbox("Gegner wählen", players[players["Name"] != current_player]["Name"],
-                         index=None, placeholder="Spieler wählen")
-        pb = st.number_input("Punkte Gegner", 0, 21, 8)
-        save_disabled = (b is None)
-        if st.button("Match speichern", disabled=save_disabled):
-            if current_player == b:
-                st.error("Spieler dürfen nicht identisch sein.")
-            else:
-                ts_now = datetime.now(ZoneInfo("Europe/Berlin"))
-                pending.loc[len(pending)] = [
-                    ts_now, current_player, b, pa, pb,
-                    True,  # confA (du)
-                    False  # confB
-                ]
-                save_csv(pending, PENDING)
-                st.success("Match gespeichert! Es wartet jetzt auf Bestätigung des Gegners.")
-
-
-    # ---------- Offene Matches bestätigen ----------
-    with st.expander("Offene Matches bestätigen"):
-        to_confirm = pending[
-            ((pending["A"] == current_player) & (pending["confA"] == False)) |
-            ((pending["B"] == current_player) & (pending["confB"] == False))
-        ]
-        if to_confirm.empty:
-            st.info("Keine offenen Matches für dich.")
-        else:
-            for idx, row in to_confirm.iterrows():
-                match_text = (f"{row['A']} {row['PunkteA']} : {row['PunkteB']} {row['B']}  "
-                              f"({row['Datum'].strftime('%d.%m.%Y %H:%M')})")
-                st.write(match_text)
-
-                col_ok, col_rej = st.columns(2)
-                with col_ok:
-                    if st.button("Bestätigen ✅", key=f"conf_{idx}"):
-                        if row["A"] == current_player:
-                            pending.at[idx, "confA"] = True
-                        else:
-                            pending.at[idx, "confB"] = True
-                        # Wenn beide bestätigt, Match finalisieren
-                        if pending.at[idx, "confA"] and pending.at[idx, "confB"]:
-                            matches = pd.concat(
-                                [matches,
-                                 pending.loc[[idx], ["Datum","A","B","PunkteA","PunkteB"]]],
-                                ignore_index=True
-                            )
-                            pending.drop(idx, inplace=True)
-                            players = rebuild_players(players, matches)
-                            save_csv(matches, MATCHES)
-                        save_csv(pending, PENDING)
-                        save_csv(players, PLAYERS)
-                        st.rerun()
-
-                with col_rej:
-                    if st.button("Ablehnen ❌", key=f"rej_{idx}"):
-                        # Einfach aus der Pending-Liste entfernen, keine ELO-Anpassung
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
-                        st.success("Match abgelehnt und entfernt.")
-                        st.rerun()
-
-
-    # ---------- Leaderboard anzeigen ----------
-
-    # ---------- Leaderboard anzeigen ----------
-    st.subheader("Leaderboard")
-    ex_cols = ["Pin", "D_ELO", "D_Siege", "D_Niederlagen", "D_Spiele",
-               "R_ELO", "R_Siege", "R_Zweite", "R_Niederlagen", "R_Spiele"]
-    einzel_tbl = (players[players["Spiele"] > 0]                 # nur wer mind. 1 Einzel spielte
-                  .drop(columns=ex_cols, errors="ignore")
-                  .sort_values("ELO", ascending=False)
-                  .reset_index(drop=True))
-    if einzel_tbl.empty:
-        st.info("Noch keine bestätigten Einzelmatches.")
-    else:
-        st.dataframe(einzel_tbl)
-
-    # ---------- Letzte 5 Matches ----------
-    st.subheader("Letzte 5 Matches")
-    if matches.empty:
-        st.info("Noch keine Spiele eingetragen.")
-    else:
-        recent = (
-            matches.sort_values("Datum", ascending=False)
-            .head(5)
-            .reset_index(drop=True)
-        )
-        recent_display = recent.copy()
-        recent_display["Datum"] = recent_display["Datum"].dt.strftime("%d.%m.%Y")
-        st.dataframe(recent_display)
+# (Deaktiviert: Modal ersetzt Ansicht)
 # endregion
 
 # region Rundlauf Ansicht
-# Rundlauf‑Ansicht
-if st.session_state.view_mode == "round":
-    st.title("Rundlauf eintragen")
-
-    # Teilnehmer wählen
-    selected = st.multiselect("Teilnehmer auswählen (mind. 3)", players["Name"])
-    if len(selected) < 3:
-        st.info("Mindestens drei Spieler auswählen.")
-    else:
-        # --- Finalisten‑Auswahl & Speichern nur wenn >=3 Teilnehmer ---
-        fin_cols = st.columns(2)
-        fin1 = fin_cols[0].selectbox("Finalist 1", selected, index=None, placeholder="Spieler wählen", key="r_f1")
-        fin2 = fin_cols[1].selectbox("Finalist 2", [p for p in selected if p != fin1],
-                                     index=None, placeholder="Spieler wählen", key="r_f2")
-        sieger_options = [p for p in (fin1, fin2) if p is not None]
-        sieger = st.selectbox("Sieger (muss Finalist sein)", sieger_options,
-                              index=None, placeholder="Sieger wählen", key="r_win")
-
-        save_disabled = (fin1 is None or fin2 is None or sieger is None)
-        if st.button("Rundlauf speichern", disabled=save_disabled):
-            new_row = {
-                "Datum": datetime.now(ZoneInfo("Europe/Berlin")),
-                "Teilnehmer": ";".join(selected),
-                "Finalist1": fin1,
-                "Finalist2": fin2,
-                "Sieger": sieger,
-                "creator": current_player,
-                "confirmed_by": current_player  # Ersteller zählt sofort als bestätigt
-            }
-            pending_r = pd.concat([pending_r, pd.DataFrame([new_row])], ignore_index=True)
-            save_csv(pending_r, PENDING_R)
-            st.success("Rundlauf gespeichert – wartet auf Bestätigung eines Mitspielers.")
-
-    # Alte 'conf'-Spalte endgültig entfernen, falls noch vorhanden
-    if "conf" in pending_r.columns:
-        pending_r.drop(columns=["conf"], inplace=True)
-        save_csv(pending_r, PENDING_R)
-
-    # Bestätigung
-    with st.expander("Offene Rundläufe"):
-        to_c = pending_r[
-            (pending_r["Teilnehmer"].str.contains(current_player)) &
-            (~pending_r["confirmed_by"].str.contains(current_player))
-        ]
-        if to_c.empty:
-            st.info("Keine offenen Rundläufe für dich.")
-        else:
-            for idx,row in to_c.iterrows():
-                st.write(f"Teilnehmer: {row['Teilnehmer']}  – Sieger: {row['Sieger']}")
-                col1,col2 = st.columns(2)
-                if col1.button("Bestätigen ✅", key=f"r_ok_{idx}"):
-                    # Spieler in confirmed_by aufnehmen
-                    confirmed = pending_r.at[idx,"confirmed_by"].split(";")
-                    confirmed.append(current_player)
-                    pending_r.at[idx,"confirmed_by"] = ";".join(confirmed)
-
-                    # Finalisieren, wenn mind. 3 Bestätigende
-                    if len(confirmed) >= 3:
-                        rounds = pd.concat([rounds, pending_r.loc[[idx], rounds.columns]], ignore_index=True)
-                        pending_r.drop(idx, inplace=True)
-                        players = rebuild_players_r(players, rounds)
-                        save_csv(rounds, ROUNDS)
-                    save_csv(pending_r, PENDING_R)
-                    save_csv(players, PLAYERS)
-                    st.rerun()
-                if col2.button("Ablehnen ❌", key=f"r_no_{idx}"):
-                    pending_r.drop(idx,inplace=True)
-                    save_csv(pending_r, PENDING_R)
-                    st.rerun()
-
-    st.subheader("Rundlauf‑Leaderboard")
-    r_leader = (players[players["R_Spiele"] > 0][["Name","R_ELO","R_Siege","R_Zweite","R_Niederlagen","R_Spiele"]]
-                .rename(columns={
-                    "R_ELO":"ELO",
-                    "R_Siege":"Siege",
-                    "R_Zweite":"2. Platz",
-                    "R_Niederlagen":"Niederlagen",
-                    "R_Spiele":"Spiele"})
-                .sort_values("ELO", ascending=False)
-                .reset_index(drop=True))
-    if r_leader.empty:
-        st.info("Noch keine bestätigten Rundläufe.")
-    else:
-        st.dataframe(r_leader)
-
-    # ---------- Letzte 5 Rundläufe ----------
-    st.subheader("Letzte 5 Rundläufe")
-    if rounds.empty:
-        st.info("Noch keine Rundläufe eingetragen.")
-    else:
-        recent_r = (
-            rounds.sort_values("Datum", ascending=False)
-                  .head(5)
-                  .reset_index(drop=True)
-        )
-        recent_r["Datum"] = recent_r["Datum"].dt.strftime("%d.%m.%Y")
-        recent_r_display = recent_r[["Datum", "Sieger", "Finalist1", "Finalist2", "Teilnehmer"]]
-        st.dataframe(recent_r_display)
-    st.stop()
+# (Deaktiviert: Modal ersetzt Ansicht)
 # endregion
