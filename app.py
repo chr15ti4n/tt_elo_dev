@@ -128,6 +128,16 @@ def calc_elo(r_a, r_b, score_a, k=32):
     score_a ∈ [0,1]   1 = 11:0   0.09 ≈ 11:10   0 = Niederlage"""
     exp_a = 1 / (1 + 10 ** ((r_b - r_a) / 400))
     return round(r_a + k * (score_a - exp_a), 0)
+
+# --------- Gesamt-ELO berechnen -----------
+def compute_gelo(df: pd.DataFrame,
+                 w_e=0.6, w_d=0.25, w_r=0.15) -> pd.DataFrame:
+    df["G_ELO"] = (
+        w_e * df["ELO"] +
+        w_d * df["D_ELO"] +
+        w_r * df["R_ELO"]
+    ).round(0)
+    return df
 # endregion
 
 # region PIN Hashing
@@ -198,6 +208,7 @@ def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int =
             players_df.loc[players_df["Name"] == b, "Niederlagen"].iat[0] + score_a,
             players_df.loc[players_df["Name"] == b, "Spiele"].iat[0] + 1,
         ]
+    players_df = compute_gelo(players_df)
     return players_df
 # endregion
 
@@ -211,6 +222,7 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
 
 # ---------- Daten laden ----------
 players = load_or_create(PLAYERS, ["Name", "ELO", "Siege", "Niederlagen", "Spiele", "Pin"])
+players = compute_gelo(players)
 # Falls alte CSV noch keine Pin‑Spalte hatte
 if "Pin" not in players.columns:
     players["Pin"] = ""
@@ -272,6 +284,7 @@ def rebuild_players_d(players_df, doubles_df, k=24):
                 players_df.loc[players_df.Name==p,"D_Niederlagen"].iat[0] + (1 if s==0 else 0),
                 players_df.loc[players_df.Name==p,"D_Spiele"].iat[0] + 1,
             ]
+    players_df = compute_gelo(players_df)
     return players_df
 # endregion
 
@@ -311,6 +324,7 @@ def rebuild_players_r(players_df, rounds_df, k=24):
             new = calc_round_elo(old, avg, s, k)
             players_df.loc[players_df.Name==p,"R_ELO"] = new
             players_df.loc[players_df.Name==p,"R_Spiele"] += 1
+    players_df = compute_gelo(players_df)
     return players_df
 # endregion
 
@@ -334,7 +348,7 @@ if not st.session_state.logged_in:
                 st.session_state.current_player = auto_user
 # View mode: "spiel" (default) or "regeln"
 if "view_mode" not in st.session_state:
-    st.session_state.view_mode = "spiel"
+    st.session_state.view_mode = "home"
 
 # Remove sidebar wrapper and dedent login/registration UI to main area
 if not st.session_state.logged_in:
@@ -408,16 +422,14 @@ else:
         current_player = st.session_state.current_player  # lokal verfügbar
         st.markdown(f"**Eingeloggt als:** {current_player}")
 
-        if st.button("🏓 Einzelmatch", use_container_width=True):
-            st.session_state.view_mode = "spiel"
-            st.rerun()
-
-        if st.button("🤝 Doppel", use_container_width=True):
-            st.session_state.view_mode = "doppel"
-            st.rerun()
-
-        if st.button("🔄 Rundlauf", use_container_width=True):
-            st.session_state.view_mode = "round"
+        if st.button("♻️ Aktualisieren", use_container_width=True):
+            # Cache leeren, damit neu aus Google‑Sheets geladen wird
+            if "dfs" in st.session_state:
+                st.session_state["dfs"].clear()
+            try:
+                _get_ws.cache_clear()   # Worksheet‑Cache leeren
+            except Exception:
+                pass
             st.rerun()
 
         if st.button("📜 Regeln", use_container_width=True):
@@ -428,16 +440,6 @@ else:
             st.session_state.logged_in = False
             st.session_state.current_player = None
             st.query_params.clear()  # clear
-            st.rerun()
-        
-        if st.button("♻️ Aktualisieren", use_container_width=True):
-            # Cache leeren, damit neu aus Google‑Sheets geladen wird
-            if "dfs" in st.session_state:
-                st.session_state["dfs"].clear()
-            try:
-                _get_ws.cache_clear()   # Worksheet‑Cache leeren
-            except Exception:
-                pass
             st.rerun()
 
         # QR-Code für Match-Eintrag
@@ -540,6 +542,49 @@ if not st.session_state.logged_in:
 # endregion
 
 current_player = st.session_state.current_player
+
+# region Home Ansicht
+if st.session_state.view_mode == "home":
+    st.title("🏓 Tischtennis-Dashboard")
+    user = players.loc[players.Name == current_player].iloc[0]
+
+    st.markdown(f"### Willkommen, **{current_player}**!")
+    st.metric("Gesamt-ELO", int(user.G_ELO))
+
+    cols = st.columns(3)
+    cols[0].metric("Einzel",  int(user.ELO))
+    cols[1].metric("Doppel",  int(user.D_ELO))
+    cols[2].metric("Rundlauf", int(user.R_ELO))
+
+    st.divider()
+
+    def mini_lb(df, elo, title):
+        tbl = (df.sort_values(elo, ascending=False)
+                 .loc[:, ["Name", elo]]
+                 .rename(columns={elo: "ELO"})
+                 .head(10)
+                 .reset_index(drop=True))
+        st.subheader(title)
+        st.dataframe(tbl, hide_index=True, width=350, height=230)
+
+    mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel – Top 10")
+    mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel – Top 10")
+    mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf – Top 10")
+
+    st.divider()
+    bcols = st.columns(4)
+    if bcols[0].button("➕ Einzel", use_container_width=True):
+        st.session_state.view_mode = "spiel";  st.rerun()
+    if bcols[1].button("➕ Doppel", use_container_width=True):
+        st.session_state.view_mode = "doppel"; st.rerun()
+    if bcols[2].button("➕ Rundlauf", use_container_width=True):
+        st.session_state.view_mode = "round";  st.rerun()
+    if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
+        st.session_state.view_mode = "spiel";  st.rerun()
+
+    st.stop()
+
+# endregion
 
 # region Regel Ansicht
 if st.session_state.view_mode == "regeln":
