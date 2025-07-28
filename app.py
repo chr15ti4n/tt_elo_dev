@@ -553,14 +553,26 @@ if st.session_state.view_mode == "home":
 
     st.divider()
 
-    def mini_lb(df, elo, title):
-        tbl = (df.sort_values(elo, ascending=False)
-                 .loc[:, ["Name", elo]]
-                 .rename(columns={elo: "ELO"})
-                 .head(10)
+    def mini_lb(df: pd.DataFrame, elo_col: str, title: str):
+        """
+        Zeigt ein Leaderboard für die angegebene Spielform.
+        * Vollständige Liste (kein Head‑10‑Cut mehr)
+        * Zeile des aktuellen Spielers gelb hinterlegt
+        * Scrollbar (fixe Höhe)
+        """
+        tab = (df.sort_values(elo_col, ascending=False)
+                 .loc[:, ["Name", elo_col]]
+                 .rename(columns={elo_col: "ELO"})
                  .reset_index(drop=True))
+
+        # Highlightfunktion
+        def _highlight(row):
+            return ['background-color: #fff3b0' if row["Name"] == current_player else '' for _ in row]
+
+        styled = tab.style.apply(_highlight, axis=1)
+
         st.subheader(title)
-        st.dataframe(tbl, hide_index=True, width=350, height=230)
+        st.dataframe(styled, hide_index=True, width=350, height=350)
 
     mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel – Top 10")
     mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel – Top 10")
