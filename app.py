@@ -666,9 +666,9 @@ if st.session_state.view_mode == "home":
                 )
                 if not needs_me:
                     continue
-                col1, col2 = st.columns([3, 1])
+                col1, col_ok, col_rej = st.columns([3, 1, 1])
                 col1.write(f"{row['A']} {int(row['PunkteA'])} : {int(row['PunkteB'])} {row['B']}")
-                if col2.button("✅", key=f"conf_single_{idx}"):
+                if col_ok.button("✅", key=f"conf_single_{idx}"):
                     if row["A"] == current_player:
                         pending.at[idx, "confA"] = True
                     else:
@@ -679,6 +679,12 @@ if st.session_state.view_mode == "home":
                         save_csv(matches, MATCHES)
                     save_csv(pending, PENDING)
                     st.success("Bestätigt.")
+                    _open_modal("")
+                    st.rerun()
+                if col_rej.button("❌", key=f"rej_single_{idx}"):
+                    pending.drop(idx, inplace=True)
+                    save_csv(pending, PENDING)
+                    st.warning("Match abgelehnt und entfernt.")
                     _open_modal("")
                     st.rerun()
 
@@ -694,13 +700,13 @@ if st.session_state.view_mode == "home":
                 )
                 if not needs_me:
                     continue
-                col1, col2 = st.columns([3, 1])
+                col1, col_ok, col_rej = st.columns([3, 1, 1])
                 teams = (
                     f"{row['A1']} / {row['A2']}  {int(row['PunkteA'])} : "
                     f"{int(row['PunkteB'])}  {row['B1']} / {row['B2']}"
                 )
                 col1.write(teams)
-                if col2.button("✅", key=f"conf_double_{idx}"):
+                if col_ok.button("✅", key=f"conf_double_{idx}"):
                     if in_team_a:
                         pending_d.at[idx, "confA"] = True
                     else:
@@ -713,6 +719,12 @@ if st.session_state.view_mode == "home":
                     st.success("Bestätigt.")
                     _open_modal("")
                     st.rerun()
+                if col_rej.button("❌", key=f"rej_double_{idx}"):
+                    pending_d.drop(idx, inplace=True)
+                    save_csv(pending_d, PENDING_D)
+                    st.warning("Doppel abgelehnt und entfernt.")
+                    _open_modal("")
+                    st.rerun()
 
             st.write("### Rundlauf")
             for idx, row in pending_r.iterrows():
@@ -722,9 +734,9 @@ if st.session_state.view_mode == "home":
                 confirmed = set(row["confirmed_by"].split(";")) if row["confirmed_by"] else set()
                 if current_player in confirmed:
                     continue
-                col1, col2 = st.columns([3, 1])
+                col1, col_ok, col_rej = st.columns([3, 1, 1])
                 col1.write(f"{', '.join(teilnehmer)}  –  Sieger: {row['Sieger']}")
-                if col2.button("✅", key=f"conf_round_{idx}"):
+                if col_ok.button("✅", key=f"conf_round_{idx}"):
                     confirmed.add(current_player)
                     pending_r.at[idx, "confirmed_by"] = ";".join(sorted(confirmed))
                     if len(confirmed) >= 3:
@@ -733,6 +745,12 @@ if st.session_state.view_mode == "home":
                         save_csv(rounds, ROUNDS)
                     save_csv(pending_r, PENDING_R)
                     st.success("Bestätigt.")
+                    _open_modal("")
+                    st.rerun()
+                if col_rej.button("❌", key=f"rej_round_{idx}"):
+                    pending_r.drop(idx, inplace=True)
+                    save_csv(pending_r, PENDING_R)
+                    st.warning("Rundlauf abgelehnt und entfernt.")
                     _open_modal("")
                     st.rerun()
 
