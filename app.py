@@ -371,6 +371,15 @@ def _open_modal(which: str):
     """Set exactly one modal flag True, others False."""
     for f in ("show_single_modal", "show_double_modal", "show_round_modal", "show_confirm_modal"):
         st.session_state[f] = (f == which)
+
+# -------- Rebuild all ratings helper ----------
+def _rebuild_all():
+    """Rebuilds all ELO ratings after a confirmed match and saves players.csv."""
+    global players, matches, doubles, rounds
+    players = rebuild_players(players, matches)
+    players = rebuild_players_d(players, doubles)
+    players = rebuild_players_r(players, rounds)
+    save_csv(players, PLAYERS)
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "current_player" not in st.session_state:
@@ -720,6 +729,7 @@ if st.session_state.view_mode == "home":
                         matches.loc[len(matches)] = pending.loc[idx, pending.columns[:-2]]
                         pending.drop(idx, inplace=True)
                         save_csv(matches, MATCHES)
+                        _rebuild_all()
                     save_csv(pending, PENDING)
                     st.success("Bestätigt.")
                     _open_modal("")
@@ -758,6 +768,7 @@ if st.session_state.view_mode == "home":
                         doubles.loc[len(doubles)] = pending_d.loc[idx, pending_d.columns[:-2]]
                         pending_d.drop(idx, inplace=True)
                         save_csv(doubles, DOUBLES)
+                        _rebuild_all()
                     save_csv(pending_d, PENDING_D)
                     st.success("Bestätigt.")
                     _open_modal("")
@@ -786,6 +797,7 @@ if st.session_state.view_mode == "home":
                         rounds.loc[len(rounds)] = pending_r.loc[idx, pending_r.columns[:-1]]
                         pending_r.drop(idx, inplace=True)
                         save_csv(rounds, ROUNDS)
+                        _rebuild_all()
                     save_csv(pending_r, PENDING_R)
                     st.success("Bestätigt.")
                     _open_modal("")
