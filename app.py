@@ -35,6 +35,8 @@ PENDING_D = Path("pending_doubles.csv")
 DOUBLES   = Path("doubles.csv")
 PENDING_R = Path("pending_rounds.csv")  
 ROUNDS    = Path("rounds.csv")          
+TOURNEYS  = Path("tournaments.csv")          # Turnier-Metadaten
+T_MATCHES = Path("tournament_matches.csv")   # Alle Spiele eines Turniers
 # endregion
 
 
@@ -79,7 +81,6 @@ if USE_GSHEETS:
         except gspread.WorksheetNotFound:
             return sh.add_worksheet(name, rows=1000, cols=len(cols))
 # endregion
-
 
 # region Helper Functions
 # ---------- Hilfsfunktionen ----------
@@ -269,6 +270,8 @@ if "confirmed_by" not in pending_r.columns:
         pending_r["confirmed_by"] = ""
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
+tourneys  = load_or_create(TOURNEYS,  ["ID","Name","Status","Erstellt","Sieger"])
+t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","done"])
 for df in (matches, pending, pending_d, doubles, pending_r, rounds):
     if not df.empty:
         df["Datum"] = (
@@ -366,15 +369,17 @@ def rebuild_players_r(players_df, rounds_df, k=48):
 
 # region Auth & Sidebar UI
 # ---------- Login / Registrierung ----------
-# --- Modal flags (Einzel / Doppel / Rundlauf / Bestätigen) ---
-for _flag in ("show_single_modal", "show_double_modal", "show_round_modal", "show_confirm_modal"):
+# --- Modal flags (Einzel / Doppel / Rundlauf / Bestätigen / Neues Turnier) ---
+for _flag in ("show_single_modal", "show_double_modal", "show_round_modal",
+              "show_confirm_modal", "show_new_tourney_modal"):
     if _flag not in st.session_state:
         st.session_state[_flag] = False
 
 # -------- Modal helper: open one modal at a time ----------
 def _open_modal(which: str):
     """Set exactly one modal flag True, others False."""
-    for f in ("show_single_modal", "show_double_modal", "show_round_modal", "show_confirm_modal"):
+    for f in ("show_single_modal", "show_double_modal", "show_round_modal",
+              "show_confirm_modal", "show_new_tourney_modal"):
         st.session_state[f] = (f == which)
 
 # -------- Rebuild all ratings helper ----------
@@ -489,6 +494,11 @@ else:
         if st.button("🏓 Home", use_container_width=True):
             _open_modal("")                    # alle Modals schließen
             st.session_state.view_mode = "home"
+            st.rerun()
+
+        if st.button("🏆 Turniermodus", use_container_width=True):
+            _open_modal("")                    # Modals schließen
+            st.session_state.view_mode = "tourney_main"
             st.rerun()
 
         if st.button("♻️ Aktualisieren", use_container_width=True):
@@ -619,7 +629,7 @@ if st.session_state.view_mode == "home":
     mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf – Ranking", height=175)
 
     st.divider()
-    bcols = st.columns(4)
+    bcols = st.columns(5)
     if bcols[0].button("➕ Einzel", use_container_width=True):
         _open_modal("show_single_modal"); st.rerun()
     if bcols[1].button("➕ Doppel", use_container_width=True):
@@ -628,8 +638,39 @@ if st.session_state.view_mode == "home":
         _open_modal("show_round_modal"); st.rerun()
     if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
         _open_modal("show_confirm_modal"); st.rerun()
+    if bcols[4].button("🎯 Neues Turnier", use_container_width=True):
+        _open_modal("show_new_tourney_modal"); st.rerun()
 
     # --- Modale Eingabe-Dialoge (Einzel/Doppel/Rundlauf) -----------------
+    # --- Modal: Neues Turnier erstellen ----------------------------------
+    if st.session_state.show_new_tourney_modal:
+        with ui_container("Neues Turnier erstellen"):
+            t_name = st.text_input("Turniername")
+            teilnehmer = st.multiselect("Teilnehmer (min. 4)", players.Name, key="nt_teil")
+            c_ok, c_cancel = st.columns(2)
+            if c_ok.button("Anlegen", disabled=(len(teilnehmer) < 4 or t_name == "")):
+                new_id = int(tourneys["ID"].max()) + 1 if not tourneys.empty else 1
+                tourneys.loc[len(tourneys)] = [
+                    new_id, t_name, "offen",
+                    datetime.now(ZoneInfo("Europe/Berlin")), ""
+                ]
+                # Bracket: Runde 1
+                import random, math
+                rnd_players = teilnehmer.copy()
+                random.shuffle(rnd_players)
+                n = 1 << (len(rnd_players)-1).bit_length()   # nächste Zweierpotenz
+                rnd_players += ["BYE"] * (n - len(rnd_players))
+                for i in range(0, n, 2):
+                    a, b = rnd_players[i], rnd_players[i+1]
+                    t_matches.loc[len(t_matches)] = [new_id, 1, a, b, None, None, False]
+                save_csv(tourneys, TOURNEYS)
+                save_csv(t_matches, T_MATCHES)
+                st.success("Turnier angelegt.")
+                _open_modal("")
+                st.rerun()
+            if c_cancel.button("Abbrechen"):
+                _open_modal("")
+                st.rerun()
     if st.session_state.show_single_modal:
         with ui_container("Einzelmatch eintragen"):
             st.write(f"Eingeloggt als **{current_player}**")
@@ -960,14 +1001,45 @@ if st.session_state.view_mode == "regeln":
     st.stop()
 # endregion
 
-# region Doppel Ansicht
-# (Deaktiviert: Modal ersetzt Ansicht)
+# region Turnier – Main Übersicht
+if st.session_state.view_mode == "tourney_main":
+    st.title("🏆 Laufende Turniere")
+    open_t = tourneys[tourneys.Status != "beendet"]
+    if open_t.empty:
+        st.info("Noch keine Turniere.")
+    else:
+        for _, t in open_t.iterrows():
+            if st.button(f"➡️ {t.Name}", key=f"t_sel_{t.ID}", use_container_width=True):
+                st.session_state.current_tid = int(t.ID)
+                st.session_state.view_mode = "tourney_view"
+                st.rerun()
+    if st.button("🚪 Zurück"):
+        st.session_state.view_mode = "home"
+        st.rerun()
+    st.stop()
 # endregion
 
-# region Einzel Ansicht
-# (Deaktiviert: Modal ersetzt Ansicht)
-# endregion
-
-# region Rundlauf Ansicht
-# (Deaktiviert: Modal ersetzt Ansicht)
+# region Turnier – Bracket Ansicht (nur Runde 1)
+if st.session_state.view_mode == "tourney_view":
+    tid = st.session_state.get("current_tid")
+    t_meta = tourneys.loc[tourneys.ID == tid].iloc[0]
+    st.header(f"🏆 {t_meta.Name} – Runde 1")
+    matches_r1 = t_matches[(t_matches.TID == tid) & (t_matches.Runde == 1)]
+    for idx,row in matches_r1.iterrows():
+        a,b = row.A, row.B
+        col1,col2,col3,col4 = st.columns([2,1,1,1])
+        col1.write(f"{a} vs. {b}")
+        pa = col2.number_input("A", 0, 21, value=row.PunkteA or 0, key=f"pa_{idx}")
+        pb = col3.number_input("B", 0, 21, value=row.PunkteB or 0, key=f"pb_{idx}")
+        if col4.button("Speichern", key=f"tm_save_{idx}"):
+            t_matches.at[idx,"PunkteA"] = pa
+            t_matches.at[idx,"PunkteB"] = pb
+            t_matches.at[idx,"done"] = True
+            save_csv(t_matches, T_MATCHES)
+            st.success("Ergebnis gespeichert.")
+            st.rerun()
+    if st.button("🚪 Zurück"):
+        st.session_state.view_mode = "tourney_main"
+        st.rerun()
+    st.stop()
 # endregion
