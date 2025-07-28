@@ -408,7 +408,8 @@ def _process_tournaments():
         max_round = tm["Runde"].max()
         for r in range(1, max_round + 1):
             rm = tm[tm.Runde == r]
-            if rm["done"].all():          # Runde abgeschlossen
+            # Runde abgeschlossen, wenn beide Spieler für jedes Match bestätigt haben
+            if (rm["confA"] & rm["confB"]).all():
                 winners = []
                 losers  = []
                 for _, m in rm.iterrows():
@@ -455,7 +456,8 @@ def _process_tournaments():
                     for i in range(0, len(winners), 2):
                         a = winners[i]
                         b = winners[i+1] if i+1 < len(winners) else "BYE"
-                        t_matches.loc[len(t_matches)] = [trow.ID, r+1, a, b, None, None, False]
+                        # Both confA/confB should be set to False for new matches
+                        t_matches.loc[len(t_matches)] = [trow.ID, r+1, a, b, None, None, False, False]
                     save_csv(t_matches, T_MATCHES)
             else:
                 break  # runde noch nicht fertig → nix tun
