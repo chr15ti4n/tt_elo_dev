@@ -950,32 +950,6 @@ if st.session_state.view_mode == "home":
                     _open_modal("")
                     st.rerun()
 
-            st.write("### Turnier")
-            pend_t = t_matches[
-                (~t_matches.confA | ~t_matches.confB) &
-                (t_matches.A != "BYE") & (t_matches.B != "BYE")
-            ]
-            for idx, row in pend_t.iterrows():
-                needs_me = (
-                    (row.A == current_player and not row.confA) or
-                    (row.B == current_player and not row.confB)
-                )
-                if not needs_me:
-                    continue
-                col1, col_ok = st.columns([3, 1])
-                col1.write(f"{row.A} {row.PunkteA or 0} : {row.PunkteB or 0} {row.B}")
-                if col_ok.button("✅", key=f"conf_t_{idx}"):
-                    if current_player == row.A:
-                        t_matches.at[idx, "confA"] = True
-                    else:
-                        t_matches.at[idx, "confB"] = True
-                    save_csv(t_matches, T_MATCHES)
-                    _process_tournaments()
-                    save_csv(players, PLAYERS)
-                    st.success("Turnier-Match bestätigt.")
-                    _open_modal("")
-                    st.rerun()
-
             if st.button("❌ Schließen"):
                 _open_modal("")
                 st.rerun()
@@ -1169,17 +1143,15 @@ if st.session_state.view_mode == "tourney_view":
                                    value=pb_default, key=f"tm_pb_{idx}", disabled=done)
             btn_label = "Gespeichert" if done else "Speichern"
             if col4.button(btn_label, key=f"tm_save_{idx}", disabled=done):
+                # Punkte und unmittelbare Bestätigung speichern
                 t_matches.at[idx, "PunkteA"] = pa
                 t_matches.at[idx, "PunkteB"] = pb
-                if current_player == a:
-                    t_matches.at[idx, "confA"] = True
-                if current_player == b:
-                    t_matches.at[idx, "confB"] = True
+                t_matches.at[idx, "confA"] = True
+                t_matches.at[idx, "confB"] = True
                 save_csv(t_matches, T_MATCHES)
                 _process_tournaments()
                 save_csv(players, PLAYERS)
-                st.success("Ergebnis gespeichert. Bitte zweite Bestätigung im Bestätigungs-Modal.")
-                _open_modal("")
+                st.success("Ergebnis gespeichert und bestätigt.")
                 st.rerun()
 
     if st.button("🚪 Zurück"):
