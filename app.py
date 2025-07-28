@@ -255,6 +255,10 @@ for col in ["D_ELO", "D_Siege", "D_Niederlagen", "D_Spiele"]:
 for col in ["R_ELO", "R_Siege", "R_Zweite", "R_Niederlagen", "R_Spiele"]:
     if col not in players.columns:
         players[col] = 1200 if col == "R_ELO" else 0
+# Turnier‑Medaillen (Gold/Silber/Bronze) ergänzen
+for col in ["T_Gold","T_Silver","T_Bronze"]:
+    if col not in players.columns:
+        players[col] = 0
         
 players = compute_gelo(players)
 matches = load_or_create(MATCHES, ["Datum", "A", "B", "PunkteA", "PunkteB"])
@@ -381,6 +385,72 @@ def _open_modal(which: str):
     for f in ("show_single_modal", "show_double_modal", "show_round_modal",
               "show_confirm_modal", "show_new_tourney_modal"):
         st.session_state[f] = (f == which)
+
+# -------- Auto‑Advance Turniere & Medaillen-Vergabe ----------
+def _process_tournaments():
+    """Prüft alle Turniere: erzeugt nächste Runden & vergibt Medaillen."""
+    global tourneys, t_matches, players
+
+    for tid, trow in tourneys.iterrows():
+        if trow.Status == "beendet":
+            continue
+
+        tm = t_matches[t_matches.TID == trow.ID]
+        # Prüfe jede Runde, beginnend mit 1
+        max_round = tm["Runde"].max()
+        for r in range(1, max_round + 1):
+            rm = tm[tm.Runde == r]
+            if rm["done"].all():          # Runde abgeschlossen
+                winners = []
+                losers  = []
+                for _, m in rm.iterrows():
+                    # BYE‑Handling
+                    if m.A == "BYE":
+                        winners.append(m.B)
+                        continue
+                    if m.B == "BYE":
+                        winners.append(m.A)
+                        continue
+                    if m.PunkteA > m.PunkteB:
+                        winners.append(m.A)
+                        losers.append(m.B)
+                    else:
+                        winners.append(m.B)
+                        losers.append(m.A)
+
+                if len(winners) == 1:
+                    # Turnier vorbei
+                    winner = winners[0]
+                    silver = losers[0] if losers else None
+                    # Bronze = Verlierer der vorigen Runde (r-1)
+                    bronze_round = tm[tm.Runde == r-1]
+                    bronze = []
+                    for _, m in bronze_round.iterrows():
+                        if m.A not in (winner, silver):
+                            bronze.append(m.A)
+                        if m.B not in (winner, silver):
+                            bronze.append(m.B)
+                    # Update Medaillen
+                    players.loc[players.Name == winner, "T_Gold"] += 1
+                    if silver:
+                        players.loc[players.Name == silver, "T_Silver"] += 1
+                    for b in bronze:
+                        players.loc[players.Name == b, "T_Bronze"] += 1
+                    tourneys.at[tid, "Status"] = "beendet"
+                    tourneys.at[tid, "Sieger"] = winner
+                    save_csv(players, PLAYERS)
+                    save_csv(tourneys, TOURNEYS)
+                    break  # fertig
+
+                # nächste Runde anlegen, falls noch nicht existiert
+                if (t_matches[(t_matches.TID == trow.ID) & (t_matches.Runde == r+1)]).empty:
+                    for i in range(0, len(winners), 2):
+                        a = winners[i]
+                        b = winners[i+1] if i+1 < len(winners) else "BYE"
+                        t_matches.loc[len(t_matches)] = [trow.ID, r+1, a, b, None, None, False]
+                    save_csv(t_matches, T_MATCHES)
+            else:
+                break  # runde noch nicht fertig → nix tun
 
 # -------- Rebuild all ratings helper ----------
 def _rebuild_all():
@@ -590,12 +660,11 @@ if st.session_state.view_mode == "home":
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
-    st.metric("Gesamt-ELO", int(user.G_ELO))
-
-    cols = st.columns(3)
-    cols[0].metric("Einzel",  int(user.ELO))
-    cols[1].metric("Doppel",  int(user.D_ELO))
-    cols[2].metric("Rundlauf", int(user.R_ELO))
+    # Medaillen‑Übersicht
+    mcols = st.columns(3)
+    mcols[0].metric("🥇", int(user.T_Gold))
+    mcols[1].metric("🥈", int(user.T_Silver))
+    mcols[2].metric("🥉", int(user.T_Bronze))
 
     st.divider()
 
@@ -1036,6 +1105,8 @@ if st.session_state.view_mode == "tourney_view":
             t_matches.at[idx,"PunkteB"] = pb
             t_matches.at[idx,"done"] = True
             save_csv(t_matches, T_MATCHES)
+            _process_tournaments()
+            save_csv(players, PLAYERS)   # falls Medaillen vergeben wurden
             st.success("Ergebnis gespeichert.")
             st.rerun()
     if st.button("🚪 Zurück"):
