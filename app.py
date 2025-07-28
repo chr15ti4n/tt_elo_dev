@@ -97,6 +97,8 @@ def save_csv(df: pd.DataFrame, path: Path):
         df_to_write = df.copy()
         for col in df_to_write.select_dtypes(include=["datetimetz", "datetime64[ns, UTC]", "datetime64[ns]"]).columns:
             df_to_write[col] = df_to_write[col].dt.strftime("%Y-%m-%d %H:%M:%S")
+        # Google Sheets kann kein NaN serialisieren → NaN durch leere Strings ersetzen
+        df_to_write = df_to_write.fillna("")
         ws.clear()
         set_with_dataframe(ws, df_to_write.reset_index(drop=True))
         # Cache aktualisieren
@@ -172,7 +174,7 @@ def check_pin(pin: str, stored: str) -> bool:
 
 # region Rebuild Players (Einzel)
 # ---------- Spieler-Stats & ELO komplett neu berechnen ----------
-def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int = 32) -> pd.DataFrame:
+def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int = 64) -> pd.DataFrame:
     """
     Setzt alle Spieler-Statistiken zurück und berechnet sie anhand der
     chronologisch sortierten Match-Liste neu.
@@ -277,7 +279,7 @@ for df in (matches, pending, pending_d, doubles, pending_r, rounds):
 
 # region Doppel ELO Rebuild
 # ---------- Doppel-Stats & ELO komplett neu berechnen ----------
-def rebuild_players_d(players_df, doubles_df, k=24):
+def rebuild_players_d(players_df, doubles_df, k=48):
     players_df = players_df.copy()
     players_df[["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = 0
     players_df["D_ELO"] = 1200
@@ -316,7 +318,7 @@ def rebuild_players_d(players_df, doubles_df, k=24):
 
 # region Rundlauf ELO
 # ---------- Rundlauf-ELO ----------
-def calc_round_elo(r, avg, s, k=24):
+def calc_round_elo(r, avg, s, k=48):
     """
     r      ... Rating des Spielers
     avg    ... Durchschnittsrating aller Teilnehmer
@@ -326,7 +328,7 @@ def calc_round_elo(r, avg, s, k=24):
     return round(r + k * (s - exp))
 
 # ---------- Rundlauf-Stats & ELO komplett neu berechnen ----------
-def rebuild_players_r(players_df, rounds_df, k=24):
+def rebuild_players_r(players_df, rounds_df, k=48):
     players_df = players_df.copy()
     players_df[["R_ELO","R_Siege","R_Zweite","R_Niederlagen","R_Spiele"]] = 0
     players_df["R_ELO"] = 1200
