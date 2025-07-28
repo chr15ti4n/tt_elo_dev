@@ -748,7 +748,8 @@ if st.session_state.view_mode == "home":
                 rnd_players += ["BYE"] * (n - len(rnd_players))
                 for i in range(0, n, 2):
                     a, b = rnd_players[i], rnd_players[i+1]
-                    t_matches.loc[len(t_matches)] = [new_id, 1, a, b, None, None, False]
+                    # Erster Boolean = confA, zweiter = confB (beide False zu Beginn)
+                    t_matches.loc[len(t_matches)] = [new_id, 1, a, b, None, None, False, False]
                 save_csv(tourneys, TOURNEYS)
                 save_csv(t_matches, T_MATCHES)
                 st.success("Turnier angelegt.")
