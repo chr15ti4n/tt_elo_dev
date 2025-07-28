@@ -277,7 +277,7 @@ if "confirmed_by" not in pending_r.columns:
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
 tourneys  = load_or_create(TOURNEYS,  ["ID","Name","Status","Erstellt","Sieger"])
- t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","confA","confB"])
+t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","confA","confB"])
 # Legacy: if old 'done' column exists, split it into confA/confB=True
 if "done" in t_matches.columns and ("confA" not in t_matches.columns or "confB" not in t_matches.columns):
     t_matches["confA"] = t_matches["done"]
