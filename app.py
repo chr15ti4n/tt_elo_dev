@@ -343,6 +343,12 @@ def rebuild_players_r(players_df, rounds_df, k=24):
 for _flag in ("show_single_modal", "show_double_modal", "show_round_modal", "show_confirm_modal"):
     if _flag not in st.session_state:
         st.session_state[_flag] = False
+
+# -------- Modal helper: open one modal at a time ----------
+def _open_modal(which: str):
+    """Set exactly one modal flag True, others False."""
+    for f in ("show_single_modal", "show_double_modal", "show_round_modal", "show_confirm_modal"):
+        st.session_state[f] = (f == which)
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "current_player" not in st.session_state:
@@ -529,14 +535,8 @@ if not st.session_state.logged_in:
 #
 # endregion
 
-current_player = st.session_state.current_player
 
-# -------- Modal helper: open one modal at a time --------
-# (inserted just above Home Ansicht block)
-def _open_modal(which: str):
-    """Set exactly one modal flag True, others False."""
-    for f in ("show_single_modal", "show_double_modal", "show_round_modal", "show_confirm_modal"):
-        st.session_state[f] = (f == which)
+current_player = st.session_state.current_player
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
@@ -916,4 +916,16 @@ if st.session_state.view_mode == "regeln":
     """
     st.markdown(rules_html, unsafe_allow_html=True)
     st.stop()
+# endregion
+
+# region Doppel Ansicht
+# (Deaktiviert: Modal ersetzt Ansicht)
+# endregion
+
+# region Einzel Ansicht
+# (Deaktiviert: Modal ersetzt Ansicht)
+# endregion
+
+# region Rundlauf Ansicht
+# (Deaktiviert: Modal ersetzt Ansicht)
 # endregion
