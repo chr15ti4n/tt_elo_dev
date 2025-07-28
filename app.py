@@ -284,6 +284,10 @@ if "done" in t_matches.columns and ("confA" not in t_matches.columns or "confB" 
     t_matches["confB"] = t_matches["done"]
     t_matches = t_matches.drop(columns=["done"])
     save_csv(t_matches, T_MATCHES)
+
+# Ensure confA/confB are boolean dtype for logical ops
+t_matches["confA"] = t_matches["confA"].astype(bool)
+t_matches["confB"] = t_matches["confB"].astype(bool)
 for df in (matches, pending, pending_d, doubles, pending_r, rounds):
     if not df.empty:
         df["Datum"] = (
