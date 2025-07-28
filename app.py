@@ -93,8 +93,12 @@ def save_csv(df: pd.DataFrame, path: Path):
     if USE_GSHEETS and path.name in SHEET_NAMES:
         ws_name = SHEET_NAMES[path.name]
         ws = _get_ws(ws_name, tuple(df.columns))
+        # gspread verträgt keine Datetime‑Objekte → zuerst in Strings wandeln
+        df_to_write = df.copy()
+        for col in df_to_write.select_dtypes(include=["datetimetz", "datetime64[ns, UTC]", "datetime64[ns]"]).columns:
+            df_to_write[col] = df_to_write[col].dt.strftime("%Y-%m-%d %H:%M:%S")
         ws.clear()
-        set_with_dataframe(ws, df.reset_index(drop=True))
+        set_with_dataframe(ws, df_to_write.reset_index(drop=True))
         # Cache aktualisieren
         st.session_state["dfs"][path.name] = df.copy()
         time.sleep(0.1)  # Throttle to avoid hitting per‑minute quota
