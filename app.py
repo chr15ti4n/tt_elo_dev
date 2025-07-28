@@ -662,14 +662,18 @@ if st.session_state.view_mode == "home":
     st.markdown(f"### Willkommen, **{current_player}**!")
     # Medaillen‑Übersicht
     st.metric("Gesamt-Elo", int(user.G_ELO))
-    mcols = st.columns(3)
-    mcols[0].metric("🥇", int(user.T_Gold))
-    mcols[1].metric("🥈", int(user.T_Silver))
-    mcols[2].metric("🥉", int(user.T_Bronze))
+    
     cols = st.columns(3)
     cols[0].metric("Einzel", int(user.ELO))
     cols[1].metric("Doppel", int(user.D_ELO))
     cols[2].metric("Rundlauf", int(user.R_ELO))
+
+    st.divider()
+    
+    mcols = st.columns(3)
+    mcols[0].metric("🥇", int(user.T_Gold))
+    mcols[1].metric("🥈", int(user.T_Silver))
+    mcols[2].metric("🥉", int(user.T_Bronze))
     
     st.divider()
 
