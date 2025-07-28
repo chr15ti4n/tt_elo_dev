@@ -403,9 +403,11 @@ def _process_tournaments():
         if trow.Status == "beendet":
             continue
 
-        tm = t_matches[t_matches.TID == trow.ID]
+        tm = t_matches[t_matches.TID == trow.ID].copy()
+        # Runde als Integer sicherstellen
+        tm["Runde"] = tm["Runde"].astype(int)
         # Prüfe jede Runde, beginnend mit 1
-        max_round = tm["Runde"].max()
+        max_round = int(tm["Runde"].max())
         for r in range(1, max_round + 1):
             rm = tm[tm.Runde == r]
             # Runde abgeschlossen, wenn beide Spieler für jedes Match bestätigt haben
