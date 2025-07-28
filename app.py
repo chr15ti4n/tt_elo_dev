@@ -574,13 +574,13 @@ if st.session_state.view_mode == "home":
 
         st.subheader(title)
         st.dataframe(styled, hide_index=True, width=350, height=height)
+    
+    # Gesamt‑ELO (alle Spieler)
+    mini_lb(players, "G_ELO", "Gesamt – Ranking")
 
     mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel – Ranking", height=175)
     mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel – Ranking", height=175)
     mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf – Ranking", height=175)
-
-    # Gesamt‑ELO (alle Spieler)
-    mini_lb(players, "G_ELO", "Gesamt – Ranking")
 
     st.divider()
     bcols = st.columns(4)
