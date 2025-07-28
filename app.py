@@ -71,6 +71,8 @@ if USE_GSHEETS:
         "doubles.csv":  "doubles",
         "pending_rounds.csv": "pending_rounds",
         "rounds.csv":   "rounds",
+        "tournaments.csv":       "tournaments",
+        "tournament_matches.csv":"tournament_matches",
     }
 
     @functools.lru_cache(maxsize=None)
@@ -275,7 +277,13 @@ if "confirmed_by" not in pending_r.columns:
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
 tourneys  = load_or_create(TOURNEYS,  ["ID","Name","Status","Erstellt","Sieger"])
-t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","done"])
+ t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","confA","confB"])
+# Legacy: if old 'done' column exists, split it into confA/confB=True
+if "done" in t_matches.columns and ("confA" not in t_matches.columns or "confB" not in t_matches.columns):
+    t_matches["confA"] = t_matches["done"]
+    t_matches["confB"] = t_matches["done"]
+    t_matches = t_matches.drop(columns=["done"])
+    save_csv(t_matches, T_MATCHES)
 for df in (matches, pending, pending_d, doubles, pending_r, rounds):
     if not df.empty:
         df["Datum"] = (
