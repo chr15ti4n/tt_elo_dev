@@ -1154,10 +1154,13 @@ if st.session_state.view_mode == "tourney_view":
             done = bool(row.confA and row.confB)
             col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
             col1.write(f"{a} vs. {b}")
-            pa = col2.number_input("", 0, 21, value=row.PunkteA or 0,
-                                   key=f"tm_pa_{idx}", disabled=done)
-            pb = col3.number_input("", 0, 21, value=row.PunkteB or 0,
-                                   key=f"tm_pb_{idx}", disabled=done)
+            # Sicherstellen, dass der Default-Wert numerisch ist
+            pa_default = int(row.PunkteA) if pd.notna(row.PunkteA) else 0
+            pb_default = int(row.PunkteB) if pd.notna(row.PunkteB) else 0
+            pa = col2.number_input("", min_value=0, max_value=21,
+                                   value=pa_default, key=f"tm_pa_{idx}", disabled=done)
+            pb = col3.number_input("", min_value=0, max_value=21,
+                                   value=pb_default, key=f"tm_pb_{idx}", disabled=done)
             btn_label = "Gespeichert" if done else "Speichern"
             if col4.button(btn_label, key=f"tm_save_{idx}", disabled=done):
                 t_matches.at[idx, "PunkteA"] = pa
