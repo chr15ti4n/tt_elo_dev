@@ -222,7 +222,6 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
 
 # ---------- Daten laden ----------
 players = load_or_create(PLAYERS, ["Name", "ELO", "Siege", "Niederlagen", "Spiele", "Pin"])
-players = compute_gelo(players)
 # Falls alte CSV noch keine Pin‑Spalte hatte
 if "Pin" not in players.columns:
     players["Pin"] = ""
@@ -234,7 +233,8 @@ for col in ["D_ELO", "D_Siege", "D_Niederlagen", "D_Spiele"]:
 for col in ["R_ELO", "R_Siege", "R_Zweite", "R_Niederlagen", "R_Spiele"]:
     if col not in players.columns:
         players[col] = 1200 if col == "R_ELO" else 0
-
+        
+players = compute_gelo(players)
 matches = load_or_create(MATCHES, ["Datum", "A", "B", "PunkteA", "PunkteB"])
 pending = load_or_create(PENDING, ["Datum", "A", "B", "PunkteA", "PunkteB", "confA", "confB"])
 pending_d = load_or_create(PENDING_D, ["Datum","A1","A2","B1","B2","PunkteA","PunkteB","confA","confB"])
