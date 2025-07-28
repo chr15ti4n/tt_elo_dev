@@ -204,16 +204,22 @@ def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int =
         new_r_a = calc_elo(r_a, r_b, score_a, k)
         new_r_b = calc_elo(r_b, r_a, score_b, k)
 
+        # --- Statistiken (ganze Siege/Niederlagen, 1 Spiel) ----------------
+        if pa > pb:
+            win_a, win_b = 1, 0
+        else:
+            win_a, win_b = 0, 1
+
         players_df.loc[players_df["Name"] == a, ["ELO", "Siege", "Niederlagen", "Spiele"]] = [
             new_r_a,
-            players_df.loc[players_df["Name"] == a, "Siege"].iat[0] + score_a,
-            players_df.loc[players_df["Name"] == a, "Niederlagen"].iat[0] + score_b,
+            players_df.loc[players_df["Name"] == a, "Siege"].iat[0] + win_a,
+            players_df.loc[players_df["Name"] == a, "Niederlagen"].iat[0] + win_b,
             players_df.loc[players_df["Name"] == a, "Spiele"].iat[0] + 1,
         ]
         players_df.loc[players_df["Name"] == b, ["ELO", "Siege", "Niederlagen", "Spiele"]] = [
             new_r_b,
-            players_df.loc[players_df["Name"] == b, "Siege"].iat[0] + score_b,
-            players_df.loc[players_df["Name"] == b, "Niederlagen"].iat[0] + score_a,
+            players_df.loc[players_df["Name"] == b, "Siege"].iat[0] + win_b,
+            players_df.loc[players_df["Name"] == b, "Niederlagen"].iat[0] + win_a,
             players_df.loc[players_df["Name"] == b, "Spiele"].iat[0] + 1,
         ]
     players_df = compute_gelo(players_df)
@@ -284,12 +290,21 @@ def rebuild_players_d(players_df, doubles_df, k=24):
         score_a = max(margin / 11, 0)
         nr1,nr2 = calc_doppel_elo(ra1,ra2,b_avg,score_a,k)
         nr3,nr4 = calc_doppel_elo(rb1,rb2,a_avg,1-score_a,k)
-        updates = [(a1,nr1,score_a),(a2,nr2,score_a),(b1,nr3,1-score_a),(b2,nr4,1-score_a)]
+        if pa > pb:
+            team_a_win = 1
+        else:
+            team_a_win = 0
+        updates = [
+            (a1, nr1, team_a_win),
+            (a2, nr2, team_a_win),
+            (b1, nr3, 1 - team_a_win),
+            (b2, nr4, 1 - team_a_win),
+        ]
         for p,new,s in updates:
             players_df.loc[players_df.Name==p, ["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = [
                 new,
-                players_df.loc[players_df.Name==p,"D_Siege"].iat[0] + (1 if s==1 else 0),
-                players_df.loc[players_df.Name==p,"D_Niederlagen"].iat[0] + (1 if s==0 else 0),
+                players_df.loc[players_df.Name==p,"D_Siege"].iat[0] + s,
+                players_df.loc[players_df.Name==p,"D_Niederlagen"].iat[0] + (1 - s),
                 players_df.loc[players_df.Name==p,"D_Spiele"].iat[0] + 1,
             ]
     players_df = compute_gelo(players_df)
@@ -318,18 +333,25 @@ def rebuild_players_r(players_df, rounds_df, k=24):
         teilnehmer = row["Teilnehmer"].split(";")
         fin1, fin2, winner = row["Finalist1"], row["Finalist2"], row["Sieger"]
         avg = players_df.loc[players_df.Name.isin(teilnehmer), "R_ELO"].mean()
+        deltas = {}
         for p in teilnehmer:
             old = players_df.loc[players_df.Name==p,"R_ELO"].iat[0]
             if p == winner:
                 s = 1
                 players_df.loc[players_df.Name==p,"R_Siege"] += 1
             elif p in (fin1, fin2):
-                s = 0.5   # Finalist (2. Platz) erhält halben Sieg‑Wert
+                s = 0.5
                 players_df.loc[players_df.Name==p,"R_Zweite"] += 1
             else:
                 s = 0
                 players_df.loc[players_df.Name==p,"R_Niederlagen"] += 1
-            new = calc_round_elo(old, avg, s, k)
+            exp = 1 / (1 + 10 ** ((avg - old) / 400))
+            delta = k * (s - exp)
+            deltas[p] = delta
+        # Null‑Summe: Offset so dass Summe(delta_adj) = 0
+        offset = sum(deltas.values()) / len(deltas)
+        for p, delta in deltas.items():
+            new = round(players_df.loc[players_df.Name==p,"R_ELO"].iat[0] + (delta - offset))
             players_df.loc[players_df.Name==p,"R_ELO"] = new
             players_df.loc[players_df.Name==p,"R_Spiele"] += 1
     players_df = compute_gelo(players_df)
