@@ -777,8 +777,13 @@ if st.session_state.view_mode == "home":
             if c_ok.button("Anlegen", disabled=(len(teilnehmer) < 4 or t_name == "")):
                 new_id = int(tourneys["ID"].max()) + 1 if not tourneys.empty else 1
                 tourneys.loc[len(tourneys)] = [
-                    new_id, t_name, "offen", now, "",
-                    False, ""    # pending_end, end_confirmed_by
+                    new_id,
+                    t_name,
+                    "offen",
+                    datetime.now(ZoneInfo("Europe/Berlin")),  # statt now
+                    "",      # Sieger (leer beim Erstellen)
+                    False,   # pending_end: Turnier-Abschluss noch ausstehend
+                    ""       # end_confirmed_by: wer Abschluss bestätigt hat
                 ]
                 # Bracket: Runde 1
                 import random, math
