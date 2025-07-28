@@ -1,16 +1,5 @@
 # region Imports
 import streamlit as st
-from contextlib import contextmanager
-
-@contextmanager
-def ui_container(title: str):
-    """Use st.modal if available, else st.expander fallback."""
-    if hasattr(st, "modal"):
-        with st.modal(title):
-            yield
-    else:
-        with st.expander(title, expanded=True):
-            yield
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -517,6 +506,7 @@ else:
                 st.session_state.current_player = None
                 st.rerun()
 
+
 # Login erforderlich, um fortzufahren
 if not st.session_state.logged_in:
     st.stop()
@@ -527,7 +517,7 @@ current_player = st.session_state.current_player
 
 # -------- Modal: Einzel-Match eintragen --------
 if st.session_state.show_single_modal:
-    with ui_container("Einzelmatch eintragen"):
+    with st.modal("Einzelmatch eintragen"):
         st.write(f"Eingeloggt als **{st.session_state.current_player}**")
         pa = st.number_input("Deine Punkte", 0, 21, 11, key="m_pa")
         gegner = st.selectbox("Gegner wählen", players[players.Name != current_player]["Name"],
@@ -555,7 +545,7 @@ if st.session_state.show_single_modal:
 
 # -------- Modal: Doppel-Match eintragen --------
 if st.session_state.show_double_modal:
-    with ui_container("Doppelmatch eintragen"):
+    with st.modal("Doppelmatch eintragen"):
         st.write("Spieler auswählen")
         a1 = st.selectbox("A1", players.Name, index=None, placeholder="Spieler wählen", key="md_a1")
         a2 = st.selectbox("A2", players[players.Name != a1].Name, index=None, placeholder="Spieler wählen", key="md_a2")
@@ -580,7 +570,7 @@ if st.session_state.show_double_modal:
 
 # -------- Modal: Rundlauf eintragen --------
 if st.session_state.show_round_modal:
-    with ui_container("Rundlauf eintragen"):
+    with st.modal("Rundlauf eintragen"):
         teilnehmer = st.multiselect("Teilnehmer (min. 3)", players.Name, key="mr_teil")
         if len(teilnehmer) >= 3:
             fins = st.columns(2)
