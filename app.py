@@ -443,6 +443,11 @@ else:
     with st.sidebar:
         current_player = st.session_state.current_player  # lokal verfügbar
         st.markdown(f"**Eingeloggt als:** {current_player}")
+        # Zurück zum Dashboard
+        if st.button("🏓 Home", use_container_width=True):
+            _open_modal("")                    # alle Modals schließen
+            st.session_state.view_mode = "home"
+            st.rerun()
 
         if st.button("♻️ Aktualisieren", use_container_width=True):
             # Cache leeren, damit neu aus Google‑Sheets geladen wird
