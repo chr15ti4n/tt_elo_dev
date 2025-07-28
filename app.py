@@ -527,92 +527,12 @@ if not st.session_state.logged_in:
 
 current_player = st.session_state.current_player
 
-# -------- Modal: Einzel-Match eintragen --------
-if st.session_state.show_single_modal:
-    with ui_container("Einzelmatch eintragen"):
-        st.write(f"Eingeloggt als **{st.session_state.current_player}**")
-        pa = st.number_input("Deine Punkte", 0, 21, 11, key="m_pa")
-        gegner = st.selectbox("Gegner wählen", players[players.Name != current_player]["Name"],
-                              index=None, placeholder="Spieler wählen", key="m_opponent")
-        pb = st.number_input("Punkte Gegner", 0, 21, 8, key="m_pb")
-
-        confirm_col, cancel_col = st.columns(2)
-        if confirm_col.button("Speichern"):
-            if gegner is None:
-                st.warning("Bitte Gegner wählen.")
-            elif gegner == current_player:
-                st.error("Gegner darf nicht identisch sein.")
-            else:
-                pending.loc[len(pending)] = [
-                    datetime.now(ZoneInfo("Europe/Berlin")),
-                    current_player, gegner, pa, pb, True, False
-                ]
-                save_csv(pending, PENDING)
-                st.success("Match gespeichert – wartet auf Bestätigung.")
-                st.session_state.show_single_modal = False
-                st.rerun()
-        if cancel_col.button("Abbrechen"):
-            st.session_state.show_single_modal = False
-            st.rerun()
-
-# -------- Modal: Doppel-Match eintragen --------
-if st.session_state.show_double_modal:
-    with ui_container("Doppelmatch eintragen"):
-        st.write("Spieler auswählen")
-        a1 = st.selectbox("A1", players.Name, index=None, placeholder="Spieler wählen", key="md_a1")
-        a2 = st.selectbox("A2", players[players.Name != a1].Name, index=None, placeholder="Spieler wählen", key="md_a2")
-        b1 = st.selectbox("B1", players[~players.Name.isin([a1,a2])].Name, index=None, placeholder="Spieler wählen", key="md_b1")
-        b2 = st.selectbox("B2", players[~players.Name.isin([a1,a2,b1])].Name, index=None, placeholder="Spieler wählen", key="md_b2")
-        pA = st.number_input("Punkte Team A", 0, 21, 11, key="md_pA")
-        pB = st.number_input("Punkte Team B", 0, 21, 8,  key="md_pB")
-
-        save_disabled = any(x is None for x in (a1,a2,b1,b2))
-        c1,c2 = st.columns(2)
-        if c1.button("Speichern", disabled=save_disabled):
-            pending_d.loc[len(pending_d)] = [
-                datetime.now(ZoneInfo("Europe/Berlin")), a1, a2, b1, b2, pA, pB, True, False
-            ]
-            save_csv(pending_d, PENDING_D)
-            st.success("Doppel gespeichert – wartet auf Bestätigung.")
-            st.session_state.show_double_modal = False
-            st.rerun()
-        if c2.button("Abbrechen"):
-            st.session_state.show_double_modal = False
-            st.rerun()
-
-# -------- Modal: Rundlauf eintragen --------
-if st.session_state.show_round_modal:
-    with ui_container("Rundlauf eintragen"):
-        teilnehmer = st.multiselect("Teilnehmer (min. 3)", players.Name, key="mr_teil")
-        if len(teilnehmer) >= 3:
-            fins = st.columns(2)
-            fin1 = fins[0].selectbox("Finalist 1", teilnehmer, index=None, placeholder="Spieler wählen", key="mr_f1")
-            fin2 = fins[1].selectbox("Finalist 2", [p for p in teilnehmer if p != fin1],
-                                     index=None, placeholder="Spieler wählen", key="mr_f2")
-            sieger_options = [p for p in (fin1, fin2) if p is not None]
-            sieger = st.selectbox("Sieger", sieger_options, index=None, placeholder="Sieger wählen", key="mr_win")
-        else:
-            fin1 = fin2 = sieger = None
-
-        c1,c2 = st.columns(2)
-        if c1.button("Speichern", disabled=(sieger is None)):
-            new_row = {
-                "Datum": datetime.now(ZoneInfo("Europe/Berlin")),
-                "Teilnehmer": ";".join(teilnehmer),
-                "Finalist1": fin1,
-                "Finalist2": fin2,
-                "Sieger": sieger,
-                "creator": current_player,
-                "confirmed_by": current_player,
-            }
-            pending_r.loc[len(pending_r)] = new_row
-            save_csv(pending_r, PENDING_R)
-            st.success("Rundlauf gespeichert – wartet auf Bestätigung.")
-            st.session_state.show_round_modal = False
-            st.rerun()
-        if c2.button("Abbrechen"):
-            st.session_state.show_round_modal = False
-            st.rerun()
+# -------- Modal helper: open one modal at a time --------
+# (inserted just above Home Ansicht block)
+def _open_modal(which: str):
+    """Set exactly one modal flag True, others False."""
+    for f in ("show_single_modal", "show_double_modal", "show_round_modal"):
+        st.session_state[f] = (f == which)
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
@@ -645,17 +565,97 @@ if st.session_state.view_mode == "home":
     st.divider()
     bcols = st.columns(4)
     if bcols[0].button("➕ Einzel", use_container_width=True):
-        st.session_state.show_single_modal = True
-        st.rerun()
+        _open_modal("show_single_modal"); st.rerun()
     if bcols[1].button("➕ Doppel", use_container_width=True):
-        st.session_state.show_double_modal = True
-        st.rerun()
+        _open_modal("show_double_modal"); st.rerun()
     if bcols[2].button("➕ Rundlauf", use_container_width=True):
-        st.session_state.show_round_modal = True
-        st.rerun()
+        _open_modal("show_round_modal"); st.rerun()
     if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
         st.session_state.view_mode = "spiel"   # Einzel-Ansicht zeigt Expander
         st.rerun()
+
+    # --- Modale Eingabe-Dialoge (Einzel/Doppel/Rundlauf) -----------------
+    if st.session_state.show_single_modal:
+        with ui_container("Einzelmatch eintragen"):
+            st.write(f"Eingeloggt als **{current_player}**")
+            pa = st.number_input("Deine Punkte", 0, 21, 11, key="m_pa")
+            gegner = st.selectbox("Gegner wählen",
+                                  players[players.Name != current_player]["Name"],
+                                  index=None, placeholder="Spieler wählen", key="m_opponent")
+            pb = st.number_input("Punkte Gegner", 0, 21, 8, key="m_pb")
+
+            col_ok, col_cancel = st.columns(2)
+            if col_ok.button("Speichern", key="single_save",
+                             disabled=(gegner is None)):
+                if gegner == current_player:
+                    st.error("Gegner darf nicht identisch sein.")
+                else:
+                    pending.loc[len(pending)] = [
+                        datetime.now(ZoneInfo("Europe/Berlin")),
+                        current_player, gegner, pa, pb, True, False
+                    ]
+                    save_csv(pending, PENDING)
+                    st.success("Match gespeichert – wartet auf Bestätigung.")
+                    _open_modal("")  # close
+                    st.rerun()
+            if col_cancel.button("Abbrechen", key="single_cancel"):
+                _open_modal("")
+                st.rerun()
+
+    if st.session_state.show_double_modal:
+        with ui_container("Doppelmatch eintragen"):
+            st.write("Spieler auswählen")
+            a1 = st.selectbox("A1", players.Name, index=None, placeholder="Spieler wählen", key="md_a1")
+            a2 = st.selectbox("A2", players[players.Name != a1].Name, index=None, placeholder="Spieler wählen", key="md_a2")
+            b1 = st.selectbox("B1", players[~players.Name.isin([a1,a2])].Name, index=None, placeholder="Spieler wählen", key="md_b1")
+            b2 = st.selectbox("B2", players[~players.Name.isin([a1,a2,b1])].Name, index=None, placeholder="Spieler wählen", key="md_b2")
+            pA = st.number_input("Punkte Team A", 0, 21, 11, key="md_pA")
+            pB = st.number_input("Punkte Team B", 0, 21, 8,  key="md_pB")
+
+            disabled = any(x is None for x in (a1,a2,b1,b2))
+            c_ok, c_cancel = st.columns(2)
+            if c_ok.button("Speichern", key="double_save", disabled=disabled):
+                pending_d.loc[len(pending_d)] = [
+                    datetime.now(ZoneInfo("Europe/Berlin")), a1, a2, b1, b2, pA, pB, True, False
+                ]
+                save_csv(pending_d, PENDING_D)
+                st.success("Doppel gespeichert – wartet auf Bestätigung.")
+                _open_modal("")
+                st.rerun()
+            if c_cancel.button("Abbrechen", key="double_cancel"):
+                _open_modal(""); st.rerun()
+
+    if st.session_state.show_round_modal:
+        with ui_container("Rundlauf eintragen"):
+            teilnehmer = st.multiselect("Teilnehmer (min. 3)", players.Name, key="mr_teil")
+            if len(teilnehmer) >= 3:
+                fin_cols = st.columns(2)
+                fin1 = fin_cols[0].selectbox("Finalist 1", teilnehmer, index=None, placeholder="Spieler wählen", key="mr_f1")
+                fin2_opts = [p for p in teilnehmer if p != fin1]
+                fin2 = fin_cols[1].selectbox("Finalist 2", fin2_opts, index=None, placeholder="Spieler wählen", key="mr_f2")
+                sieger_opts = [p for p in (fin1, fin2) if p]
+                sieger = st.selectbox("Sieger", sieger_opts, index=None, placeholder="Sieger wählen", key="mr_win")
+            else:
+                fin1 = fin2 = sieger = None
+
+            r_ok, r_cancel = st.columns(2)
+            if r_ok.button("Speichern", key="round_save", disabled=(sieger is None)):
+                pending_r.loc[len(pending_r)] = {
+                    "Datum": datetime.now(ZoneInfo("Europe/Berlin")),
+                    "Teilnehmer": ";".join(teilnehmer),
+                    "Finalist1": fin1,
+                    "Finalist2": fin2,
+                    "Sieger": sieger,
+                    "creator": current_player,
+                    "confirmed_by": current_player,
+                }
+                save_csv(pending_r, PENDING_R)
+                st.success("Rundlauf gespeichert – wartet auf Bestätigung.")
+                _open_modal("")
+                st.rerun()
+            if r_cancel.button("Abbrechen", key="round_cancel"):
+                _open_modal("")
+                st.rerun()
 
     st.stop()
 
