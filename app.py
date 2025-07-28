@@ -197,12 +197,13 @@ def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int =
 
         if pa == pb:
             continue  # Unentschieden ignorieren
-        margin = pa - pb
-        score_a = max(margin / 11, 0)            # 11:0 -> 1   11:10 -> 0.09
-        score_b = max(-margin / 11, 0)           # Gegenwert für Verlierer
+        # K‑Faktor skalieren nach Punktdifferenz
+        margin  = abs(pa - pb)            # 0–11
+        k_eff   = k * (1 + margin / 11)   # 0‑Siege → K, 11‑0 → 2·K
+        winner_is_a = pa > pb
 
-        new_r_a = calc_elo(r_a, r_b, score_a, k)
-        new_r_b = calc_elo(r_b, r_a, score_b, k)
+        new_r_a = calc_elo(r_a, r_b, 1 if winner_is_a else 0, k_eff)
+        new_r_b = calc_elo(r_b, r_a, 0 if winner_is_a else 1, k_eff)
 
         # --- Statistiken (ganze Siege/Niederlagen, 1 Spiel) ----------------
         if pa > pb:
@@ -286,14 +287,12 @@ def rebuild_players_d(players_df, doubles_df, k=24):
         a_avg,b_avg = (ra1+ra2)/2, (rb1+rb2)/2
         if pa == pb:
             continue  # kein Unentschieden
-        margin = pa - pb
-        score_a = max(margin / 11, 0)
-        nr1,nr2 = calc_doppel_elo(ra1,ra2,b_avg,score_a,k)
-        nr3,nr4 = calc_doppel_elo(rb1,rb2,a_avg,1-score_a,k)
-        if pa > pb:
-            team_a_win = 1
-        else:
-            team_a_win = 0
+        margin  = abs(pa - pb)
+        k_eff   = k * (1 + margin / 11)
+        team_a_win = 1 if pa > pb else 0
+
+        nr1, nr2 = calc_doppel_elo(ra1, ra2, b_avg, team_a_win, k_eff)
+        nr3, nr4 = calc_doppel_elo(rb1, rb2, a_avg, 1 - team_a_win, k_eff)
         updates = [
             (a1, nr1, team_a_win),
             (a2, nr2, team_a_win),
