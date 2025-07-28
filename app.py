@@ -277,6 +277,11 @@ if "confirmed_by" not in pending_r.columns:
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
 tourneys  = load_or_create(TOURNEYS,  ["ID","Name","Status","Erstellt","Sieger"])
+if "pending_end" not in tourneys.columns:
+    tourneys["pending_end"] = False
+if "end_confirmed_by" not in tourneys.columns:
+    tourneys["end_confirmed_by"] = ""
+save_csv(tourneys, TOURNEYS)
 t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","confA","confB"])
 # Legacy: if old 'done' column exists, split it into confA/confB=True
 if "done" in t_matches.columns and ("confA" not in t_matches.columns or "confB" not in t_matches.columns):
@@ -399,6 +404,33 @@ def _open_modal(which: str):
         st.session_state[f] = (f == which)
 
 # -------- Auto‑Advance Turniere & Medaillen-Vergabe ----------
+def _finalize_tournament(tid):
+    global tourneys, t_matches, players
+    # Finale ermitteln
+    rounds = t_matches.loc[t_matches.TID == tid, "Runde"].astype(int)
+    final = rounds.max()
+    fm = t_matches[(t_matches.TID == tid) & (t_matches.Runde == final)]
+    winners, losers = [], []
+    for _, m in fm.iterrows():
+        if m.PunkteA > m.PunkteB:
+            winners.append(m.A); losers.append(m.B)
+        else:
+            winners.append(m.B); losers.append(m.A)
+    if len(winners) != 1: return
+    gold, silver = winners[0], losers[0]
+    # Bronze aus Runde final–1
+    sm = t_matches[(t_matches.TID == tid) & (t_matches.Runde == final-1)]
+    bronze = [p for _, m in sm.iterrows() for p in (m.A, m.B) if p not in (gold, silver)]
+    # Medaillen aktualisieren
+    players.loc[players.Name == gold,  "T_Gold"]   += 1
+    players.loc[players.Name == silver,"T_Silver"] += 1
+    for b in bronze:
+        players.loc[players.Name == b, "T_Bronze"]   += 1
+    # Turnier abschließen
+    tourneys.loc[tourneys.ID == tid, ["Status","Sieger","pending_end"]] = ["beendet", gold, False]
+    save_csv(players, PLAYERS)
+    save_csv(tourneys, TOURNEYS)
+
 def _process_tournaments():
     """Prüft alle Turniere: erzeugt nächste Runden & vergibt Medaillen."""
     global tourneys, t_matches, players
@@ -730,10 +762,10 @@ if st.session_state.view_mode == "home":
         _open_modal("show_double_modal"); st.rerun()
     if bcols[2].button("➕ Rundlauf", use_container_width=True):
         _open_modal("show_round_modal"); st.rerun()
-    if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
-        _open_modal("show_confirm_modal"); st.rerun()
     if bcols[4].button("🎯 Neues Turnier", use_container_width=True):
         _open_modal("show_new_tourney_modal"); st.rerun()
+    if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
+        _open_modal("show_confirm_modal"); st.rerun()
 
     # --- Modale Eingabe-Dialoge (Einzel/Doppel/Rundlauf) -----------------
     # --- Modal: Neues Turnier erstellen ----------------------------------
@@ -745,8 +777,8 @@ if st.session_state.view_mode == "home":
             if c_ok.button("Anlegen", disabled=(len(teilnehmer) < 4 or t_name == "")):
                 new_id = int(tourneys["ID"].max()) + 1 if not tourneys.empty else 1
                 tourneys.loc[len(tourneys)] = [
-                    new_id, t_name, "offen",
-                    datetime.now(ZoneInfo("Europe/Berlin")), ""
+                    new_id, t_name, "offen", now, "",
+                    False, ""    # pending_end, end_confirmed_by
                 ]
                 # Bracket: Runde 1
                 import random, math
@@ -948,6 +980,19 @@ if st.session_state.view_mode == "home":
                     save_csv(pending_r, PENDING_R)
                     st.warning("Rundlauf abgelehnt und entfernt.")
                     _open_modal("")
+                    st.rerun()
+            
+            st.write("### Turnier-Abschluss bestätigen")
+            for _, t in tourneys[tourneys.pending_end].iterrows():
+                if t.end_confirmed_by == current_player:
+                    continue
+                st.write(f"Turnier **{t.Name}** endgültig beenden")
+                if st.button("✅ Bestätigen", key=f"conf_tourney_{t.ID}"):
+                    tourneys.loc[tourneys.ID == t.ID, "end_confirmed_by"] = current_player
+                    save_csv(tourneys, TOURNEYS)
+                    _finalize_tournament(t.ID)
+                    st.success("Turnier abgeschlossen und Medaillen vergeben.")
+                    _open_modal("") 
                     st.rerun()
 
             if st.button("❌ Schließen"):
@@ -1153,6 +1198,16 @@ if st.session_state.view_mode == "tourney_view":
                 save_csv(players, PLAYERS)
                 st.success("Ergebnis gespeichert und bestätigt.")
                 st.rerun()
+    # Finale abgeschlossen?
+    final_rnd = int(t_matches.loc[t_matches.TID == tid, "Runde"].max())
+    fm = t_matches[(t_matches.TID == tid) & (t_matches.Runde == final_rnd)]
+    if (fm["confA"] & fm["confB"]).all() and not tourneys.loc[tourneys.ID == tid, "pending_end"].iat[0]:
+        if st.button("🏁 Turnier beenden und speichern"):
+            tourneys.loc[tourneys.ID == tid, "pending_end"] = True
+            save_csv(tourneys, TOURNEYS)
+            st.success("Ausstehender Turnier-Abschluss – bitte im Bestätigungs-Modal bestätigen.")
+            _open_modal("show_confirm_modal")
+            st.rerun()
 
     if st.button("🚪 Zurück"):
         st.session_state.view_mode = "tourney_main"
