@@ -519,78 +519,7 @@ else:
                 st.rerun()
 
 
-# Login erforderlich, um fortzufahren
 if not st.session_state.logged_in:
-    # --- Modal: Offene Matches bestätigen ----------------------------------
-    if st.session_state.show_confirm_modal:
-        with ui_container("Offene Matches bestätigen"):
-            st.write("### Einzel")
-            for idx,row in pending.iterrows():
-                needs_me = (row["A"] == current_player and not row["confA"]) \
-                           or (row["B"] == current_player and not row["confB"])
-                if not needs_me:
-                    continue
-                col1,col2 = st.columns([3,1])
-                col1.write(f"{row['A']} {int(row['PunkteA'])} : {int(row['PunkteB'])} {row['B']}")
-                if col2.button("✅", key=f"conf_single_{idx}"):
-                    if row["A"] == current_player:
-                        pending.at[idx,"confA"] = True
-                    else:
-                        pending.at[idx,"confB"] = True
-                    if pending.at[idx,"confA"] and pending.at[idx,"confB"]:
-                        matches.loc[len(matches)] = pending.loc[idx, pending.columns[:-2]]
-                        pending.drop(idx, inplace=True)
-                        save_csv(matches, MATCHES)
-                    save_csv(pending, PENDING)
-                    st.success("Bestätigt.")
-                    _open_modal("")
-                    st.rerun()
-
-            st.write("### Doppel")
-            for idx,row in pending_d.iterrows():
-                needs_me = current_player in (row["A1"],row["A2"],row["B1"],row["B2"]) and not row["confA" if current_player in (row["A1"],row["A2"]) else "confB"]
-                if not needs_me:
-                    continue
-                col1,col2 = st.columns([3,1])
-                teams = f"{row['A1']} / {row['A2']}  {int(row['PunkteA'])} : {int(row['PunkteB'])}  {row['B1']} / {row['B2']}"
-                col1.write(teams)
-                if col2.button("✅", key=f"conf_double_{idx}"):
-                    if current_player in (row["A1"],row["A2"]):
-                        pending_d.at[idx,"confA"] = True
-                    else:
-                        pending_d.at[idx,"confB"] = True
-                    if pending_d.at[idx,"confA"] and pending_d.at[idx,"confB"]:
-                        doubles.loc[len(doubles)] = pending_d.loc[idx, pending_d.columns[:-2]]
-                        pending_d.drop(idx, inplace=True)
-                        save_csv(doubles, DOUBLES)
-                    save_csv(pending_d, PENDING_D)
-                    st.success("Bestätigt.")
-                    _open_modal(""); st.rerun()
-
-            st.write("### Rundlauf")
-            for idx,row in pending_r.iterrows():
-                teilnehmer = row["Teilnehmer"].split(";")
-                if current_player not in teilnehmer:
-                    continue
-                already = current_player in row["confirmed_by"].split(";")
-                if already:
-                    continue
-                col1,col2 = st.columns([3,1])
-                col1.write(f"{', '.join(teilnehmer)}  –  Sieger: {row['Sieger']}")
-                if col2.button("✅", key=f"conf_round_{idx}"):
-                    pending_r.at[idx,"confirmed_by"] += f";{current_player}" if row["confirmed_by"] else current_player
-                    if len(set(pending_r.at[idx,"confirmed_by"].split(";"))) >= 3:
-                        rounds.loc[len(rounds)] = pending_r.loc[idx, pending_r.columns[:-1]]
-                        pending_r.drop(idx, inplace=True)
-                        save_csv(rounds, ROUNDS)
-                    save_csv(pending_r, PENDING_R)
-                    st.success("Bestätigt.")
-                    _open_modal(""); st.rerun()
-
-            if st.button("❌ Schließen"):
-                _open_modal("")
-                st.rerun()
-
     st.stop()
 #
 # endregion
