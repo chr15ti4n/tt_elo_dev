@@ -14,10 +14,6 @@ import time
 import gspread
 from gspread_dataframe import get_as_dataframe, set_with_dataframe
 
-# region Admins
-ADMINS = {"Chris"}
-# endregion
-
 # region Paths
 # ---------- Konstante Pfade ----------
 PLAYERS = Path("players.csv")
@@ -510,45 +506,6 @@ else:
                 st.session_state.current_player = None
                 st.rerun()
 
-        # Admin‑Tools (nur für Admins sichtbar)
-        if current_player in ADMINS:
-            with st.expander("⚙️ Admin"):
-                st.write("Eintrag auswählen und entfernen – ELO wird automatisch neu berechnet.")
-                mode = st.selectbox("Typ", ["Einzel", "Doppel", "Rundlauf"])
-                if mode == "Einzel" and not matches.empty:
-                    idx = st.number_input("Index (Einzel)", 0, len(matches)-1, step=1)
-                elif mode == "Doppel" and not doubles.empty:
-                    idx = st.number_input("Index (Doppel)", 0, len(doubles)-1, step=1)
-                elif mode == "Rundlauf" and not rounds.empty:
-                    idx = st.number_input("Index (Rundlauf)", 0, len(rounds)-1, step=1)
-                else:
-                    st.info("Keine Einträge vorhanden.")
-                    idx = None
-
-                if st.button("Löschen") and idx is not None:
-                    if mode == "Einzel":
-                        matches.drop(idx, inplace=True)
-                        matches.reset_index(drop=True, inplace=True)
-                        players_updated = rebuild_players(players, matches)
-                        players.update(players_updated)
-                        save_csv(matches, MATCHES)
-                    elif mode == "Doppel":
-                        doubles.drop(idx, inplace=True)
-                        doubles.reset_index(drop=True, inplace=True)
-                        players_updated = rebuild_players_d(players, doubles)
-                        players.update(players_updated)
-                        save_csv(doubles, DOUBLES)
-                    elif mode == "Rundlauf":
-                        rounds.drop(idx, inplace=True)
-                        rounds.reset_index(drop=True, inplace=True)
-                        players_updated = rebuild_players_r(players, rounds)
-                        players.update(players_updated)
-                        save_csv(rounds, ROUNDS)
-
-                    save_csv(players, PLAYERS)
-                    st.success(f"{mode}-Eintrag Nr. {idx} gelöscht und Elo neu berechnet.")
-                    st.rerun()
-
 # Login erforderlich, um fortzufahren
 if not st.session_state.logged_in:
     st.stop()
@@ -580,10 +537,10 @@ if st.session_state.show_single_modal:
                 save_csv(pending, PENDING)
                 st.success("Match gespeichert – wartet auf Bestätigung.")
                 st.session_state.show_single_modal = False
-                st.experimental_rerun()
+                st.rerun()
         if cancel_col.button("Abbrechen"):
             st.session_state.show_single_modal = False
-            st.experimental_rerun()
+            st.rerun()
 
 # -------- Modal: Doppel-Match eintragen --------
 if st.session_state.show_double_modal:
@@ -605,10 +562,10 @@ if st.session_state.show_double_modal:
             save_csv(pending_d, PENDING_D)
             st.success("Doppel gespeichert – wartet auf Bestätigung.")
             st.session_state.show_double_modal = False
-            st.experimental_rerun()
+            st.rerun()
         if c2.button("Abbrechen"):
             st.session_state.show_double_modal = False
-            st.experimental_rerun()
+            st.rerun()
 
 # -------- Modal: Rundlauf eintragen --------
 if st.session_state.show_round_modal:
@@ -639,10 +596,10 @@ if st.session_state.show_round_modal:
             save_csv(pending_r, PENDING_R)
             st.success("Rundlauf gespeichert – wartet auf Bestätigung.")
             st.session_state.show_round_modal = False
-            st.experimental_rerun()
+            st.rerun()
         if c2.button("Abbrechen"):
             st.session_state.show_round_modal = False
-            st.experimental_rerun()
+            st.rerun()
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
@@ -676,13 +633,13 @@ if st.session_state.view_mode == "home":
     bcols = st.columns(4)
     if bcols[0].button("➕ Einzel", use_container_width=True):
         st.session_state.show_single_modal = True
-        st.experimental_rerun()
+        st.rerun()
     if bcols[1].button("➕ Doppel", use_container_width=True):
         st.session_state.show_double_modal = True
-        st.experimental_rerun()
+        st.rerun()
     if bcols[2].button("➕ Rundlauf", use_container_width=True):
         st.session_state.show_round_modal = True
-        st.experimental_rerun()
+        st.rerun()
     if bcols[3].button("✅ Offene bestätigen", use_container_width=True):
         st.session_state.view_mode = "spiel"   # Einzel-Ansicht zeigt Expander
         st.rerun()
