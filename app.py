@@ -144,7 +144,7 @@ def compute_gelo(df: pd.DataFrame,
         w_e * df["ELO"] +
         w_d * df["D_ELO"] +
         w_r * df["R_ELO"]
-    ).round(0)
+    ).round(0).astype(int)
     return df
 # endregion
 
@@ -564,6 +564,7 @@ if st.session_state.view_mode == "home":
                  .loc[:, ["Name", elo_col]]
                  .rename(columns={elo_col: "ELO"})
                  .reset_index(drop=True))
+        tab["ELO"] = tab["ELO"].astype(int)
 
         # Highlightfunktion
         def _highlight(row):
@@ -915,16 +916,4 @@ if st.session_state.view_mode == "regeln":
     """
     st.markdown(rules_html, unsafe_allow_html=True)
     st.stop()
-# endregion
-
-# region Doppel Ansicht
-# (Deaktiviert: Modal ersetzt Ansicht)
-# endregion
-
-# region Einzel Ansicht
-# (Deaktiviert: Modal ersetzt Ansicht)
-# endregion
-
-# region Rundlauf Ansicht
-# (Deaktiviert: Modal ersetzt Ansicht)
 # endregion
