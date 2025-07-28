@@ -1,0 +1,7 @@
+streamlit
+pandas
+matplotlib
+bcrypt
+qrcode
+gspread
+gspread_dataframe
