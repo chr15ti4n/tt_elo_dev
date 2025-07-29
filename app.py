@@ -52,13 +52,17 @@ USE_GSHEETS = "gcp" in st.secrets  # Nur aktiv, wenn Service‑Account‑Creds h
 # Google Sheets Caching/Singleton helpers
 if USE_GSHEETS:
 
+    # DEV ENVIRONMENT: using development Google Sheet "ttelodev"
+    # TODO: change back to production sheet key or name "tt_elo" before deployment
+
     @st.cache_resource
     def _get_sheet():
         gc_local = gspread.service_account_from_dict(st.secrets["gcp"])
         spread_id = st.secrets.get("spread_id", "")
         if spread_id:
             return gc_local.open_by_key(spread_id)
-        return gc_local.open("tt_elo")
+        # DEV: open development sheet; revert to "tt_elo" in production
+        return gc_local.open("ttelodev")
 
     sh = _get_sheet()  # einmal pro Session
 
@@ -70,6 +74,7 @@ if USE_GSHEETS:
         "doubles.csv":  "doubles",
         "pending_rounds.csv": "pending_rounds",
         "rounds.csv":   "rounds",
+        # END DEV SHEET MAPPING
     }
 
     @functools.lru_cache(maxsize=None)
@@ -620,8 +625,9 @@ if st.session_state.view_mode == "home":
         st.subheader(title)
         st.dataframe(styled, hide_index=True, width=350, height=height)
     
-    # Gesamt‑ELO (alle Spieler)
-    mini_lb(players, "G_ELO", "Gesamt – Ranking")
+    # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
+    active = players[(players["Spiele"] > 0) | (players["D_Spiele"] > 0) | (players["R_Spiele"] > 0)]
+    mini_lb(active, "G_ELO", "Gesamt – Ranking")
 
     mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel – Ranking", height=175)
     mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel – Ranking", height=175)
