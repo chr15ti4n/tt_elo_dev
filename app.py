@@ -1204,7 +1204,7 @@ if st.session_state.view_mode == "tourney_view":
     max_runde = tm["Runde"].max()
 
     # Spalten für jede Runde erzeugen
-    cols = st.columns(max_runde)
+    cols = st.columns(int(max_runde))
     rounds_data = {
         r: tm[tm.Runde == r].reset_index()
         for r in range(1, max_runde + 1)
