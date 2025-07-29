@@ -771,13 +771,11 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                     save_csv(pending, PENDING)
                     st.success("Bestätigt.")
-                    _open_modal("")
                     st.rerun()
                 if col_rej.button("❌", key=f"rej_single_{idx}"):
                     pending.drop(idx, inplace=True)
                     save_csv(pending, PENDING)
                     st.warning("Match abgelehnt und entfernt.")
-                    _open_modal("")
                     st.rerun()
 
             st.write("### Doppel")
@@ -810,13 +808,11 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                     save_csv(pending_d, PENDING_D)
                     st.success("Bestätigt.")
-                    _open_modal("")
                     st.rerun()
                 if col_rej.button("❌", key=f"rej_double_{idx}"):
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
                     st.warning("Doppel abgelehnt und entfernt.")
-                    _open_modal("")
                     st.rerun()
 
             st.write("### Rundlauf")
@@ -839,13 +835,11 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                     save_csv(pending_r, PENDING_R)
                     st.success("Bestätigt.")
-                    _open_modal("")
                     st.rerun()
                 if col_rej.button("❌", key=f"rej_round_{idx}"):
                     pending_r.drop(idx, inplace=True)
                     save_csv(pending_r, PENDING_R)
                     st.warning("Rundlauf abgelehnt und entfernt.")
-                    _open_modal("")
                     st.rerun()
 
             if st.button("❌ Schließen"):
