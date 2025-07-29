@@ -277,11 +277,16 @@ if "confirmed_by" not in pending_r.columns:
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
 tourneys  = load_or_create(TOURNEYS,  ["ID","Name","Status","Erstellt","Sieger"])
+# Legacy-Migration: nur speichern, wenn wirklich neue Spalten angelegt wurden
+changed = False
 if "pending_end" not in tourneys.columns:
     tourneys["pending_end"] = False
+    changed = True
 if "end_confirmed_by" not in tourneys.columns:
     tourneys["end_confirmed_by"] = ""
-save_csv(tourneys, TOURNEYS)
+    changed = True
+if changed:
+    save_csv(tourneys, TOURNEYS)
 t_matches = load_or_create(T_MATCHES, ["TID","Runde","A","B","PunkteA","PunkteB","confA","confB"])
 # Legacy: if old 'done' column exists, split it into confA/confB=True
 if "done" in t_matches.columns and ("confA" not in t_matches.columns or "confB" not in t_matches.columns):
