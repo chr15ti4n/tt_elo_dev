@@ -5,3 +5,4 @@ bcrypt
 qrcode
 gspread
 gspread_dataframe
+numpy
