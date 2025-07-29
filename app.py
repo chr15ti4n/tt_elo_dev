@@ -680,7 +680,6 @@ if st.session_state.view_mode == "home":
                     ]
                     save_csv(pending, PENDING)
                     st.success("Match gespeichert – wartet auf Bestätigung.")
-                    _open_modal("")  # close
                     st.rerun()
             if col_cancel.button("Abbrechen", key="single_cancel"):
                 _open_modal("")
@@ -704,7 +703,6 @@ if st.session_state.view_mode == "home":
                 ]
                 save_csv(pending_d, PENDING_D)
                 st.success("Doppel gespeichert – wartet auf Bestätigung.")
-                _open_modal("")
                 st.rerun()
             if c_cancel.button("Abbrechen", key="double_cancel"):
                 _open_modal(""); st.rerun()
@@ -735,7 +733,6 @@ if st.session_state.view_mode == "home":
                 }
                 save_csv(pending_r, PENDING_R)
                 st.success("Rundlauf gespeichert – wartet auf Bestätigung.")
-                _open_modal("")
                 st.rerun()
             if r_cancel.button("Abbrechen", key="round_cancel"):
                 _open_modal("")
