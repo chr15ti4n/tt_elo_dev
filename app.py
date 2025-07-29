@@ -1169,11 +1169,37 @@ if st.session_state.view_mode == "tourney_main":
     st.stop()
 # endregion
 
+# Hilfsfunktion: Graphviz-Turnierbaum zeichnen
+def _render_bracket_graph(t_matches_df, tid):
+    tm = t_matches_df[t_matches_df.TID == tid].copy()
+    tm["Runde"] = tm["Runde"].astype(int)
+    max_round = tm["Runde"].max()
+    dot = "digraph G { rankdir=LR; node [shape=box, style=rounded];"
+    # Knoten definieren (Match-Labels)
+    for idx, row in tm.iterrows():
+        lbl = f'{row.A}\\n{row.PunkteA or ""} vs {row.B}\\n{row.PunkteB or ""}'
+        dot += f' m{idx} [label="{lbl}"];'
+    # Kanten definieren (Sieger → nächste Runde)
+    for idx, row in tm.iterrows():
+        r = row.Runde
+        if r < max_round:
+            winner = row.A if (row.PunkteA or 0) > (row.PunkteB or 0) else row.B
+            children = tm[
+                (tm.Runde == r+1) &
+                ((tm.A == winner) | (tm.B == winner))
+            ].index
+            for child in children:
+                dot += f" m{idx} -> m{child};"
+    dot += " }"
+    return dot
 # region Turnier – Bracket Ansicht (mehrere Runden)
 if st.session_state.view_mode == "tourney_view":
     tid = st.session_state.current_tid
     t_meta = tourneys.loc[tourneys.ID == tid].iloc[0]
     st.header(f"🏆 {t_meta.Name}")
+    # Turnierbaum-Grafik mit Graphviz
+    dot = _render_bracket_graph(t_matches, tid)
+    st.graphviz_chart(dot, use_container_width=True)
 
     # Für jede gespielte Runde
     for rnd in sorted(t_matches.loc[t_matches.TID == tid, "Runde"].unique()):
