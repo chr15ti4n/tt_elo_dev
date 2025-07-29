@@ -152,6 +152,12 @@ def calc_elo(r_a, r_b, score_a, k=32):
 # --------- Gesamt-ELO berechnen -----------
 def compute_gelo(df: pd.DataFrame,
                  w_e=0.6, w_d=0.25, w_r=0.15) -> pd.DataFrame:
+    # Ensure numeric dtypes for ELO columns (in case they were loaded as object)
+    df["ELO"]    = pd.to_numeric(df["ELO"], errors="coerce").fillna(0)
+    df["D_ELO"]  = pd.to_numeric(df["D_ELO"], errors="coerce").fillna(0)
+    df["R_ELO"]  = pd.to_numeric(df["R_ELO"], errors="coerce").fillna(0)
+
+    # Compute weighted overall ELO
     df["G_ELO"] = (
         w_e * df["ELO"] +
         w_d * df["D_ELO"] +
