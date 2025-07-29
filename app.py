@@ -257,6 +257,7 @@ for col in ["R_ELO", "R_Siege", "R_Zweite", "R_Niederlagen", "R_Spiele"]:
         players[col] = 1200 if col == "R_ELO" else 0
         
 players = compute_gelo(players)
+# Daten laden
 matches = load_or_create(MATCHES, ["Datum", "A", "B", "PunkteA", "PunkteB"])
 pending = load_or_create(PENDING, ["Datum", "A", "B", "PunkteA", "PunkteB", "confA", "confB"])
 pending_d = load_or_create(PENDING_D, ["Datum","A1","A2","B1","B2","PunkteA","PunkteB","confA","confB"])
@@ -270,6 +271,13 @@ if "confirmed_by" not in pending_r.columns:
         pending_r["confirmed_by"] = ""
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
+
+# Ensure confA/confB are boolean for logical operations
+pending["confA"]   = pending["confA"].astype(bool)
+pending["confB"]   = pending["confB"].astype(bool)
+pending_d["confA"] = pending_d["confA"].astype(bool)
+pending_d["confB"] = pending_d["confB"].astype(bool)
+
 for df in (matches, pending, pending_d, doubles, pending_r, rounds):
     if not df.empty:
         df["Datum"] = (
