@@ -682,25 +682,24 @@ if st.session_state.view_mode == "home":
     if st.session_state.show_single_modal:
         with ui_container("Einzelmatch eintragen"):
             st.write(f"Eingeloggt als **{current_player}**")
-            pa = st.number_input("Deine Punkte", 0, 21, 11, key="m_pa")
-            gegner = st.selectbox("Gegner wählen",
-                                  players[players.Name != current_player]["Name"],
-                                  index=None, placeholder="Spieler wählen", key="m_opponent")
-            pb = st.number_input("Punkte Gegner", 0, 21, 8, key="m_pb")
-
+            # Spieler A und B auswählen
+            default_idx = players["Name"].tolist().index(current_player)
+            a = st.selectbox("Spieler A wählen", players["Name"], index=default_idx)
+            b = st.selectbox("Spieler B wählen", players[players.Name != a]["Name"], placeholder="Spieler wählen")
+            # Punkte eingeben
+            pa = st.number_input(f"Punkte {a}", min_value=0, max_value=21, value=11, key="m_pa")
+            pb = st.number_input(f"Punkte {b}", min_value=0, max_value=21, value=11, key="m_pb")
             col_ok, col_cancel = st.columns(2)
-            if col_ok.button("Speichern", key="single_save",
-                             disabled=(gegner is None)):
-                if gegner == current_player:
-                    st.error("Gegner darf nicht identisch sein.")
-                else:
-                    pending.loc[len(pending)] = [
-                        datetime.now(ZoneInfo("Europe/Berlin")),
-                        current_player, gegner, pa, pb, True, False
-                    ]
-                    save_csv(pending, PENDING)
-                    st.success("Match gespeichert – wartet auf Bestätigung.")
-                    st.rerun()
+            # Speichern: initiale Bestätigung für den Creator, volle Bestätigung später
+            if col_ok.button("Speichern", key="single_save", disabled=(a is None or b is None or a == b)):
+                now = datetime.now(ZoneInfo("Europe/Berlin"))
+                # Creator hat automatisch bestätigt, der andere muss später im Confirm-Modal zustimmen
+                confA = (a == current_player)
+                confB = (b == current_player)
+                pending.loc[len(pending)] = [now, a, b, pa, pb, confA, confB]
+                save_csv(pending, PENDING)
+                st.success("Match gespeichert – benötigt Bestätigung beider Spieler.")
+                st.rerun()
             if col_cancel.button("Abbrechen", key="single_cancel"):
                 _open_modal("")
                 st.rerun()
