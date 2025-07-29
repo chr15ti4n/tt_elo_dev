@@ -1192,61 +1192,83 @@ def _render_bracket_graph(t_matches_df, tid):
                 dot += f" m{idx} -> m{child};"
     dot += " }"
     return dot
-# region Turnier – Bracket Ansicht (mehrere Runden)
+# region Turnier – Interaktives Bracket (mehrere Runden)
 if st.session_state.view_mode == "tourney_view":
     tid = st.session_state.current_tid
     t_meta = tourneys.loc[tourneys.ID == tid].iloc[0]
     st.header(f"🏆 {t_meta.Name}")
-    # Turnierbaum-Grafik mit Graphviz
-    dot = _render_bracket_graph(t_matches, tid)
-    st.graphviz_chart(dot, use_container_width=True)
 
-    # Für jede gespielte Runde
-    for rnd in sorted(t_matches.loc[t_matches.TID == tid, "Runde"].unique()):
-        st.subheader(f"Runde {rnd}")
-        rm = t_matches[(t_matches.TID == tid) & (t_matches.Runde == rnd)]
-        for idx, row in rm.iterrows():
-            a, b = row.A, row.B
-            # Freilos
-            if a == "BYE" or b == "BYE":
-                st.write(f"{a} vs. {b} – Freilos")
-                continue
+    # Interaktives Turnier-Bracket über Spalten
+    tm = t_matches[t_matches.TID == tid].copy()
+    tm["Runde"] = tm["Runde"].astype(int)
+    max_runde = tm["Runde"].max()
 
-            done = bool(row.confA and row.confB)
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-            col1.write(f"{a} vs. {b}")
-            # Sicherstellen, dass der Default-Wert numerisch ist
-            pa_default = int(row.PunkteA) if pd.notna(row.PunkteA) else 0
-            pb_default = int(row.PunkteB) if pd.notna(row.PunkteB) else 0
-            pa = col2.number_input("", min_value=0, max_value=21,
-                                   value=pa_default, key=f"tm_pa_{idx}", disabled=done)
-            pb = col3.number_input("", min_value=0, max_value=21,
-                                   value=pb_default, key=f"tm_pb_{idx}", disabled=done)
-            btn_label = "Gespeichert" if done else "Speichern"
-            if col4.button(btn_label, key=f"tm_save_{idx}", disabled=done):
-                # Punkte und unmittelbare Bestätigung speichern
-                t_matches.at[idx, "PunkteA"] = pa
-                t_matches.at[idx, "PunkteB"] = pb
-                t_matches.at[idx, "confA"] = True
-                t_matches.at[idx, "confB"] = True
-                save_csv(t_matches, T_MATCHES)
-                _process_tournaments()
-                save_csv(players, PLAYERS)
-                st.success("Ergebnis gespeichert und bestätigt.")
-                st.rerun()
-    # Finale abgeschlossen?
-    final_rnd = int(t_matches.loc[t_matches.TID == tid, "Runde"].max())
-    fm = t_matches[(t_matches.TID == tid) & (t_matches.Runde == final_rnd)]
-    if (fm["confA"] & fm["confB"]).all() and not tourneys.loc[tourneys.ID == tid, "pending_end"].iat[0]:
-        if st.button("🏁 Turnier beenden und speichern"):
-            tourneys.loc[tourneys.ID == tid, "pending_end"] = True
-            save_csv(tourneys, TOURNEYS)
-            st.success("Ausstehender Turnier-Abschluss – bitte im Bestätigungs-Modal bestätigen.")
-            _open_modal("show_confirm_modal")
-            st.rerun()
+    # Spalten für jede Runde erzeugen
+    cols = st.columns(max_runde)
+    rounds_data = {
+        r: tm[tm.Runde == r].reset_index()
+        for r in range(1, max_runde + 1)
+    }
 
-    if st.button("🚪 Zurück"):
+    for r, col in enumerate(cols, start=1):
+        with col:
+            st.subheader(f"R{r}")
+            rm = rounds_data[r]
+            # Abstand für Visualisierung: 2**(r-1) Zeilen
+            gap = 2 ** (r - 1)
+            for i, row in rm.iterrows():
+                # Leerzeilen oben für vertikale Platzierung
+                for _ in range(gap - 1):
+                    st.write("")
+                match_label = f"{row.A} vs {row.B}"
+                # Button für Match: öffnet Ergebnis-Modal
+                if col.button(match_label, key=f"br_{r}_{i}", use_container_width=True):
+                    st.session_state.selected_tmatch = (tid, row.Runde, row.name)
+                    _open_modal("show_tourney_match_modal")
+                    st.rerun()
+                # Leerzeilen unten
+                for _ in range(gap - 1):
+                    st.write("")
+
+    # Button zum Zurückwechseln
+    if col.button("🚪 Zurück", key="t_back", use_container_width=True):
         st.session_state.view_mode = "tourney_main"
         st.rerun()
+
     st.stop()
 # endregion
+
+# --- Modal: Einzelnes Turnier-Match bearbeiten -----------------------
+if "show_tourney_match_modal" not in st.session_state:
+    st.session_state.show_tourney_match_modal = False
+def _open_modal(which: str):
+    """Set exactly one modal flag True, others False."""
+    for f in (
+        "show_single_modal", "show_double_modal", "show_round_modal",
+        "show_confirm_modal", "show_new_tourney_modal", "show_tourney_match_modal"
+    ):
+        st.session_state[f] = (f == which)
+
+if st.session_state.show_tourney_match_modal:
+    with ui_container("Turnier-Match Ergebnis"):
+        tid, rnd, idx = st.session_state.selected_tmatch
+        match = t_matches.loc[idx]
+        pa = st.number_input(f"Punkte {match.A}", 0, 21, int(match.PunkteA or 0), key="m_t_pa")
+        pb = st.number_input(f"Punkte {match.B}", 0, 21, int(match.PunkteB or 0), key="m_t_pb")
+        c_ok, c_cancel = st.columns(2)
+        if c_ok.button("Speichern", key="t_m_save"):
+            t_matches.at[idx, "PunkteA"] = pa
+            t_matches.at[idx, "PunkteB"] = pb
+            # automatisch vollständig bestätigen
+            t_matches.at[idx, "confA"] = True
+            t_matches.at[idx, "confB"] = True
+            save_csv(t_matches, T_MATCHES)
+            _process_tournaments()
+            save_csv(players, PLAYERS)
+            st.success("Ergebnis gespeichert und bestätigt.")
+            _open_modal("")
+            st.rerun()
+        if c_cancel.button("Abbrechen", key="t_m_cancel"):
+            _open_modal("")
+            st.rerun()
+    st.stop()
