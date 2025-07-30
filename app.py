@@ -1343,7 +1343,7 @@ if st.session_state.view_mode == "regeln":
 # region Turniermodus Ansicht
 if st.session_state.view_mode == "turniermodus":
     st.markdown(
-        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏓 Dashboard</h1>',
+        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏆 Turnier</h1>',
         unsafe_allow_html=True
     )
     st.write("🚧 In Arbeit 🚧")
