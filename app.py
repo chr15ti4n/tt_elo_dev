@@ -647,14 +647,49 @@ if st.session_state.view_mode == "home":
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
-    # Gesamt-ELO in der Mitte
-    c1, c2, c3 = st.columns([1, 2, 1])
-    c2.metric("ELO", int(user.G_ELO))
-    # Modus-ELOs nebeneinander
-    e1, e2, e3 = st.columns(3, gap="small")
-    e1.metric("Einzel", int(user.ELO))
-    e2.metric("Doppel", int(user.D_ELO))
-    e3.metric("Rundlauf", int(user.R_ELO))
+
+    # Top: Gesamt-ELO, zentriert
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin:1rem 0;">
+          <div style="font-size:0.8rem; color:var(--text-secondary);">Gesamt‑ELO</div>
+          <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
+        </div>
+        """, unsafe_allow_html=True
+    )
+
+    # Mitte: Doppel‑ELO, zentriert
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin:2rem 0;">
+          <div style="font-size:0.8rem; color:var(--text-secondary);">Doppel‑ELO</div>
+          <div style="font-size:2.5rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+        </div>
+        """, unsafe_allow_html=True
+    )
+
+    # Unten: Einzel und Rundlauf nebeneinander um die Mitte herum
+    cols = st.columns(3)
+    with cols[0]:
+        st.markdown(
+            f"""
+            <div style="text-align:center;">
+              <div style="font-size:0.8rem; color:var(--text-secondary);">Einzel‑ELO</div>
+              <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
+            </div>
+            """, unsafe_allow_html=True
+        )
+    with cols[1]:
+        st.write("")  # leerer Spacer
+    with cols[2]:
+        st.markdown(
+            f"""
+            <div style="text-align:center;">
+              <div style="font-size:0.8rem; color:var(--text-secondary);">Rundlauf‑ELO</div>
+              <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
+            </div>
+            """, unsafe_allow_html=True
+        )
     # DataFrame mit Spielern, die mindestens ein Spiel haben
     active = players[
         (players.Spiele > 0)
