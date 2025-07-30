@@ -691,33 +691,18 @@ if st.session_state.view_mode == "home":
     st.markdown(
         """
         <style>
-        /* Flex metrics */
-        [data-testid="metric-container"] {
-            flex: none !important;
-            width: 30% !important;
-            padding: 0.2rem !important;
+        /* Fixe Tabellen-Breite und sehr kleine Schrift */
+        .stDataFrame table {
+        table-layout: fixed !important;
+        width: auto !important;
         }
-        /* Label text */
-        [data-testid="metric-container"] > div:first-child p {
-            font-size: 0.8rem !important;
-        }
-        /* Value text */
-        [data-testid="metric-container"] > div:nth-child(2) p {
-            font-size: 1.2rem !important;
-            line-height: 1.1 !important;
-        }
-        /* Leaderboards: kompaktere Tabellen-Schrift */
         .stDataFrame table th,
         .stDataFrame table td {
-            font-size: 0.6rem !important;
-            padding: 0.1rem 0.2rem !important;
-        }
-        @media (max-width: 600px) {
-        .stDataFrame table th,
-        .stDataFrame table td {
-            font-size: 0.5rem !important;
-            padding: 0.1rem 0.2rem !important;
-        }
+        font-size: 0.5rem !important;
+        padding: 0.1rem 0.2rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
         }
         </style>
         """,
