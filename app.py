@@ -694,13 +694,13 @@ if st.session_state.view_mode == "home":
         /* Tables: fixed layout and very small font for mobile stacking */
         .stDataFrame table {
             table-layout: fixed !important;
-            width: 100% !important;
+            width: auto !important;
         }
         .stDataFrame th, .stDataFrame td {
             font-size: 0.4rem !important;
             line-height: 1 !important;
             padding: 0rem 0rem !important;
-            white-space: wrap !important;
+            white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
         }
