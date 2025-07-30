@@ -622,7 +622,7 @@ if st.session_state.view_mode == "home":
 
         # Highlightfunktion
         def _highlight(row):
-            return ['background-color: #fff3b0' if row["Name"] == current_player else '' for _ in row]
+            return ['background-color: #fff3b0; color: black' if row["Name"] == current_player else '' for _ in row]
 
         styled = tab.style.apply(_highlight, axis=1)
 
