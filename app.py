@@ -600,8 +600,12 @@ if st.session_state.view_mode == "home":
     st.markdown(
         """
         <style>
+        /* Allow metric cards to flex and shrink on narrow screens */
         [data-testid="metric-container"] {
-            max-width: 20px !important;
+            flex: 1 1 auto !important;
+            min-width: 0px !important;
+            max-width: none !important;
+            width: auto !important;
             padding: 0.2rem !important;
         }
         </style>
