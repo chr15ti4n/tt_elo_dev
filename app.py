@@ -626,7 +626,7 @@ if st.session_state.view_mode == "home":
     html = f"""
     <!-- Gesamt-ELO zentriert -->
     <div style="text-align:center; margin-bottom:1rem;">
-      <p style="font-size:1.2rem; margin:0;">Gesamt-ELO</p>
+      <p style="font-size:1.2rem; margin:0;">ELO</p>
       <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.G_ELO)}</p>
     </div>
     <!-- Einzel/Doppel/Rundlauf nebeneinander -->
