@@ -792,6 +792,16 @@ if st.session_state.view_mode == "home":
     .mini-table-container .mini-table th {{
         background-color: rgba(145,145,145,0.2) !important;
     }}
+    /* Remove all header cell borders */
+    .total-table-container .total-table th,
+    .mini-table-container .mini-table th {{
+        border: none !important;
+    }}
+    /* Remove any internal column line from header */
+    .total-table-container .total-table th + th,
+    .mini-table-container .mini-table th + th {{
+        border-left: none !important;
+    }}
     /* Remove the first data row’s top border (beneath header) */
     .total-table tr:nth-child(2) th,
     .total-table tr:nth-child(2) td,
