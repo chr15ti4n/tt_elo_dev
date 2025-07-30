@@ -606,12 +606,16 @@ if st.session_state.view_mode == "home":
             width: 30% !important;
             padding: 0.2rem !important;
         }
-        /* Center metric label and value */
-        [data-testid="metric-container"] > div {
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: center !important;
+        [data-testid="metric-container"] {
+            /* Container selbst darf flexibel in der Spalte stehen */
+            flex: none !important;
+            width: auto !important;
+            padding: 0.2rem !important;
+
+            /* Label und Wert horizontal zentrieren */
+            text-align: center !important;
+            margin: 0 auto !important;
+        }
         }
         /* Label text */
         [data-testid="metric-container"] > div:first-child p {
