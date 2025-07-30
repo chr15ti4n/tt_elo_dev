@@ -689,7 +689,38 @@ if st.session_state.view_mode == "home":
 
     # Scroll-Container: Leaderboards inline ohne Zeilenumbruch
     st.markdown(
-        '<div style="display:flex; gap:0.5rem; overflow-x:auto; white-space:nowrap;">',
+        """
+        <style>
+        /* Flex metrics */
+        [data-testid="metric-container"] {
+            flex: none !important;
+            width: 30% !important;
+            padding: 0.2rem !important;
+        }
+        /* Label text */
+        [data-testid="metric-container"] > div:first-child p {
+            font-size: 0.8rem !important;
+        }
+        /* Value text */
+        [data-testid="metric-container"] > div:nth-child(2) p {
+            font-size: 1.2rem !important;
+            line-height: 1.1 !important;
+        }
+        /* Leaderboards: kompaktere Tabellen-Schrift */
+        .stDataFrame table th,
+        .stDataFrame table td {
+            font-size: 0.6rem !important;
+            padding: 0.1rem 0.2rem !important;
+        }
+        @media (max-width: 600px) {
+        .stDataFrame table th,
+        .stDataFrame table td {
+            font-size: 0.5rem !important;
+            padding: 0.1rem 0.2rem !important;
+        }
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
     cols = st.columns([1,1,1], gap="small")
