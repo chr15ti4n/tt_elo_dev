@@ -597,7 +597,10 @@ current_player = st.session_state.current_player
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
-    st.title("🏓 Dashboard")
+    st.markdown(
+        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏓 Dashboard</h1>',
+        unsafe_allow_html=True
+    )
     # Mobile: Metrics schmaler machen, damit sie in einer Zeile bleiben und Schriftgrößen anpassen
     st.markdown(
         """
@@ -648,7 +651,10 @@ if st.session_state.view_mode == "home":
     )
     user = players.loc[players.Name == current_player].iloc[0]
 
-    st.markdown(f"### Willkommen, **{current_player}**!")
+    st.markdown(
+        f'<h3 style="text-align:center; margin-top:0;">Willkommen, <strong>{current_player}</strong>!</h3>',
+        unsafe_allow_html=True
+    )
 
     # Top: Gesamt-ELO, zentriert
     st.markdown(
