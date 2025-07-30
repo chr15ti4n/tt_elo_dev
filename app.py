@@ -767,13 +767,8 @@ if st.session_state.view_mode == "home":
     .mini-table-container {{
         border-radius: 8px !important;
         overflow: hidden !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
-        margin-bottom: 1rem;
-    }}
-    /* Add visible border around each table */
-    .total-table-container .total-table,
-    .mini-table-container .mini-table {{
-        border: 5px solid rgba(0,0,0,1) !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,1) !important;
+        
     }}
     .total-table-container .total-table {{
         width: 100% !important;
