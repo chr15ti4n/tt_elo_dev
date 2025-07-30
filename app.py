@@ -700,7 +700,7 @@ if st.session_state.view_mode == "home":
             font-size: 0.4rem !important;
             line-height: 1 !important;
             padding: 0rem 0rem !important;
-            white-space: nowrap !important;
+            white-space: wrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
         }
