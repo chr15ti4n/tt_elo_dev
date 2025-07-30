@@ -499,6 +499,10 @@ else:
             _open_modal("")                    # alle Modals schließen
             st.session_state.view_mode = "home"
             st.rerun()
+        
+        if st.button("🏆 Turniermodus", use_container_width=True):
+            st.session_state.view_mode = "turniermodus"
+            st.rerun()
 
         if st.button("♻️ Aktualisieren", use_container_width=True):
             # Cache leeren, damit neu aus Google‑Sheets geladen wird
@@ -512,11 +516,6 @@ else:
 
         if st.button("📜 Regeln", use_container_width=True):
             st.session_state.view_mode = "regeln"
-            st.rerun()
-
-        # --- Turniermodus Button ---
-        if st.button("🏆 Turniermodus", use_container_width=True):
-            st.session_state.view_mode = "turniermodus"
             st.rerun()
 
         if st.button("🚪 Logout", use_container_width=True):
@@ -1343,7 +1342,10 @@ if st.session_state.view_mode == "regeln":
 
 # region Turniermodus Ansicht
 if st.session_state.view_mode == "turniermodus":
-    st.title("🏆 Turniermodus")
+    st.markdown(
+        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏓 Dashboard</h1>',
+        unsafe_allow_html=True
+    )
     st.write("🚧 In Arbeit 🚧")
     st.stop()
 # endregion
