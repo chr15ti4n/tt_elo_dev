@@ -622,12 +622,28 @@ if st.session_state.view_mode == "home":
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
-    st.metric("Gesamt-ELO", int(user.G_ELO))
-
-    cols = st.columns(3, gap="small")
-    cols[0].metric("Einzel",  int(user.ELO))
-    cols[1].metric("Doppel",  int(user.D_ELO))
-    cols[2].metric("Rundlauf", int(user.R_ELO))
+    # Flexibles Inline-HTML für alle vier Metriken nebeneinander
+    html = f"""
+    <div style="display:flex; gap:1rem;">
+      <div style="flex:1; text-align:center;">
+        <p style="font-size:0.8rem; margin:0;">Gesamt-ELO</p>
+        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.G_ELO)}</p>
+      </div>
+      <div style="flex:1; text-align:center;">
+        <p style="font-size:0.8rem; margin:0;">Einzel</p>
+        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.ELO)}</p>
+      </div>
+      <div style="flex:1; text-align:center;">
+        <p style="font-size:0.8rem; margin:0;">Doppel</p>
+        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.D_ELO)}</p>
+      </div>
+      <div style="flex:1; text-align:center;">
+        <p style="font-size:0.8rem; margin:0;">Rundlauf</p>
+        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.R_ELO)}</p>
+      </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
     st.divider()
 
