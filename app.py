@@ -606,6 +606,13 @@ if st.session_state.view_mode == "home":
             width: 30% !important;
             padding: 0.2rem !important;
         }
+        /* Center metric label and value */
+        [data-testid="metric-container"] > div {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
         /* Label text */
         [data-testid="metric-container"] > div:first-child p {
             font-size: 0.8rem !important;
