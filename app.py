@@ -694,15 +694,15 @@ if st.session_state.view_mode == "home":
     )
     cols = st.columns([1,1,1], gap="small")
     with cols[0]:
-        st.markdown('<div style="min-width:0px;">', unsafe_allow_html=True)
+        st.markdown('<div>', unsafe_allow_html=True)
         mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel",  height=175)
         st.markdown('</div>', unsafe_allow_html=True)
     with cols[1]:
-        st.markdown('<div style="min-width:0px;">', unsafe_allow_html=True)
+        st.markdown('<div>', unsafe_allow_html=True)
         mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel", height=175)
         st.markdown('</div>', unsafe_allow_html=True)
     with cols[2]:
-        st.markdown('<div style="min-width:0px;">', unsafe_allow_html=True)
+        st.markdown('<div>', unsafe_allow_html=True)
         mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf",height=175)
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
