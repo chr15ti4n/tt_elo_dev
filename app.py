@@ -762,13 +762,12 @@ if st.session_state.view_mode == "home":
       </div>
     </div>
     <style>
-    /* Rounded corners and subtle shadow for all tables */
+    /* Rounded corners and subtle border for all tables */
     .total-table-container,
     .mini-table-container {{
         border-radius: 8px !important;
         overflow: hidden !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,1) !important;
-        
+        border: 1px solid rgba(0,0,0,0.2) !important;
     }}
     .total-table-container .total-table {{
         width: 100% !important;
