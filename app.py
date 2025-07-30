@@ -639,13 +639,16 @@ if st.session_state.view_mode == "home":
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
-    # Eigene ELO-Anzeige
+    # Eigene ELO-Anzeige: Gesamt-ELO zentriert, dann drei Modi nebeneinander
     st.markdown("#### Deine ELO")
-    mcols = st.columns(4, gap="small")
-    mcols[0].metric("Gesamt-ELO", int(user.G_ELO))
-    mcols[1].metric("Einzel-ELO", int(user.ELO))
-    mcols[2].metric("Doppel-ELO", int(user.D_ELO))
-    mcols[3].metric("Rundlauf-ELO", int(user.R_ELO))
+    # Gesamt-ELO in der Mitte
+    c1, c2, c3 = st.columns([1, 2, 1])
+    c2.metric("Gesamt-ELO", int(user.G_ELO))
+    # Modus-ELOs nebeneinander
+    e1, e2, e3 = st.columns(3, gap="small")
+    e1.metric("Einzel-ELO", int(user.ELO))
+    e2.metric("Doppel-ELO", int(user.D_ELO))
+    e3.metric("Rundlauf-ELO", int(user.R_ELO))
     # DataFrame mit Spielern, die mindestens ein Spiel haben
     active = players[
         (players.Spiele > 0)
