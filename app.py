@@ -652,7 +652,7 @@ if st.session_state.view_mode == "home":
     st.markdown(
         f"""
         <div style="text-align:center; margin:1rem 0;">
-          <div style="font-size:2rem; color:var(--text-secondary);">ELO</div>
+          <div style="font-size:1rem; color:var(--text-secondary);">ELO</div>
           <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
         </div>
         """, unsafe_allow_html=True
@@ -663,7 +663,7 @@ if st.session_state.view_mode == "home":
         st.markdown(
             f"""
             <div style="text-align:center;">
-              <div style="font-size:2rem; color:var(--text-secondary);">Einzel</div>
+              <div style="font-size:1rem; color:var(--text-secondary);">Einzel</div>
               <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
             </div>
             """, unsafe_allow_html=True
@@ -672,7 +672,7 @@ if st.session_state.view_mode == "home":
         st.markdown(
             f"""
             <div style="text-align:center;">
-            <div style="font-size:2rem; color:var(--text-secondary);">Doppel</div>
+            <div style="font-size:1rem; color:var(--text-secondary);">Doppel</div>
             <div style="font-size:2.5rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
             </div>
         """, unsafe_allow_html=True
@@ -681,7 +681,7 @@ if st.session_state.view_mode == "home":
         st.markdown(
             f"""
             <div style="text-align:center;">
-              <div style="font-size:2rem; color:var(--text-secondary);">Rundlauf</div>
+              <div style="font-size:1rem; color:var(--text-secondary);">Rundlauf</div>
               <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
             </div>
             """, unsafe_allow_html=True
