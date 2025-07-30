@@ -427,32 +427,29 @@ if not st.session_state.logged_in:
         if players.empty:
             st.info("Noch keine Spieler angelegt.")
         else:
-            login_name = st.selectbox(
-                "Spieler",
-                players["Name"],
-                index=None,
-                placeholder="Name wählen"
-            )
+            # Manuelle Eingabe des Spielernamens statt Auswahl
+            login_name = st.text_input("Spielername")
             login_pin = st.text_input("PIN", type="password")
-            if login_name is None:
-                st.stop()
             if st.button("Einloggen"):
-                stored_pin = players.loc[players["Name"] == login_name, "Pin"].iat[0]
-                if check_pin(login_pin, stored_pin):
-                    # Falls PIN noch im Klartext war: sofort hash speichern
-                    if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
-                        players.loc[players["Name"] == login_name, "Pin"] = hash_pin(login_pin)
-                        save_csv(players, PLAYERS)
-                    st.session_state.logged_in = True
-                    st.session_state.current_player = login_name
-                    # Save login in URL so refresh preserves session
-                    st.query_params.update({
-                        "user": login_name,
-                        "token": players.loc[players["Name"] == login_name, "Pin"].iat[0],
-                    })
-                    st.rerun()
+                if login_name not in players["Name"].values:
+                    st.error("Spielername nicht gefunden.")
                 else:
-                    st.error("Falsche PIN")
+                    stored_pin = players.loc[players["Name"] == login_name, "Pin"].iat[0]
+                    if check_pin(login_pin, stored_pin):
+                        # Falls PIN noch im Klartext war: sofort hash speichern
+                        if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
+                            players.loc[players["Name"] == login_name, "Pin"] = hash_pin(login_pin)
+                            save_csv(players, PLAYERS)
+                        st.session_state.logged_in = True
+                        st.session_state.current_player = login_name
+                        # Save login in URL so refresh preserves session
+                        st.query_params.update({
+                            "user": login_name,
+                            "token": players.loc[players["Name"] == login_name, "Pin"].iat[0],
+                        })
+                        st.rerun()
+                    else:
+                        st.error("Falsche PIN")
 
     elif mode == "Registrieren":
         reg_name = st.text_input("Neuer Spielername")
