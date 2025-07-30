@@ -600,19 +600,20 @@ if st.session_state.view_mode == "home":
     st.markdown(
         """
         <style>
-        /* Flex setting for metrics */
+        /* Flex metrics */
         [data-testid="metric-container"] {
             flex: none !important;
             width: 30% !important;
             padding: 0.2rem !important;
         }
-        /* Label smaller */
-        [data-testid="metric-container"] p:nth-of-type(1) {
+        /* Label text */
+        [data-testid="metric-container"] > div:first-child p {
             font-size: 0.8rem !important;
         }
-        /* Wert (ELO) etwas kleiner */
-        [data-testid="metric-container"] p:nth-of-type(2) {
+        /* Value text */
+        [data-testid="metric-container"] > div:nth-child(2) p {
             font-size: 1.2rem !important;
+            line-height: 1.1 !important;
         }
         </style>
         """,
