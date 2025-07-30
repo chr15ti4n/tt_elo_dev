@@ -668,7 +668,7 @@ if st.session_state.view_mode == "home":
         styled = tab.style.apply(_highlight, axis=1)
 
         st.subheader(title)
-        st.dataframe(styled, hide_index=True, width=True, height=height)
+        st.dataframe(styled, hide_index=True, use_container_width=True, height=height)
     
     # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
     active = players[(players["Spiele"] > 0) | (players["D_Spiele"] > 0) | (players["R_Spiele"] > 0)]
