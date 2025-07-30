@@ -675,7 +675,11 @@ if st.session_state.view_mode == "home":
 
         styled = tab.style.apply(_highlight, axis=1)
 
-        st.subheader(title)
+        # Kleinere Überschrift für Leaderboards
+        st.markdown(
+            f"<h4 style='font-size:1rem; margin:0.5rem 0 0.25rem;'>{title}</h4>",
+            unsafe_allow_html=True
+        )
         st.dataframe(styled, hide_index=True, use_container_width=True, height=height)
     
     # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
