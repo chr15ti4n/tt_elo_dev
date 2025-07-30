@@ -1,5 +1,7 @@
 # region Imports
 import streamlit as st
+ # Admin user(s) for manual full rebuild
+ADMINS = ["Chris"]
 from contextlib import contextmanager
 import numpy as np
 
@@ -52,17 +54,16 @@ USE_GSHEETS = "gcp" in st.secrets  # Nur aktiv, wenn Service‑Account‑Creds h
 # Google Sheets Caching/Singleton helpers
 if USE_GSHEETS:
 
-    # DEV ENVIRONMENT: using development Google Sheet "ttelodev"
-    # TODO: change back to production sheet key or name "tt_elo" before deployment
-
     @st.cache_resource
     def _get_sheet():
         gc_local = gspread.service_account_from_dict(st.secrets["gcp"])
         spread_id = st.secrets.get("spread_id", "")
         if spread_id:
             return gc_local.open_by_key(spread_id)
-        # DEV: open development sheet; revert to "tt_elo" in production
-        return gc_local.open("ttelodev")
+
+        # live / dev umschalten:
+        # return gc_local.open("tt_elo")    # Produktion
+        return gc_local.open("ttelodev")    # Dev-Umgebung
 
     sh = _get_sheet()  # einmal pro Session
 
@@ -74,7 +75,6 @@ if USE_GSHEETS:
         "doubles.csv":  "doubles",
         "pending_rounds.csv": "pending_rounds",
         "rounds.csv":   "rounds",
-        # END DEV SHEET MAPPING
     }
 
     @functools.lru_cache(maxsize=None)
@@ -152,12 +152,6 @@ def calc_elo(r_a, r_b, score_a, k=32):
 # --------- Gesamt-ELO berechnen -----------
 def compute_gelo(df: pd.DataFrame,
                  w_e=0.6, w_d=0.25, w_r=0.15) -> pd.DataFrame:
-    # Ensure numeric dtypes for ELO columns (in case they were loaded as object)
-    df["ELO"]    = pd.to_numeric(df["ELO"], errors="coerce").fillna(0)
-    df["D_ELO"]  = pd.to_numeric(df["D_ELO"], errors="coerce").fillna(0)
-    df["R_ELO"]  = pd.to_numeric(df["R_ELO"], errors="coerce").fillna(0)
-
-    # Compute weighted overall ELO
     df["G_ELO"] = (
         w_e * df["ELO"] +
         w_d * df["D_ELO"] +
@@ -289,12 +283,10 @@ pending["confB"]   = pending["confB"].astype(bool)
 pending_d["confA"] = pending_d["confA"].astype(bool)
 pending_d["confB"] = pending_d["confB"].astype(bool)
 
+# Always convert Datum to pandas datetime with Berlin timezone
 for df in (matches, pending, pending_d, doubles, pending_r, rounds):
-    if not df.empty:
-        df["Datum"] = (
-            pd.to_datetime(df["Datum"], utc=True, errors="coerce")
-              .dt.tz_convert("Europe/Berlin")
-        )
+    df["Datum"] = pd.to_datetime(df["Datum"], utc=True, errors="coerce")\
+                       .dt.tz_convert("Europe/Berlin")
 # endregion
 
 # region Doppel ELO Rebuild
@@ -585,6 +577,13 @@ else:
                 st.session_state.current_player = None
                 st.rerun()
 
+        # Admin: vollständigen Rebuild auslösen
+        if current_player in ADMINS:
+            if st.button("🔄 Admin: Alle ELO neu berechnen", use_container_width=True):
+                _rebuild_all()
+                st.success("Alle Elo-Werte neu berechnet.")
+                st.rerun()
+
 
 if not st.session_state.logged_in:
     st.stop()
@@ -616,11 +615,10 @@ if st.session_state.view_mode == "home":
         * Zeile des aktuellen Spielers gelb hinterlegt
         * Scrollbar (fixe Höhe)
         """
-        tab = (df.sort_values(elo_col, ascending=False)
-                 .loc[:, ["Name", elo_col]]
-                 .rename(columns={elo_col: "ELO"})
-                 .reset_index(drop=True))
+        # Baue das Leaderboard-Table und sortiere nach Elo absteigend
+        tab = df.loc[:, ["Name", elo_col]].rename(columns={elo_col: "ELO"}).copy()
         tab["ELO"] = tab["ELO"].astype(int)
+        tab = tab.sort_values("ELO", ascending=False).reset_index(drop=True)
 
         # Highlightfunktion
         def _highlight(row):
@@ -681,16 +679,17 @@ if st.session_state.view_mode == "home":
     # --- Modale Eingabe-Dialoge (Einzel/Doppel/Rundlauf) -----------------
     if st.session_state.show_single_modal:
         with ui_container("Einzelmatch eintragen"):
-            st.write(f"Eingeloggt als **{current_player}**")
-            # Spieler A und B auswählen
+            st.write(f"Spieler wählen")
+                        # Spieler A und B auswählen
             default_idx = players["Name"].tolist().index(current_player)
             a = st.selectbox("Spieler A wählen", players["Name"], index=default_idx)
             b = st.selectbox("Spieler B wählen", players[players.Name != a]["Name"], placeholder="Spieler wählen")
             # Punkte eingeben
             pa = st.number_input(f"Punkte {a}", min_value=0, max_value=21, value=11, key="m_pa")
             pb = st.number_input(f"Punkte {b}", min_value=0, max_value=21, value=11, key="m_pb")
+
             col_ok, col_cancel = st.columns(2)
-            # Speichern: initiale Bestätigung für den Creator, volle Bestätigung später
+                        # Speichern: initiale Bestätigung für den Creator, volle Bestätigung später
             if col_ok.button("Speichern", key="single_save", disabled=(a is None or b is None or a == b)):
                 now = datetime.now(ZoneInfo("Europe/Berlin"))
                 # Creator hat automatisch bestätigt, der andere muss später im Confirm-Modal zustimmen
@@ -700,6 +699,7 @@ if st.session_state.view_mode == "home":
                 save_csv(pending, PENDING)
                 st.success("Match gespeichert – benötigt Bestätigung beider Spieler.")
                 st.rerun()
+                
             if col_cancel.button("Abbrechen", key="single_cancel"):
                 _open_modal("")
                 st.rerun()
@@ -771,15 +771,47 @@ if st.session_state.view_mode == "home":
                 col1, col_ok, col_rej = st.columns([3, 1, 1])
                 col1.write(f"{row['A']} {int(row['PunkteA'])} : {int(row['PunkteB'])} {row['B']}")
                 if col_ok.button("✅", key=f"conf_single_{idx}"):
+                    # Mark confirmation
                     if row["A"] == current_player:
                         pending.at[idx, "confA"] = True
                     else:
                         pending.at[idx, "confB"] = True
+                    # When both have confirmed, move to matches and update Elo incrementally
                     if pending.at[idx, "confA"] and pending.at[idx, "confB"]:
-                        matches.loc[len(matches)] = pending.loc[idx, pending.columns[:-2]]
+                        row = pending.loc[idx]
+                        # Add to confirmed matches
+                        matches.loc[len(matches)] = row[pending.columns[:-2]]
                         pending.drop(idx, inplace=True)
                         save_csv(matches, MATCHES)
-                        _rebuild_all()
+                        # Incremental Elo-Update for this match
+                        a, b = row["A"], row["B"]
+                        pa, pb = int(row["PunkteA"]), int(row["PunkteB"])
+                        ra = players.loc[players.Name == a, "ELO"].iat[0]
+                        rb = players.loc[players.Name == b, "ELO"].iat[0]
+                        margin = abs(pa - pb)
+                        k_eff = 32 * (1 + margin / 11)
+                        score_a = 1 if pa > pb else 0
+                        # Calculate new ratings
+                        new_ra = calc_elo(ra, rb, score_a, k_eff)
+                        new_rb = calc_elo(rb, ra, 1 - score_a, k_eff)
+                        # Win/loss counts
+                        win_a = 1 if pa > pb else 0
+                        win_b = 1 - win_a
+                        # Update player stats
+                        players.loc[players.Name == a, ["ELO", "Siege", "Niederlagen", "Spiele"]] = [
+                            new_ra,
+                            players.loc[players.Name == a, "Siege"].iat[0] + win_a,
+                            players.loc[players.Name == a, "Niederlagen"].iat[0] + win_b,
+                            players.loc[players.Name == a, "Spiele"].iat[0] + 1,
+                        ]
+                        players.loc[players.Name == b, ["ELO", "Siege", "Niederlagen", "Spiele"]] = [
+                            new_rb,
+                            players.loc[players.Name == b, "Siege"].iat[0] + win_b,
+                            players.loc[players.Name == b, "Niederlagen"].iat[0] + win_a,
+                            players.loc[players.Name == b, "Spiele"].iat[0] + 1,
+                        ]
+                        save_csv(players, PLAYERS)
+                    # Always save pending and show confirmation
                     save_csv(pending, PENDING)
                     st.success("Bestätigt.")
                     st.rerun()
@@ -808,15 +840,44 @@ if st.session_state.view_mode == "home":
                 )
                 col1.write(teams)
                 if col_ok.button("✅", key=f"conf_double_{idx}"):
+                    # Markiere Bestätigung
                     if in_team_a:
                         pending_d.at[idx, "confA"] = True
                     else:
                         pending_d.at[idx, "confB"] = True
+                    # Wenn beide Teams bestätigt haben, zum finalen DataFrame verschieben
                     if pending_d.at[idx, "confA"] and pending_d.at[idx, "confB"]:
-                        doubles.loc[len(doubles)] = pending_d.loc[idx, pending_d.columns[:-2]]
+                        row = pending_d.loc[idx]
+                        # Bestätigte Doppel in die Hauptliste
+                        doubles.loc[len(doubles)] = row[pending_d.columns[:-2]]
                         pending_d.drop(idx, inplace=True)
                         save_csv(doubles, DOUBLES)
-                        _rebuild_all()
+                        # Inkrementelle Doppel-ELO-Updates
+                        a1, a2, b1, b2 = row["A1"], row["A2"], row["B1"], row["B2"]
+                        pA, pB = int(row["PunkteA"]), int(row["PunkteB"])
+                        # Aktuelle Team-Elo-Werte
+                        r1 = players.loc[players.Name==a1,"D_ELO"].iat[0]
+                        r2 = players.loc[players.Name==a2,"D_ELO"].iat[0]
+                        r3 = players.loc[players.Name==b1,"D_ELO"].iat[0]
+                        r4 = players.loc[players.Name==b2,"D_ELO"].iat[0]
+                        # Durchschnittswerte und K-Faktor
+                        avg_op = (r3 + r4) / 2
+                        margin = abs(pA - pB)
+                        k_eff = 24 * (1 + margin / 11)
+                        score_a = 1 if pA > pB else 0
+                        nr1, nr2 = calc_doppel_elo(r1, r2, avg_op, score_a, k_eff)
+                        nr3, nr4 = calc_doppel_elo(r3, r4, (r1 + r2) / 2, 1 - score_a, k_eff)
+                        # Statistiken und Elo schreiben
+                        for p, new, s in [(a1, nr1, score_a), (a2, nr2, score_a),
+                                           (b1, nr3, 1 - score_a), (b2, nr4, 1 - score_a)]:
+                            players.loc[players.Name==p, ["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = [
+                                new,
+                                players.loc[players.Name==p,"D_Siege"].iat[0] + (1 if s > 0 else 0),
+                                players.loc[players.Name==p,"D_Niederlagen"].iat[0] + (1 if s == 0 else 0),
+                                players.loc[players.Name==p,"D_Spiele"].iat[0] + 1,
+                            ]
+                        save_csv(players, PLAYERS)
+                    # Save pending always
                     save_csv(pending_d, PENDING_D)
                     st.success("Bestätigt.")
                     st.rerun()
@@ -837,14 +898,42 @@ if st.session_state.view_mode == "home":
                 col1, col_ok, col_rej = st.columns([3, 1, 1])
                 col1.write(f"{', '.join(teilnehmer)}  –  Sieger: {row['Sieger']}")
                 if col_ok.button("✅", key=f"conf_round_{idx}"):
+                    # Bestätigung hinzufügen
                     confirmed.add(current_player)
                     pending_r.at[idx, "confirmed_by"] = ";".join(sorted(confirmed))
+                    save_csv(pending_r, PENDING_R)
+                    # Erst bei 3 Bestätigungen Spiel in Rundenliste verschieben
                     if len(confirmed) >= 3:
-                        rounds.loc[len(rounds)] = pending_r.loc[idx, pending_r.columns[:-1]]
+                        row = pending_r.loc[idx]
+                        rounds.loc[len(rounds)] = row[pending_r.columns[:-1]]
                         pending_r.drop(idx, inplace=True)
                         save_csv(rounds, ROUNDS)
-                        _rebuild_all()
-                    save_csv(pending_r, PENDING_R)
+                        # Inkrementelle Rundlauf-ELO-Updates
+                        teilnehmer = row["Teilnehmer"].split(";")
+                        fin1, fin2, winner = row["Finalist1"], row["Finalist2"], row["Sieger"]
+                        k = 48
+                        avg = players.loc[players.Name.isin(teilnehmer), "R_ELO"].mean()
+                        deltas = {}
+                        for p in teilnehmer:
+                            old = players.loc[players.Name==p,"R_ELO"].iat[0]
+                            if p == winner:
+                                s = 1
+                                players.loc[players.Name==p,"R_Siege"] += 1
+                            elif p in (fin1, fin2):
+                                s = 0.5
+                                players.loc[players.Name==p,"R_Zweite"] += 1
+                            else:
+                                s = 0
+                                players.loc[players.Name==p,"R_Niederlagen"] += 1
+                            exp = 1 / (1 + 10 ** ((avg - old) / 400))
+                            deltas[p] = k * (s - exp)
+                        # Offset für Null-Summe
+                        offset = sum(deltas.values()) / len(deltas)
+                        for p, delta in deltas.items():
+                            new = round(players.loc[players.Name==p,"R_ELO"].iat[0] + (delta - offset))
+                            players.loc[players.Name==p,"R_ELO"] = new
+                            players.loc[players.Name==p,"R_Spiele"] += 1
+                        save_csv(players, PLAYERS)
                     st.success("Bestätigt.")
                     st.rerun()
                 if col_rej.button("❌", key=f"rej_round_{idx}"):
