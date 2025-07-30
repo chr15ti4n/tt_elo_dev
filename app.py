@@ -1134,6 +1134,8 @@ if st.session_state.view_mode == "regeln":
       border-radius: 8px;
       background-color: rgba(255,255,255,0.9);
       color: #000;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(0, 0, 0, 0.1);
     }
     .rulebox h2 {
       font-size: 24px;
@@ -1151,6 +1153,8 @@ if st.session_state.view_mode == "regeln":
       .rulebox {
         background-color: rgba(33,33,33,0.85);
         color: #fff;
+        box-shadow: 0 2px 6px rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
       }
     }
     </style>
