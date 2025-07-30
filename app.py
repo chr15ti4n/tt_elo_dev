@@ -596,6 +596,17 @@ current_player = st.session_state.current_player
 # region Home Ansicht
 if st.session_state.view_mode == "home":
     st.title("🏓 Tischtennis-Dashboard")
+    # Mobile: Metrics schmaler machen, damit sie in einer Zeile bleiben
+    st.markdown(
+        """
+        <style>
+        [data-testid="metric-container"] {
+            min-width: 75px !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
