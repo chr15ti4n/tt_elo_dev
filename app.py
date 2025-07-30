@@ -687,49 +687,58 @@ if st.session_state.view_mode == "home":
     # Gesamt-ELO ganz oben
     mini_lb(active, "G_ELO", "Gesamt Leaderboard")
 
-    # Drei Leaderboards per flex-HTML nebeneinander
-    # Eine Liste mit (DataFrame, Titel)
+    # Drei Leaderboards per flexiblem HTML nebeneinander anzeigen
     lb_dfs = [
-        (players[players.Spiele   > 0][["Name", "ELO"]]
-             .sort_values("ELO", ascending=False)
-             .to_html(index=False, border=0, classes="mini-table"), "Einzel – Ranking"),
-        (players[players.D_Spiele > 0][["Name", "D_ELO"]]
-             .rename(columns={"D_ELO": "ELO"})
-             .sort_values("ELO", ascending=False)
-             .to_html(index=False, border=0, classes="mini-table"), "Doppel – Ranking"),
-        (players[players.R_Spiele > 0][["Name", "R_ELO"]]
-             .rename(columns={"R_ELO": "ELO"})
-             .sort_values("ELO", ascending=False)
-             .to_html(index=False, border=0, classes="mini-table"), "Rundlauf – Ranking"),
+        (
+            players[players.Spiele > 0][["Name", "ELO"]]
+                .sort_values("ELO", ascending=False)
+                .to_html(index=False, border=0, classes="mini-table"),
+            "Einzel",
+        ),
+        (
+            players[players.D_Spiele > 0][["Name", "D_ELO"]]
+                .rename(columns={"D_ELO": "ELO"})
+                .sort_values("ELO", ascending=False)
+                .to_html(index=False, border=0, classes="mini-table"),
+            "Doppel",
+        ),
+        (
+            players[players.R_Spiele > 0][["Name", "R_ELO"]]
+                .rename(columns={"R_ELO": "ELO"})
+                .sort_values("ELO", ascending=False)
+                .to_html(index=False, border=0, classes="mini-table"),
+            "Rundlauf",
+        ),
     ]
 
-    # Flex-Container
-    html = '<div style="display:flex; gap:1rem; justify-content:center;">'
+    # HTML-Container bauen
+    html = '<div style="display:flex; gap:1rem; justify-content:center; overflow-x:auto;">'
     for table_html, title in lb_dfs:
         html += f'''
-          <div style="flex:1; min-width:0; text-align:center;">
-            <h4 style="font-size:1rem; margin:0.5rem 0 0.25rem;">{title}</h4>
-            {table_html}
-          </div>
+        <div style="flex:1; min-width:120px; text-align:center;">
+          <h4 style="font-size:1rem; margin:0.5rem 0;">{title}</h4>
+          {table_html}
+        </div>
         '''
     html += '</div>'
 
-    # CSS für minimale Tabellen-Breite und Schrift
+    # CSS für kompakte Tabellen
     html += """
     <style>
-      .mini-table th, .mini-table td {
-        font-size: 0.6rem;
-        padding: 0.2rem 0.3rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .mini-table {
+    .mini-table th, .mini-table td {
+        font-size:0.7rem;
+        padding:0.2rem;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    }
+    .mini-table {
         table-layout: fixed;
         width: 100%;
-      }
+    }
     </style>
     """
+
     st.markdown(html, unsafe_allow_html=True)
 
     st.divider()
