@@ -741,9 +741,9 @@ if st.session_state.view_mode == "home":
     st.markdown(
     """
     <div style="display:flex; width:100%; gap:1rem;">
-      <div style="flex:1; text-align:center; margin:1rem; font-size: 0.8rem;"><strong>Einzel</strong></div>
-      <div style="flex:1; text-align:center; margin:1rem; font-size: 0.8rem;"><strong>Doppel</strong></div>
-      <div style="flex:1; text-align:center; margin:1rem; font-size: 0.8rem;"><strong>Rundlauf</strong></div>
+      <div style="flex:1; text-align:center; margin:1rem; font-size: 1.1rem;"><strong>Einzel</strong></div>
+      <div style="flex:1; text-align:center; margin:1rem; font-size: 1.1rem;"><strong>Doppel</strong></div>
+      <div style="flex:1; text-align:center; margin:1rem; font-size: 1.1rem;"><strong>Rundlauf</strong></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -790,11 +790,7 @@ if st.session_state.view_mode == "home":
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }}
-    /* Hide all cell borders in tables */
-    .total-table th, .total-table td,
-    .mini-table th, .mini-table td {{
-        border: none !important;
-    }}
+
     /* Hide index for mini tables */
     .mini-table th:first-child,
     .mini-table td:first-child {{
