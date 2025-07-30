@@ -768,6 +768,11 @@ if st.session_state.view_mode == "home":
         border-spacing: 0 !important;
         margin: 0 !important;
     }}
+    /* Remove any outer border from the tables themselves */
+    .total-table,
+    .mini-table {{
+        border: none !important;
+    }}
     /* Rounded corners and subtle border for all tables */
     .total-table-container,
     .mini-table-container {{
