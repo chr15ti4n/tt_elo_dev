@@ -600,12 +600,12 @@ if st.session_state.view_mode == "home":
     st.markdown(
         """
         <style>
-        /* Allow metric cards to flex and shrink on narrow screens */
+        /* Force each metric to take ~30% width so three fit in one row */
         [data-testid="metric-container"] {
-            flex: 1 1 auto !important;
-            min-width: 0px !important;
-            max-width: none !important;
-            width: auto !important;
+            flex: none !important;
+            width: 30% !important;
+            max-width: 30% !important;
+            min-width: 0 !important;
             padding: 0.2rem !important;
         }
         </style>
