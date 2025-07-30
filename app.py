@@ -601,7 +601,7 @@ if st.session_state.view_mode == "home":
     st.markdown(f"### Willkommen, **{current_player}**!")
     st.metric("Gesamt-ELO", int(user.G_ELO))
 
-    cols = st.columns(3)
+    cols = st.columns(3, gap="small")
     cols[0].metric("Einzel",  int(user.ELO))
     cols[1].metric("Doppel",  int(user.D_ELO))
     cols[2].metric("Rundlauf", int(user.R_ELO))
