@@ -665,6 +665,7 @@ if st.session_state.view_mode == "home":
     styler_total = (
         df_total.style
         .apply(highlight_current, axis=1)
+        .format({"ELO": "{:.0f}"})
         .set_table_attributes('class="total-table"')
     )
     html_total = (
@@ -687,6 +688,7 @@ if st.session_state.view_mode == "home":
         styler = (
             df2.style
             .apply(highlight_current, axis=1)
+            .format({"ELO": "{:.0f}"})
             .set_table_attributes('class="mini-table"')
         )
         return styler.to_html(border=0)
