@@ -709,7 +709,7 @@ if st.session_state.view_mode == "home":
             width: 70px !important;
         }
         .stDataFrame th:nth-child(2), .stDataFrame td:nth-child(2) {
-            width: 30px !important;
+            width: 0px !important;
         }
         </style>
         """,
