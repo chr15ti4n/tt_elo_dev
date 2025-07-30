@@ -514,6 +514,11 @@ else:
             st.session_state.view_mode = "regeln"
             st.rerun()
 
+        # --- Turniermodus Button ---
+        if st.button("🏆 Turniermodus", use_container_width=True):
+            st.session_state.view_mode = "turniermodus"
+            st.rerun()
+
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.current_player = None
@@ -1166,7 +1171,7 @@ if st.session_state.view_mode == "home":
 
 # endregion
 
-# region Regel Ansicht
+ # region Regel Ansicht
 if st.session_state.view_mode == "regeln":
     rules_html = """
     <style>
@@ -1327,5 +1332,12 @@ if st.session_state.view_mode == "regeln":
     </div>
     """
     st.markdown(rules_html, unsafe_allow_html=True)
+    st.stop()
+# endregion
+
+# region Turniermodus Ansicht
+if st.session_state.view_mode == "turniermodus":
+    st.title("🏆 Turniermodus")
+    st.write("🚧 In Arbeit 🚧")
     st.stop()
 # endregion
