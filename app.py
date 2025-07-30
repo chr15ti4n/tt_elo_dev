@@ -690,15 +690,15 @@ if st.session_state.view_mode == "home":
     )
     cols = st.columns([1,1,1], gap="small")
     with cols[0]:
-        st.markdown('<div style="min-width:10px;">', unsafe_allow_html=True)
+        st.markdown('<div style="min-width:100px;">', unsafe_allow_html=True)
         mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel",  height=175)
         st.markdown('</div>', unsafe_allow_html=True)
     with cols[1]:
-        st.markdown('<div style="min-width:10px;">', unsafe_allow_html=True)
+        st.markdown('<div style="min-width:100px;">', unsafe_allow_html=True)
         mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel", height=175)
         st.markdown('</div>', unsafe_allow_html=True)
     with cols[2]:
-        st.markdown('<div style="min-width:10px;">', unsafe_allow_html=True)
+        st.markdown('<div style="min-width:100px;">', unsafe_allow_html=True)
         mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf",height=175)
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -844,7 +844,10 @@ if st.session_state.view_mode == "home":
                         pending.at[idx, "confB"] = True
                     # When both have confirmed, move to matches and update Elo incrementally
                     if pending.at[idx, "confA"] and pending.at[idx, "confB"]:
-                        row = pending.loc[idx]
+                        row = pending.loc[idx].copy()
+                        # Fallback: wenn Datum fehlt, neu setzen
+                        if pd.isna(row["Datum"]):
+                            row["Datum"] = datetime.now(ZoneInfo("Europe/Berlin"))
                         # Add to confirmed matches
                         matches.loc[len(matches)] = row[pending.columns[:-2]]
                         pending.drop(idx, inplace=True)
@@ -913,7 +916,10 @@ if st.session_state.view_mode == "home":
                         pending_d.at[idx, "confB"] = True
                     # Wenn beide Teams bestätigt haben, zum finalen DataFrame verschieben
                     if pending_d.at[idx, "confA"] and pending_d.at[idx, "confB"]:
-                        row = pending_d.loc[idx]
+                        row = pending_d.loc[idx].copy()
+                        # Fallback: wenn Datum fehlt, neu setzen
+                        if pd.isna(row["Datum"]):
+                            row["Datum"] = datetime.now(ZoneInfo("Europe/Berlin"))
                         # Bestätigte Doppel in die Hauptliste
                         doubles.loc[len(doubles)] = row[pending_d.columns[:-2]]
                         pending_d.drop(idx, inplace=True)
@@ -970,7 +976,10 @@ if st.session_state.view_mode == "home":
                     save_csv(pending_r, PENDING_R)
                     # Erst bei 3 Bestätigungen Spiel in Rundenliste verschieben
                     if len(confirmed) >= 3:
-                        row = pending_r.loc[idx]
+                        row = pending_r.loc[idx].copy()
+                        # Fallback: wenn Datum fehlt, neu setzen
+                        if pd.isna(row["Datum"]):
+                            row["Datum"] = datetime.now(ZoneInfo("Europe/Berlin"))
                         rounds.loc[len(rounds)] = row[pending_r.columns[:-1]]
                         pending_r.drop(idx, inplace=True)
                         save_csv(rounds, ROUNDS)
