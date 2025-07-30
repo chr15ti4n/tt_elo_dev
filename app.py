@@ -639,72 +639,46 @@ if st.session_state.view_mode == "home":
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
-    # Gesamt-ELO zentriert, darunter Einzel/Doppel/Rundlauf nebeneinander
+    # Gesamt-Leaderboard als volle Breite HTML-Tabelle
+    df_total = active.loc[:, ["Name", "G_ELO"]] \
+        .rename(columns={"G_ELO": "ELO"}) \
+        .sort_values("ELO", ascending=False)
+    html_total = df_total.to_html(index=False, border=0, classes="total-table")
+    st.markdown(
+        f"<div class='total-table-container'>{html_total}</div>",
+        unsafe_allow_html=True
+    )
+
+    # Drei Modus-Leaderboards als HTML-Tabellen nebeneinander
+    df_single = players[players.Spiele > 0][["Name", "ELO"]].sort_values("ELO", ascending=False)
+    df_double = players[players.D_Spiele > 0][["Name", "D_ELO"]].rename(columns={"D_ELO": "ELO"}).sort_values("ELO", ascending=False)
+    df_round  = players[players.R_Spiele > 0][["Name", "R_ELO"]].rename(columns={"R_ELO": "ELO"}).sort_values("ELO", ascending=False)
+    html_single = df_single.to_html(index=False, border=0, classes="mini-table")
+    html_double = df_double.to_html(index=False, border=0, classes="mini-table")
+    html_round  = df_round.to_html(index=False, border=0, classes="mini-table")
+
     html = f"""
-    <!-- Gesamt-ELO zentriert -->
-    <div style="text-align:center; margin-bottom:1rem;">
-      <p style="font-size:1.2rem; margin:0;">ELO</p>
-      <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.G_ELO)}</p>
+    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:nowrap; overflow-x:auto;">
+      <div style="flex:1; min-width:120px; text-align:center;">{html_single}</div>
+      <div style="flex:1; min-width:120px; text-align:center;">{html_double}</div>
+      <div style="flex:1; min-width:120px; text-align:center;">{html_round}</div>
     </div>
-    <!-- Einzel/Doppel/Rundlauf nebeneinander -->
-    <div style="display:flex; gap:1rem; justify-content:center;">
-      <div style="flex:1; min-width:0; text-align:center;">
-        <p style="font-size:1.2rem; margin:0;">Einzel</p>
-        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.ELO)}</p>
-      </div>
-      <div style="flex:1; min-width:0; text-align:center;">
-        <p style="font-size:1.2rem; margin:0;">Doppel</p>
-        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.D_ELO)}</p>
-      </div>
-      <div style="flex:1; min-width:0; text-align:center;">
-        <p style="font-size:1.2rem; margin:0;">Rundlauf</p>
-        <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.R_ELO)}</p>
-      </div>
-    </div>
+    <style>
+    .total-table-container .total-table {{
+        width: 100% !important;
+        table-layout: auto !important;
+        margin-bottom: 1rem;
+    }}
+    .mini-table th, .mini-table td {{
+        font-size: 0.8rem !important;
+        padding: 0.2rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }}
+    </style>
     """
     st.markdown(html, unsafe_allow_html=True)
-
-    st.divider()
-
-    def mini_lb(df: pd.DataFrame, elo_col: str, title: str, height: int = 350):
-        """
-        Zeigt ein Leaderboard für die angegebene Spielform.
-        * Vollständige Liste (kein Head‑10‑Cut mehr)
-        * Zeile des aktuellen Spielers gelb hinterlegt
-        * Scrollbar (fixe Höhe)
-        """
-        # Baue das Leaderboard-Table und sortiere nach Elo absteigend
-        tab = df.loc[:, ["Name", elo_col]].rename(columns={elo_col: "ELO"}).copy()
-        tab["ELO"] = tab["ELO"].astype(int)
-        tab = tab.sort_values("ELO", ascending=False).reset_index(drop=True)
-
-        # Highlightfunktion
-        def _highlight(row):
-            return ['background-color: #d9eaf7; color: black' if row["Name"] == current_player else '' for _ in row]
-
-        styled = tab.style.apply(_highlight, axis=1)
-
-        # Kleinere Überschrift für Leaderboards
-        st.markdown(
-            f"<h4 style='font-size:1rem; margin:0.5rem 0 0.25rem;'>{title}</h4>",
-            unsafe_allow_html=True
-        )
-        # Render table at fixed narrow width
-        st.dataframe(styled, hide_index=True, width=100, height=height)
-    
-    # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
-    active = players[(players["Spiele"] > 0) | (players["D_Spiele"] > 0) | (players["R_Spiele"] > 0)]
-    # Gesamt-ELO ganz oben
-    mini_lb(active, "G_ELO", "Gesamt Leaderboard")
-
-    # Three leaderboards side by side, each rendered at fixed narrow width
-    cols = st.columns(3, gap="small")
-    with cols[0]:
-        mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel",  height=175)
-    with cols[1]:
-        mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel", height=175)
-    with cols[2]:
-        mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf", height=175)
 
     st.divider()
     # --- Pending Confirmation Counts ------------------------------
