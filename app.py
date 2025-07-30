@@ -697,7 +697,7 @@ if st.session_state.view_mode == "home":
             width: auto !important;
         }
         .stDataFrame th, .stDataFrame td {
-            font-size: 0.4rem !important;
+            font-size: 0rem !important;
             line-height: 1 !important;
             padding: 0rem 0rem !important;
             white-space: nowrap !important;
@@ -706,7 +706,7 @@ if st.session_state.view_mode == "home":
         }
         /* Column widths: narrow for Name and ELO */
         .stDataFrame th:nth-child(1), .stDataFrame td:nth-child(1) {
-            width: 70px !important;
+            width: 0px !important;
         }
         .stDataFrame th:nth-child(2), .stDataFrame td:nth-child(2) {
             width: 0px !important;
