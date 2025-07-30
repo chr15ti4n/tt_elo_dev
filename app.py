@@ -739,40 +739,45 @@ if st.session_state.view_mode == "home":
     html_round  = make_styled(players[players.R_Spiele > 0], "R_ELO")
 
     st.subheader("Modus Leaderboards")
-    html = f"""
-    <div style="display:flex; width:100%; gap:1rem;">
-      <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_single}</div>
-      <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_double}</div>
-      <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_round}</div>
-    </div>
+    html = """
     <style>
-    .total-table-container .total-table {{
+    /* Bereits vorhandene Regeln … */
+    .total-table-container .total-table {
         width: 100% !important;
         table-layout: auto !important;
         margin-bottom: 1rem;
-    }}
+    }
     /* Hide index column */
     .total-table-container .total-table th:first-child,
-    .total-table-container .total-table td:first-child {{
+    .total-table-container .total-table td:first-child {
         display: none !important;
-    }}
-    /* Make mini-tables fill their flex column equally */
-    .mini-table {{
+    }
+
+    /* Container um die Tabelle herum */
+    .total-table-container,
+    .mini-table-container {
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        overflow: hidden;  /* abgerundete Kanten schützen */
+        margin-bottom: 1rem;
+    }
+
+    /* Dann folgen Deine Mini-Table-Styles */
+    .mini-table {
         width: 100% !important;
         table-layout: fixed !important;
-    }}
-    .mini-table th, .mini-table td {{
+    }
+    .mini-table th, .mini-table td {
         font-size: 0.8rem !important;
         padding: 0.2rem !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-    }}
-    /* Hide index for mini tables */
+    }
     .mini-table th:first-child,
-    .mini-table td:first-child {{
+    .mini-table td:first-child {
         display: none !important;
-    }}
+    }
     </style>
     """
     st.markdown(html, unsafe_allow_html=True)
