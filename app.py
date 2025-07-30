@@ -673,7 +673,7 @@ if st.session_state.view_mode == "home":
             f"""
             <div style="text-align:center;">
             <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
-            <div style="font-size:2.5rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+            <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
             </div>
         """, unsafe_allow_html=True
         )
@@ -773,7 +773,7 @@ if st.session_state.view_mode == "home":
     .mini-table-container {{
         border-radius: 8px !important;
         overflow: hidden !important;
-        border: 1px solid rgba(0,0,0,0.2) !important;
+        border: 5px solid rgba(0,0,0,0.2) !important;
     }}
     .total-table-container .total-table {{
         width: 100% !important;
