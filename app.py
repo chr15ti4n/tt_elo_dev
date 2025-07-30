@@ -680,55 +680,22 @@ if st.session_state.view_mode == "home":
             f"<h4 style='font-size:1rem; margin:0.5rem 0 0.25rem;'>{title}</h4>",
             unsafe_allow_html=True
         )
-        st.dataframe(styled, hide_index=True, use_container_width=True, height=height)
+        # Render table at fixed narrow width
+        st.dataframe(styled, hide_index=True, width=100, height=height)
     
     # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
     active = players[(players["Spiele"] > 0) | (players["D_Spiele"] > 0) | (players["R_Spiele"] > 0)]
     # Gesamt-ELO ganz oben
     mini_lb(active, "G_ELO", "Gesamt Leaderboard")
 
-    # Scroll-Container: Leaderboards inline ohne Zeilenumbruch
-    st.markdown(
-        """
-        <style>
-        /* Tables: fixed layout and very small font for mobile stacking */
-        .stDataFrame table {
-            table-layout: fixed !important;
-            width: auto !important;
-        }
-        .stDataFrame th, .stDataFrame td {
-            font-size: 0rem !important;
-            line-height: 1 !important;
-            padding: 0rem 0rem !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-        }
-        /* Column widths: narrow for Name and ELO */
-        .stDataFrame th:nth-child(1), .stDataFrame td:nth-child(1) {
-            width: 0px !important;
-        }
-        .stDataFrame th:nth-child(2), .stDataFrame td:nth-child(2) {
-            width: 0px !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    cols = st.columns([1,1,1], gap="small")
+    # Three leaderboards side by side, each rendered at fixed narrow width
+    cols = st.columns(3, gap="small")
     with cols[0]:
-        st.markdown('<div>', unsafe_allow_html=True)
         mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel",  height=175)
-        st.markdown('</div>', unsafe_allow_html=True)
     with cols[1]:
-        st.markdown('<div>', unsafe_allow_html=True)
         mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel", height=175)
-        st.markdown('</div>', unsafe_allow_html=True)
     with cols[2]:
-        st.markdown('<div>', unsafe_allow_html=True)
-        mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf",height=175)
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf", height=175)
 
     st.divider()
     # --- Pending Confirmation Counts ------------------------------
