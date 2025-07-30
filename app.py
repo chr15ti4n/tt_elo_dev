@@ -601,7 +601,7 @@ if st.session_state.view_mode == "home":
         """
         <style>
         [data-testid="metric-container"] {
-            min-width: 0px !important;
+            max-width: 20px !important;
             padding: 0.2rem !important;
         }
         </style>
