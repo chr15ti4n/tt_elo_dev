@@ -699,7 +699,7 @@ if st.session_state.view_mode == "home":
         .stDataFrame table th,
         .stDataFrame table td {
         font-size: 0.1rem !important;
-        padding: 0.1rem 0.2rem !important;
+        padding: 0.5rem 0.2rem !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
