@@ -1153,7 +1153,7 @@ if st.session_state.view_mode == "regeln":
         background-color: rgba(33,33,33,0.85);
         color: #fff;
         box-shadow: 0 2px 6px rgba(255, 255, 255, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid #ffffff !important;
       }
     }
     </style>
