@@ -762,6 +762,12 @@ if st.session_state.view_mode == "home":
       </div>
     </div>
     <style>
+    /* Reset default table margins and spacing so container borders align */
+    .total-table, .mini-table {{
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        margin: 0 !important;
+    }}
     /* Rounded corners and subtle border for all tables */
     .total-table-container,
     .mini-table-container {{
