@@ -595,7 +595,7 @@ current_player = st.session_state.current_player
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
-    st.title("🏓 Tischtennis-Dashboard")
+    st.title("🏓 Dashboard")
     # Mobile: Metrics schmaler machen, damit sie in einer Zeile bleiben und Schriftgrößen anpassen
     st.markdown(
         """
@@ -612,7 +612,7 @@ if st.session_state.view_mode == "home":
         }
         /* Value text */
         [data-testid="metric-container"] > div:nth-child(2) p {
-            font-size: 2rem !important;
+            font-size: 5rem !important;
             line-height: 1.1 !important;
         }
         /* Leaderboards: kleinere Schrift und kompaktere Zellen auf Mobil */
