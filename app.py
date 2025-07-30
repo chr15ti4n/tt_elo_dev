@@ -612,7 +612,7 @@ if st.session_state.view_mode == "home":
         }
         /* Value text */
         [data-testid="metric-container"] > div:nth-child(2) p {
-            font-size: 1.2rem !important;
+            font-size: 2rem !important;
             line-height: 1.1 !important;
         }
         /* Leaderboards: kleinere Schrift und kompaktere Zellen auf Mobil */
@@ -639,8 +639,6 @@ if st.session_state.view_mode == "home":
     user = players.loc[players.Name == current_player].iloc[0]
 
     st.markdown(f"### Willkommen, **{current_player}**!")
-    # Eigene ELO-Anzeige: Gesamt-ELO zentriert, dann drei Modi nebeneinander
-    st.markdown("#### Deine ELO")
     # Gesamt-ELO in der Mitte
     c1, c2, c3 = st.columns([1, 2, 1])
     c2.metric("ELO", int(user.G_ELO))
