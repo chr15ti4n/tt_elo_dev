@@ -698,10 +698,10 @@ if st.session_state.view_mode == "home":
 
     st.subheader("Modus Leaderboards")
     html = f"""
-    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:nowrap; overflow-x:auto;">
-      <div style="flex:1; min-width:0; text-align:center;">{html_single}</div>
-      <div style="flex:1; min-width:0; text-align:center;">{html_double}</div>
-      <div style="flex:1; min-width:0; text-align:center;">{html_round}</div>
+    <div style="display:flex; width:100%; gap:1rem;">
+      <div style="flex:1 1 0%; text-align:center;">{html_single}</div>
+      <div style="flex:1 1 0%; text-align:center;">{html_double}</div>
+      <div style="flex:1 1 0%; text-align:center;">{html_round}</div>
     </div>
     <style>
     .total-table-container .total-table {{
