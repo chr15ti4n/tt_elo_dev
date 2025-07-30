@@ -643,12 +643,12 @@ if st.session_state.view_mode == "home":
     st.markdown("#### Deine ELO")
     # Gesamt-ELO in der Mitte
     c1, c2, c3 = st.columns([1, 2, 1])
-    c2.metric("Gesamt-ELO", int(user.G_ELO))
+    c2.metric("ELO", int(user.G_ELO))
     # Modus-ELOs nebeneinander
     e1, e2, e3 = st.columns(3, gap="small")
-    e1.metric("Einzel-ELO", int(user.ELO))
-    e2.metric("Doppel-ELO", int(user.D_ELO))
-    e3.metric("Rundlauf-ELO", int(user.R_ELO))
+    e1.metric("Einzel", int(user.ELO))
+    e2.metric("Doppel", int(user.D_ELO))
+    e3.metric("Rundlauf", int(user.R_ELO))
     # DataFrame mit Spielern, die mindestens ein Spiel haben
     active = players[
         (players.Spiele > 0)
@@ -672,8 +672,11 @@ if st.session_state.view_mode == "home":
 
     # Drei Modus-Leaderboards als HTML-Tabellen nebeneinander mit Highlight
     def make_styled(df, elo_col):
-        df2 = df.rename(columns={elo_col: "ELO"}) if elo_col != "ELO" else df
-        df2 = df2[["Name", "ELO"]].sort_values("ELO", ascending=False)
+        # Select only Name and the specific elo column, then rename to ELO
+        df2 = df[["Name", elo_col]].copy()
+        df2.columns = ["Name", "ELO"]
+        df2 = df2.sort_values("ELO", ascending=False)
+        # Apply highlight to current player row
         styler = df2.style.apply(highlight_current, axis=1).set_table_attributes('class="mini-table"')
         return styler.to_html(border=0)
     html_single = make_styled(players[players.Spiele > 0], "ELO")
