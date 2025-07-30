@@ -738,7 +738,17 @@ if st.session_state.view_mode == "home":
     html_double = make_styled(players[players.D_Spiele > 0], "D_ELO")
     html_round  = make_styled(players[players.R_Spiele > 0], "R_ELO")
 
-    st.subheader("Modus Leaderboards")
+    st.markdown(
+    """
+    <div style="display:flex; width:100%; gap:1rem;">
+      <div style="flex:1; text-align:center;"><strong>Einzel</strong></div>
+      <div style="flex:1; text-align:center;"><strong>Doppel</strong></div>
+      <div style="flex:1; text-align:center;"><strong>Rundlauf</strong></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+    )
+    
     html = f"""
     <div style="display:flex; width:100%; gap:1rem;">
       <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_single}</div>
