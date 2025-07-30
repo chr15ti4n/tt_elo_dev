@@ -596,17 +596,23 @@ current_player = st.session_state.current_player
 # region Home Ansicht
 if st.session_state.view_mode == "home":
     st.title("🏓 Tischtennis-Dashboard")
-    # Mobile: Metrics schmaler machen, damit sie in einer Zeile bleiben
+    # Mobile: Metrics schmaler machen, damit sie in einer Zeile bleiben und Schriftgrößen anpassen
     st.markdown(
         """
         <style>
-        /* Force each metric to take ~30% width so three fit in one row */
+        /* Flex setting for metrics */
         [data-testid="metric-container"] {
             flex: none !important;
             width: 30% !important;
-            max-width: 30% !important;
-            min-width: 0 !important;
             padding: 0.2rem !important;
+        }
+        /* Label smaller */
+        [data-testid="metric-container"] p:nth-of-type(1) {
+            font-size: 0.8rem !important;
+        }
+        /* Wert (ELO) etwas kleiner */
+        [data-testid="metric-container"] p:nth-of-type(2) {
+            font-size: 1.2rem !important;
         }
         </style>
         """,
