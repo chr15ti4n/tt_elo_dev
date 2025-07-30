@@ -615,6 +615,14 @@ if st.session_state.view_mode == "home":
             font-size: 1.2rem !important;
             line-height: 1.1 !important;
         }
+        /* Leaderboards: kleinere Schrift und kompaktere Zellen auf Mobil */
+        @media (max-width: 600px) {
+          .stDataFrame table th,
+          .stDataFrame table td {
+            font-size: 0.7rem !important;
+            padding: 0.2rem 0.3rem !important;
+          }
+        }
         </style>
         """,
         unsafe_allow_html=True,
