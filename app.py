@@ -723,20 +723,32 @@ if st.session_state.view_mode == "home":
         """,
         unsafe_allow_html=True,
     )
-    cols = st.columns([1,1,1], gap="small")
-    with cols[0]:
-        st.markdown('<div>', unsafe_allow_html=True)
-        mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel",  height=175)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with cols[1]:
-        st.markdown('<div>', unsafe_allow_html=True)
-        mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel", height=175)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with cols[2]:
-        st.markdown('<div>', unsafe_allow_html=True)
-        mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf",height=175)
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Drei Leaderboards als HTML-Tabellen nebeneinander – responsive auch auf Mobil
+    # Erzeuge die DataFrame-Teilabschnitte
+    df_single = players[players.Spiele > 0][["Name", "ELO"]].rename(columns={"ELO": "ELO"}).sort_values("ELO", ascending=False)
+    df_double = players[players.D_Spiele > 0][["Name", "D_ELO"]].rename(columns={"D_ELO": "ELO"}).sort_values("ELO", ascending=False)
+    df_round  = players[players.R_Spiele > 0][["Name", "R_ELO"]].rename(columns={"R_ELO": "ELO"}).sort_values("ELO", ascending=False)
+
+    # Konvertiere zu HTML
+    html_single = df_single.to_html(index=False, classes="mini-table", border=0)
+    html_double = df_double.to_html(index=False, classes="mini-table", border=0)
+    html_round  = df_round.to_html(index=False, classes="mini-table", border=0)
+
+    # Flex-Container mit horizontalem Scroll
+    html = f"""
+    <div style="display:flex; gap:0.25rem; overflow-x:auto; white-space:nowrap;">
+      <div style="flex:none; min-width:80px;">{html_single}</div>
+      <div style="flex:none; min-width:80px;">{html_double}</div>
+      <div style="flex:none; min-width:80px;">{html_round}</div>
+    </div>
+    <style>
+    .mini-table th, .mini-table td {{
+        font-size:0.6rem;
+        padding:0.2rem 0.3rem;
+    }}
+    </style>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
     st.divider()
     # --- Pending Confirmation Counts ------------------------------
