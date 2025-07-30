@@ -764,12 +764,12 @@ if st.session_state.view_mode == "home":
     <style>
     /* Rounded corners and subtle shadow for all tables */
     .total-table-container,
-    .mini-table-container {
+    .mini-table-container {{
         border-radius: 8px !important;
         overflow: hidden !important;
         box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
         margin-bottom: 1rem;
-    }
+    }}
     .total-table-container .total-table {{
         width: 100% !important;
         table-layout: auto !important;
