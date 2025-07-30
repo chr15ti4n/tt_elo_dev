@@ -668,15 +668,21 @@ if st.session_state.view_mode == "home":
         styled = tab.style.apply(_highlight, axis=1)
 
         st.subheader(title)
-        st.dataframe(styled, hide_index=True, width=350, height=height)
+        st.dataframe(styled, hide_index=True, width=True, height=height)
     
     # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
     active = players[(players["Spiele"] > 0) | (players["D_Spiele"] > 0) | (players["R_Spiele"] > 0)]
+    # Gesamt-ELO ganz oben
     mini_lb(active, "G_ELO", "Gesamt – Ranking")
 
-    mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel – Ranking", height=175)
-    mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel – Ranking", height=175)
-    mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf – Ranking", height=175)
+    # Einzel/Doppel/Rundlauf nebeneinander
+    cols = st.columns(3, gap="small")
+    with cols[0]:
+        mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel – Ranking",  height=175)
+    with cols[1]:
+        mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel – Ranking", height=175)
+    with cols[2]:
+        mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf – Ranking",height=175)
 
     st.divider()
     # --- Pending Confirmation Counts ------------------------------
