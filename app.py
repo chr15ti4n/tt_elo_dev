@@ -652,40 +652,36 @@ if st.session_state.view_mode == "home":
     st.markdown(
         f"""
         <div style="text-align:center; margin:1rem 0;">
-          <div style="font-size:0.8rem; color:var(--text-secondary);">Gesamt‑ELO</div>
+          <div style="font-size:0.8rem; color:var(--text-secondary);">ELO</div>
           <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
         </div>
         """, unsafe_allow_html=True
     )
 
-    # Mitte: Doppel‑ELO, zentriert
-    st.markdown(
-        f"""
-        <div style="text-align:center; margin:2rem 0;">
-          <div style="font-size:0.8rem; color:var(--text-secondary);">Doppel‑ELO</div>
-          <div style="font-size:2.5rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
-        </div>
-        """, unsafe_allow_html=True
-    )
-
-    # Unten: Einzel und Rundlauf nebeneinander um die Mitte herum
     cols = st.columns(3)
     with cols[0]:
         st.markdown(
             f"""
             <div style="text-align:center;">
-              <div style="font-size:0.8rem; color:var(--text-secondary);">Einzel‑ELO</div>
+              <div style="font-size:0.8rem; color:var(--text-secondary);">Einzel</div>
               <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
             </div>
             """, unsafe_allow_html=True
         )
     with cols[1]:
-        st.write("")  # leerer Spacer
+        st.markdown(
+            f"""
+            <div style="text-align:center; margin:2rem 0;">
+            <div style="font-size:0.8rem; color:var(--text-secondary);">Doppel</div>
+            <div style="font-size:2.5rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+            </div>
+        """, unsafe_allow_html=True
+        )
     with cols[2]:
         st.markdown(
             f"""
             <div style="text-align:center;">
-              <div style="font-size:0.8rem; color:var(--text-secondary);">Rundlauf‑ELO</div>
+              <div style="font-size:0.8rem; color:var(--text-secondary);">Rundlauf</div>
               <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
             </div>
             """, unsafe_allow_html=True
