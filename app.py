@@ -626,21 +626,21 @@ if st.session_state.view_mode == "home":
     html = f"""
     <!-- Gesamt-ELO zentriert -->
     <div style="text-align:center; margin-bottom:1rem;">
-      <p style="font-size:0.8rem; margin:0;">Gesamt-ELO</p>
+      <p style="font-size:1.2rem; margin:0;">Gesamt-ELO</p>
       <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.G_ELO)}</p>
     </div>
     <!-- Einzel/Doppel/Rundlauf nebeneinander -->
     <div style="display:flex; gap:1rem; justify-content:center;">
       <div style="flex:1; min-width:0; text-align:center;">
-        <p style="font-size:0.8rem; margin:0;">Einzel</p>
+        <p style="font-size:1.2rem; margin:0;">Einzel</p>
         <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.ELO)}</p>
       </div>
       <div style="flex:1; min-width:0; text-align:center;">
-        <p style="font-size:0.8rem; margin:0;">Doppel</p>
+        <p style="font-size:1.2rem; margin:0;">Doppel</p>
         <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.D_ELO)}</p>
       </div>
       <div style="flex:1; min-width:0; text-align:center;">
-        <p style="font-size:0.8rem; margin:0;">Rundlauf</p>
+        <p style="font-size:1.2rem; margin:0;">Rundlauf</p>
         <p style="font-size:1.8rem; margin:0; font-weight:bold;">{int(user.R_ELO)}</p>
       </div>
     </div>
