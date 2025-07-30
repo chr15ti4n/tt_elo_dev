@@ -680,66 +680,40 @@ if st.session_state.view_mode == "home":
             f"<h4 style='font-size:1rem; margin:0.5rem 0 0.25rem;'>{title}</h4>",
             unsafe_allow_html=True
         )
-        st.dataframe(styled, hide_index=True, use_container_width=True, height=height)
+        st.dataframe(styled, hide_index=True, width=120, height=height)
     
     # Nur Spieler mit mindestens einem Spiel in Einzel, Doppel oder Rundlauf
     active = players[(players["Spiele"] > 0) | (players["D_Spiele"] > 0) | (players["R_Spiele"] > 0)]
     # Gesamt-ELO ganz oben
     mini_lb(active, "G_ELO", "Gesamt Leaderboard")
 
-    # Drei Leaderboards per flexiblem HTML nebeneinander anzeigen
-    lb_dfs = [
-        (
-            players[players.Spiele > 0][["Name", "ELO"]]
-                .sort_values("ELO", ascending=False)
-                .to_html(index=False, border=0, classes="mini-table"),
-            "Einzel",
-        ),
-        (
-            players[players.D_Spiele > 0][["Name", "D_ELO"]]
-                .rename(columns={"D_ELO": "ELO"})
-                .sort_values("ELO", ascending=False)
-                .to_html(index=False, border=0, classes="mini-table"),
-            "Doppel",
-        ),
-        (
-            players[players.R_Spiele > 0][["Name", "R_ELO"]]
-                .rename(columns={"R_ELO": "ELO"})
-                .sort_values("ELO", ascending=False)
-                .to_html(index=False, border=0, classes="mini-table"),
-            "Rundlauf",
-        ),
-    ]
+    # Tabellen-Schrift und Padding so klein wie möglich
+    st.markdown(
+        """
+        <style>
+        .stDataFrame table {
+            table-layout: fixed !important;
+            width: auto !important;
+        }
+        .stDataFrame table th, .stDataFrame table td {
+            font-size: 0.5rem !important;
+            padding: 0.1rem 0.1rem !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # HTML-Container bauen
-    html = '<div style="display:flex; gap:1rem; justify-content:center; overflow-x:auto;">'
-    for table_html, title in lb_dfs:
-        html += f'''
-        <div style="flex:1; min-width:120px; text-align:center;">
-          <h4 style="font-size:1rem; margin:0.5rem 0;">{title}</h4>
-          {table_html}
-        </div>
-        '''
-    html += '</div>'
-
-    # CSS für kompakte Tabellen
-    html += """
-    <style>
-    .mini-table th, .mini-table td {
-        font-size:0.7rem;
-        padding:0.2rem;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-    }
-    .mini-table {
-        table-layout: fixed;
-        width: 100%;
-    }
-    </style>
-    """
-
-    st.markdown(html, unsafe_allow_html=True)
+    cols = st.columns(3, gap="small")
+    with cols[0]:
+        mini_lb(players[players.Spiele   > 0], "ELO",   "Einzel",  height=175)
+    with cols[1]:
+        mini_lb(players[players.D_Spiele > 0], "D_ELO", "Doppel", height=175)
+    with cols[2]:
+        mini_lb(players[players.R_Spiele > 0], "R_ELO", "Rundlauf", height=175)
 
     st.divider()
     # --- Pending Confirmation Counts ------------------------------
