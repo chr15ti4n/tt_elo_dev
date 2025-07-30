@@ -741,18 +741,9 @@ if st.session_state.view_mode == "home":
     st.subheader("Modus Leaderboards")
     html = f"""
     <div style="display:flex; width:100%; gap:1rem;">
-      <div style="flex:1 1 auto; min-width:0; text-align:center;">
-        <div style="font-size:1rem; font-weight:bold; margin-bottom:0.5rem;">Einzel</div>
-        {html_single}
-      </div>
-      <div style="flex:1 1 auto; min-width:0; text-align:center;">
-        <div style="font-size:1rem; font-weight:bold; margin-bottom:0.5rem;">Doppel</div>
-        {html_double}
-      </div>
-      <div style="flex:1 1 auto; min-width:0; text-align:center;">
-        <div style="font-size:1rem; font-weight:bold; margin-bottom:0.5rem;">Rundlauf</div>
-        {html_round}
-      </div>
+      <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_single}</div>
+      <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_double}</div>
+      <div style="flex:1 1 auto; min-width:0; text-align:center;">{html_round}</div>
     </div>
     <style>
     .total-table-container .total-table {{
