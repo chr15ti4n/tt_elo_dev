@@ -1127,10 +1127,32 @@ if st.session_state.view_mode == "home":
 if st.session_state.view_mode == "regeln":
     rules_html = """
     <style>
-    .rulebox {font-size:18px; line-height:1.45;}
-    .rulebox h2 {font-size:24px; margin:1.2em 0 .5em;}
-    .rulebox h3 {font-size:20px; margin:1.0em 0 .3em;}
-    .rulebox ul {margin:0 0 1em 1.3em; list-style:disc;}
+    .rulebox {
+      font-size: 18px;
+      line-height: 1.45;
+      padding: 1rem;
+      border-radius: 8px;
+      background-color: rgba(255,255,255,0.9);
+      color: #000;
+    }
+    .rulebox h2 {
+      font-size: 24px;
+      margin: 1.2em 0 0.5em;
+    }
+    .rulebox h3 {
+      font-size: 20px;
+      margin: 1em 0 0.3em;
+    }
+    .rulebox ul {
+      margin: 0 0 1em 1.3em;
+      list-style: disc;
+    }
+    @media (prefers-color-scheme: dark) {
+      .rulebox {
+        background-color: rgba(33,33,33,0.85);
+        color: #fff;
+      }
+    }
     </style>
 
     <div class="rulebox">
