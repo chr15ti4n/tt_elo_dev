@@ -623,6 +623,15 @@ if st.session_state.view_mode == "home":
             padding: 0.2rem 0.3rem !important;
           }
         }
+        /* Spaltenzeilen: nicht umbrechen, horizontal scroll */
+        [data-testid="stColumns"] {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+        }
+        [data-testid="stColumn"] {
+            min-width: 100px !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
