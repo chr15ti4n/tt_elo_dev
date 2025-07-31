@@ -649,7 +649,7 @@ if st.session_state.view_mode == "home":
             (matches["A"] == current_player) | (matches["B"] == current_player)
         ].sort_values("Datum", ascending=False).head(5)
         if not recent.empty:
-            st.subheader("Letzte 5 Spiele")
+            st.subheader("Meine letzten 5 Spiele")
             st.table(recent[["Datum", "A", "PunkteA", "PunkteB", "B"]])
 
     # Tab 2: Match-Eintrag und Bestätigung (wie bisher)
