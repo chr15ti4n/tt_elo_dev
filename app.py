@@ -727,6 +727,20 @@ if st.session_state.view_mode == "home":
                 ])
                 st.table(styler_disp)
 
+        # Persönliche Statistiken des eingeloggten Spielers (unabhängig von den Sortier-Tabs)
+        st.markdown("---")
+        st.subheader("Meine Statistiken")
+        cols_stat = st.columns(4)
+        cols_stat[0].metric("Einzel-Spiele", int(user.Spiele))
+        cols_stat[1].metric("Einzel-Siege", int(user.Siege))
+        cols_stat[2].metric("Doppel-Spiele", int(user.D_Spiele))
+        cols_stat[3].metric("Doppel-Siege", int(user.D_Siege))
+        cols_stat2 = st.columns(4)
+        cols_stat2[0].metric("Rundlauf-Spiele", int(user.R_Spiele))
+        cols_stat2[1].metric("Rundlauf-Siege", int(user.R_Siege))
+        cols_stat2[2].metric("Gesamt-Spiele", int(user.Spiele + user.D_Spiele + user.R_Spiele))
+        cols_stat2[3].metric("Gesamt-Siege", int(user.Siege + user.D_Siege + user.R_Siege))
+
 
     st.stop()
 # endregion
