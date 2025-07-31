@@ -838,12 +838,9 @@ if st.session_state.view_mode == "home":
                 streak += 1
             else:
                 break
-        # Zentriere die Winning-Streak-Metric mittig auf der Seite
+        # Zentriere die Winning-Streak-Metric
         cols_center = st.columns([1, 1, 1])
-        with cols_center[1]:
-            st.markdown("<div style='display:flex; justify-content:center;'>", unsafe_allow_html=True)
-            st.metric("Aktuelle Winning-Streak", f"{streak}🔥 Siege")
-            st.markdown("</div>", unsafe_allow_html=True)
+        cols_center[1].metric("Aktuelle Winning-Streak", f"{streak}🔥 Siege")
 
 
     st.stop()
