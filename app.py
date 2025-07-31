@@ -669,6 +669,18 @@ if st.session_state.view_mode == "home":
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
         st.subheader("ELO-Übersicht")
+        # CSS, um die Index-Spalte in statischen Tabellen auszublenden
+        st.markdown(
+            """
+            <style>
+            .stTable table tr th:first-child,
+            .stTable table tr td:first-child {
+                display: none;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
         for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
