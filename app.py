@@ -1358,9 +1358,15 @@ if st.session_state.view_mode == "turniermodus":
     tab_create, tab_join = st.tabs(["Turnier erstellen", "Turnier beitreten"])
     with tab_create:
         turnier_name = st.text_input("Turniername")
-        turnier_time = st.datetime_input(
-            "Datum & Uhrzeit", value=datetime.now(ZoneInfo("Europe/Berlin"))
+        # Datum und Uhrzeit separat erfassen (st.datetime_input gibt es nicht)
+        turnier_date = st.date_input(
+            "Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date()
         )
+        turnier_time_input = st.time_input(
+            "Uhrzeit", value=datetime.now(ZoneInfo("Europe/Berlin")).timetz().replace(second=0, microsecond=0)
+        )
+        # Kombiniertes datetime-Objekt erstellen
+        turnier_time = datetime.combine(turnier_date, turnier_time_input).astimezone(ZoneInfo("Europe/Berlin"))
         turnier_note = st.text_area("Notiz (optional)")
         turnier_limit = st.number_input(
             "Maximale Teilnehmer (0 = unbegrenzt)",
