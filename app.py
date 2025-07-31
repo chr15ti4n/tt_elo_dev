@@ -687,20 +687,9 @@ if st.session_state.view_mode == "home":
                 # Nach gewähltem Metric absteigend sortieren
                 col_name = ["Gesamt", "Einzel", "Doppel", "Rundlauf"][idx]
                 df_tab = df_tab.sort_values(col_name, ascending=False)
-                # Highlight aktiven Spieler
-                def highlight_current(row):
-                    return [
-                        "background-color: #ADD8E6; color: black"
-                        if row["Name"] == current_player else ""
-                        for _ in row
-                    ]
-                styled_tab = df_tab.style.apply(highlight_current, axis=1)
-                # Interaktive Tabelle anzeigen und Index ausblenden
-                st.dataframe(
-                    styled_tab,
-                    use_container_width=True,
-                    hide_index=True
-                )
+                # Statische Tabelle ohne Index, nach Tab sortiert
+                df_disp = df_tab.reset_index(drop=True)
+                st.table(df_disp)
 
 
     st.stop()
