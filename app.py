@@ -681,14 +681,47 @@ if st.session_state.view_mode == "home":
             """,
             unsafe_allow_html=True
         )
-        # ELO-Werte anzeigen
-        cols_center_e = st.columns([1, 1, 1])
-        with cols_center_e[1]:
-            st.metric("Gesamt-ELO", int(user.G_ELO))
-        ecols = st.columns(3)
-        ecols[0].metric("Einzel-ELO", int(user.ELO))
-        ecols[1].metric("Doppel-ELO", int(user.D_ELO))
-        ecols[2].metric("Rundlauf-ELO", int(user.R_ELO))
+        # ELO-Übersicht optisch wie im Dashboard
+        st.markdown(
+            f"""
+            <div style="text-align:center; margin:1rem 0;">
+              <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
+              <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        cols = st.columns(3)
+        with cols[0]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                  <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with cols[1]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                  <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with cols[2]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                  <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
         # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
