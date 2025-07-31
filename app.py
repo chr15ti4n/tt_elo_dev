@@ -38,6 +38,8 @@ PENDING_D = Path("pending_doubles.csv")
 DOUBLES   = Path("doubles.csv")
 PENDING_R = Path("pending_rounds.csv")  
 ROUNDS    = Path("rounds.csv")          
+# Turniermodus
+TOURNAMENTS = Path("tournaments.csv")
 # endregion
 
 
@@ -276,6 +278,12 @@ if "confirmed_by" not in pending_r.columns:
         pending_r["confirmed_by"] = ""
     save_csv(pending_r, PENDING_R)
 rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
+
+# Turniere laden
+tournaments = load_or_create(TOURNAMENTS, ["ID","Name","Creator","Time","Note","Limit","Teilnehmer"])
+if "Teilnehmer" not in tournaments.columns:
+    tournaments["Teilnehmer"] = ""
+    save_csv(tournaments, TOURNAMENTS)
 
 # Ensure confA/confB are boolean for logical operations
 pending["confA"]   = pending["confA"].astype(bool)
@@ -1343,9 +1351,62 @@ if st.session_state.view_mode == "regeln":
 # region Turniermodus Ansicht
 if st.session_state.view_mode == "turniermodus":
     st.markdown(
-        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏆 Turnier</h1>',
+        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏆 Turniermodus</h1>',
         unsafe_allow_html=True
     )
-    st.write("🚧 In Arbeit 🚧")
+    # Zwei Tabs: Erstellen vs. Beitreten
+    tab_create, tab_join = st.tabs(["Turnier erstellen", "Turnier beitreten"])
+    with tab_create:
+        turnier_name = st.text_input("Turniername")
+        turnier_time = st.datetime_input(
+            "Datum & Uhrzeit", value=datetime.now(ZoneInfo("Europe/Berlin"))
+        )
+        turnier_note = st.text_area("Notiz (optional)")
+        turnier_limit = st.number_input(
+            "Maximale Teilnehmer (0 = unbegrenzt)",
+            min_value=0, value=0, step=1
+        )
+        if st.button("Turnier erstellen"):
+            # Neuen Eintrag mit Kurz-ID anlegen
+            import uuid
+            tid = uuid.uuid4().hex[:8]
+            tournaments.loc[len(tournaments)] = [
+                tid,
+                turnier_name,
+                current_player,
+                turnier_time.isoformat(),
+                turnier_note,
+                int(turnier_limit),
+                current_player
+            ]
+            save_csv(tournaments, TOURNAMENTS)
+            st.success("Turnier erstellt!")
+            st.experimental_rerun()
+    with tab_join:
+        if tournaments.empty:
+            st.info("Noch keine Turniere verfügbar.")
+        else:
+            for idx, row in tournaments.iterrows():
+                cols = st.columns([3,1])
+                cols[0].markdown(
+                    f"**{row['Name']}** von {row['Creator']}<br>"
+                    f"{row['Time']}<br>"
+                    f"Teilnehmer: {len(row['Teilnehmer'].split(';'))}"
+                    , unsafe_allow_html=True
+                )
+                # Teilnahme prüfen
+                parts = row["Teilnehmer"].split(";") if row["Teilnehmer"] else []
+                if current_player not in parts:
+                    if row["Limit"] == 0 or len(parts) < row["Limit"]:
+                        if cols[1].button("Beitreten", key=f"join_{idx}"):
+                            parts.append(current_player)
+                            tournaments.at[idx, "Teilnehmer"] = ";".join(parts)
+                            save_csv(tournaments, TOURNAMENTS)
+                            st.success("Beigetreten!")
+                            st.experimental_rerun()
+                    else:
+                        cols[1].write("🔒 Voll")
+                else:
+                    cols[1].write("✅ Drin")
     st.stop()
 # endregion
