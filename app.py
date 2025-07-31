@@ -649,7 +649,7 @@ if st.session_state.view_mode == "home":
             (matches["A"] == current_player) | (matches["B"] == current_player)
         ].sort_values("Datum", ascending=False).head(5)
         if not recent.empty:
-            st.subheader("Meine letzten 5 Spiele")
+            st.subheader("Letzten 5 Spiele")
             st.table(recent[["Datum", "A", "PunkteA", "PunkteB", "B"]])
 
     # Tab 2: Match-Eintrag und Bestätigung (wie bisher)
@@ -812,7 +812,7 @@ if st.session_state.view_mode == "home":
         # Vereinigen, sortieren und letzte 5 anzeigen
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
         last5 = comb_df.head(5).reset_index(drop=True)
-        st.subheader("Letzte 5 Matches")
+        st.subheader("Meine letzten 5 Spiele")
         st.table(last5[["Modus", "Gegner", "Ergebnis"]])
         # CSS: Gegner-Spalte komprimieren, Modus und Ergebnis expandieren, Tabelle zentrieren
         st.markdown(
