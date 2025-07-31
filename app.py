@@ -688,10 +688,8 @@ if st.session_state.view_mode == "home":
                 col_name = ["Gesamt", "Einzel", "Doppel", "Rundlauf"][idx]
                 df_tab = df_tab.sort_values(col_name, ascending=False)
                 # Statische Tabelle ohne Index, nach Tab sortiert
-                # Index ausblenden via Styler
                 df_disp = df_tab.reset_index(drop=True)
-                styled_disp = df_disp.style.hide_index()
-                st.table(styled_disp)
+                st.table(df_disp)
 
 
     st.stop()
