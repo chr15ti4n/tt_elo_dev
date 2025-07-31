@@ -1349,23 +1349,22 @@ if st.session_state.view_mode == "regeln":
 # endregion
 
 # region Turniermodus Ansicht
+# region Turniermodus Ansicht
 if st.session_state.view_mode == "turniermodus":
     st.markdown(
         '<h1 style="text-align:center; margin-bottom:0.25rem;">🏆 Turniermodus</h1>',
         unsafe_allow_html=True
     )
-    # Zwei Tabs: Erstellen vs. Beitreten
-    tab_create, tab_join = st.tabs(["Turnier erstellen", "Turnier beitreten"])
-    with tab_create:
+    # Expander zum Erstellen eines Turniers
+    with st.expander("Turnier erstellen", expanded=True):
         turnier_name = st.text_input("Turniername")
-        # Datum und Uhrzeit separat erfassen (st.datetime_input gibt es nicht)
+        # Datum und Uhrzeit separat erfassen
         turnier_date = st.date_input(
             "Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date()
         )
         turnier_time_input = st.time_input(
             "Uhrzeit", value=datetime.now(ZoneInfo("Europe/Berlin")).timetz().replace(second=0, microsecond=0)
         )
-        # Kombiniertes datetime-Objekt erstellen
         turnier_time = datetime.combine(turnier_date, turnier_time_input).astimezone(ZoneInfo("Europe/Berlin"))
         turnier_note = st.text_area("Notiz (optional)")
         turnier_limit = st.number_input(
@@ -1373,9 +1372,11 @@ if st.session_state.view_mode == "turniermodus":
             min_value=0, value=0, step=1
         )
         if st.button("Turnier erstellen"):
-            # Neuen Eintrag mit Kurz-ID anlegen
             import uuid
             tid = uuid.uuid4().hex[:8]
+            # Ensure Started column exists
+            if "Started" not in tournaments.columns:
+                tournaments["Started"] = False
             tournaments.loc[len(tournaments)] = [
                 tid,
                 turnier_name,
@@ -1383,25 +1384,28 @@ if st.session_state.view_mode == "turniermodus":
                 turnier_time.isoformat(),
                 turnier_note,
                 int(turnier_limit),
-                current_player
+                current_player,
+                False
             ]
             save_csv(tournaments, TOURNAMENTS)
             st.success("Turnier erstellt!")
             st.rerun()
-    with tab_join:
+    # Expander zum Beitreten bestehender Turniere
+    with st.expander("Turnier beitreten", expanded=False):
         if tournaments.empty:
             st.info("Noch keine Turniere verfügbar.")
         else:
             for idx, row in tournaments.iterrows():
+                parts = row["Teilnehmer"].split(";") if row["Teilnehmer"] else []
                 cols = st.columns([3,1])
+                # Turnier-Info
                 cols[0].markdown(
                     f"**{row['Name']}** von {row['Creator']}<br>"
                     f"{row['Time']}<br>"
-                    f"Teilnehmer: {len(row['Teilnehmer'].split(';'))}"
+                    f"Teilnehmer: {len(parts)}"
                     , unsafe_allow_html=True
                 )
-                # Teilnahme prüfen
-                parts = row["Teilnehmer"].split(";") if row["Teilnehmer"] else []
+                # Join-Button, Voll-Status oder schon beigetreten
                 if current_player not in parts:
                     if row["Limit"] == 0 or len(parts) < row["Limit"]:
                         if cols[1].button("Beitreten", key=f"join_{idx}"):
@@ -1413,6 +1417,14 @@ if st.session_state.view_mode == "turniermodus":
                     else:
                         cols[1].write("🔒 Voll")
                 else:
-                    cols[1].write("✅ Drin")
+                    cols[1].write("✅ Beigetreten")
+                # Ersteller kann ab 4 Teilnehmern starten
+                if row["Creator"] == current_player and len(parts) >= 4 and not row.get("Started", False):
+                    if cols[1].button("Turnier starten", key=f"start_{idx}"):
+                        tournaments.at[idx, "Started"] = True
+                        save_csv(tournaments, TOURNAMENTS)
+                        st.success("Turnier gestartet!")
+                        st.rerun()
     st.stop()
+# endregion
 # endregion
