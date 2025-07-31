@@ -838,7 +838,9 @@ if st.session_state.view_mode == "home":
                 streak += 1
             else:
                 break
-        st.metric("Aktuelle Winning-Streak", f"{streak}🔥 Siege")
+        # Zentriere die Winning-Streak-Metric
+        cols_center = st.columns([1, 1, 1])
+        cols_center[1].metric("Aktuelle Winning-Streak", f"{streak}🔥 Siege")
 
 
     st.stop()
