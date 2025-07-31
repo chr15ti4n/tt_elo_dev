@@ -695,9 +695,10 @@ if st.session_state.view_mode == "home":
                         for _ in row
                     ]
                 styled_tab = df_tab.style.apply(highlight_current, axis=1)
-                # Index ausblenden und Tabelle anzeigen
+                # Index ausblenden
                 styled_tab = styled_tab.hide_index()
-                st.table(styled_tab)
+                # Tabelle interaktiv anzeigen, sortiert nach der Tab-Auswahl
+                st.dataframe(styled_tab, use_container_width=True)
 
 
     st.stop()
