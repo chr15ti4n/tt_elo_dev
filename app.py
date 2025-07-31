@@ -678,9 +678,9 @@ if st.session_state.view_mode == "home":
         })
         st.subheader("ELO-Übersicht")
         # Nach Gesamt-ELO sortieren
-        df_stats = df_stats.sort_values("Gesamt-ELO", ascending=False)
+        df_stats = df_stats.sort_values("Gesamt", ascending=False)
         # ELO-Werte als Ganzzahlen
-        for col in ["Gesamt-ELO", "Einzel-ELO", "Doppel-ELO", "Rundlauf-ELO"]:
+        for col in ["Gesamt", "Einzel", "Doppel", "Rundlauf"]:
             df_stats[col] = df_stats[col].astype(int)
         # Interaktive, sortierbare Tabelle ohne Index
         st.dataframe(df_stats, use_container_width=True, hide_index=True)
