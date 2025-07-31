@@ -668,6 +668,17 @@ if st.session_state.view_mode == "home":
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
+        # Übersichtstabelle aller Ratings
+        df_stats = players[["Name", "G_ELO", "ELO", "D_ELO", "R_ELO"]].copy()
+        df_stats = df_stats.rename(columns={
+            "G_ELO": "Gesamt-ELO",
+            "ELO": "Einzel-ELO",
+            "D_ELO": "Doppel-ELO",
+            "R_ELO": "Rundlauf-ELO"
+        })
+        st.subheader("ELO-Übersicht")
+        st.table(df_stats.sort_values("Gesamt-ELO", ascending=False))
+
         # Gesamt- und Modus-Leaderboards
         active = players[
             (players.Spiele > 0)
