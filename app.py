@@ -19,7 +19,9 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo 
+# region Imports
 import bcrypt
+import matplotlib.pyplot as plt
 # QR-Code generation
 import qrcode
 # Google Sheets
@@ -754,6 +756,50 @@ if st.session_state.view_mode == "home":
         )
         # Statische Tabelle ohne Index
         st.table(stats)
+
+        # ELO-Verlauf pro Modus als Graph übereinander
+        # Einzel-Verlauf
+        base_single = players.copy()
+        # Reset Einzel-Stats
+        base_single["ELO"] = 1200
+        base_single[["Siege", "Niederlagen", "Spiele"]] = 0
+        single_sorted = matches[(matches["A"] == current_player) | (matches["B"] == current_player)].sort_values("Datum")
+        elos_single = [1200]
+        for i in range(1, len(single_sorted) + 1):
+            part = single_sorted.head(i)
+            new_players = rebuild_players(base_single, part)
+            elos_single.append(int(new_players.loc[new_players.Name == current_player, "ELO"].iat[0]))
+        # Doppel-Verlauf
+        base_double = players.copy()
+        base_double["D_ELO"] = 1200
+        base_double[["D_Siege", "D_Niederlagen", "D_Spiele"]] = 0
+        double_sorted = doubles[(doubles["A1"] == current_player) | (doubles["A2"] == current_player) |
+                                 (doubles["B1"] == current_player) | (doubles["B2"] == current_player)].sort_values("Datum")
+        elos_double = [1200]
+        for i in range(1, len(double_sorted) + 1):
+            part = double_sorted.head(i)
+            new_players = rebuild_players_d(base_double, part)
+            elos_double.append(int(new_players.loc[new_players.Name == current_player, "D_ELO"].iat[0]))
+        # Rundlauf-Verlauf
+        base_round = players.copy()
+        base_round["R_ELO"] = 1200
+        base_round[["R_Siege", "R_Niederlagen", "R_Spiele"]] = 0
+        round_sorted = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].sort_values("Datum")
+        elos_round = [1200]
+        for i in range(1, len(round_sorted) + 1):
+            part = round_sorted.head(i)
+            new_players = rebuild_players_r(base_round, part)
+            elos_round.append(int(new_players.loc[new_players.Name == current_player, "R_ELO"].iat[0]))
+        # Plot erstellen
+        fig, ax = plt.subplots()
+        ax.plot(range(len(elos_single)), elos_single, label="Einzel")
+        ax.plot(range(len(elos_double)), elos_double, label="Doppel")
+        ax.plot(range(len(elos_round)), elos_round, label="Rundlauf")
+        ax.set_title("ELO-Verlauf pro Spiel für alle Modi")
+        ax.set_xlabel("Anzahl Spiele")
+        ax.set_ylabel("ELO")
+        ax.legend()
+        st.pyplot(fig)
 
 
     st.stop()
