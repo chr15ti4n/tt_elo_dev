@@ -683,6 +683,17 @@ if st.session_state.view_mode == "home":
         )
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
+        # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
+        st.markdown(
+            """
+            <style>
+            [role="tablist"] > [role="tab"] {
+                flex: 1 !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
             with sub_tabs[idx]:
                 # Tabelle vorbereiten
