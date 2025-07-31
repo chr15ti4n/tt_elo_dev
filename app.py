@@ -813,7 +813,7 @@ if st.session_state.view_mode == "home":
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Letzte 5 Matches (modusunabhängig)")
-        st.table(last5[["Datum", "Modus", "Gegner", "Ergebnis"]])
+        st.table(last5[["Modus", "Gegner", "Ergebnis"]])
 
         # Aktuelle Win-Streak berechnen
         streak = 0
@@ -1072,3 +1072,4 @@ if st.session_state.view_mode == "turniermodus":
     st.stop()
 # endregion
 
+ 
