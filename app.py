@@ -813,23 +813,9 @@ if st.session_state.view_mode == "home":
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Letzte 5 Matches")
-        st.table(last5[["Modus", "Gegner", "Ergebnis"]])
-        # CSS: Gegner-Spalte komprimieren, Modus und Ergebnis expandieren, Tabelle zentrieren
-        st.markdown(
-            """
-            <style>
-            .stTable table {
-                margin-left: auto !important;
-                margin-right: auto !important;
-            }
-            .stTable table td:nth-child(2), .stTable table th:nth-child(2) {
-                width: 1% !important;
-                white-space: nowrap;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
+        # Zentriere die letzte-5-Matches-Tabelle
+        cols_last5 = st.columns([1, 2, 1])
+        cols_last5[1].table(last5[["Modus", "Gegner", "Ergebnis"]])
 
         # Aktuelle Win-Streak berechnen
         streak = 0
