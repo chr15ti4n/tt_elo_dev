@@ -752,7 +752,8 @@ if st.session_state.view_mode == "home":
             axis=1
         )
         # Statische Tabelle ohne Index
-        st.table(stats)
+        html = stats.to_html(index=False)
+        st.markdown(f'<div style="display:flex; justify-content:flex-end;">{html}</div>', unsafe_allow_html=True)
 
 
     st.stop()
