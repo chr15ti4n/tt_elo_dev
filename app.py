@@ -814,6 +814,18 @@ if st.session_state.view_mode == "home":
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Letzte 5 Matches (modusunabhängig)")
         st.table(last5[["Modus", "Gegner", "Ergebnis"]])
+        # CSS: Gegner-Spalte komprimieren, Modus und Ergebnis expandieren
+        st.markdown(
+            """
+            <style>
+            .stTable table td:nth-child(2), .stTable table th:nth-child(2) {
+                width: 1% !important;
+                white-space: nowrap;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
 
         # Aktuelle Win-Streak berechnen
         streak = 0
