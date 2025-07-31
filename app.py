@@ -727,7 +727,7 @@ if st.session_state.view_mode == "home":
                 ])
                 st.table(styler_disp)
 
-        # Persönliche Statistiken in kompakter Tabelle (Kategorie, Spiele, Siege, Siegquote %)
+        # Persönliche Statistiken in kompakter Tabelle (Kategorie, Spiele, Siege, Winrate)
         st.markdown("---")
         st.subheader("Meine Statistiken")
         # DataFrame mit persönlichen Werten
@@ -746,9 +746,9 @@ if st.session_state.view_mode == "home":
                 int(user.Siege + user.D_Siege + user.R_Siege)
             ]
         })
-        # Siegquote in Prozent berechnen
-        stats["Siegquote (%)"] = stats.apply(
-            lambda row: round((row["Siege"] / row["Spiele"]) * 100, 1) if row["Spiele"] > 0 else 0,
+        # Winrate in Prozent berechnen (ganzzahlig)
+        stats["Winrate"] = stats.apply(
+            lambda row: int(round((row["Siege"] / row["Spiele"]) * 100)) if row["Spiele"] > 0 else 0,
             axis=1
         )
         # Statische Tabelle ohne Index
