@@ -746,9 +746,9 @@ if st.session_state.view_mode == "home":
                 int(user.Siege + user.D_Siege + user.R_Siege)
             ]
         })
-        # Winrate in Prozent berechnen (ganzzahlig)
+        # Winrate in Prozent berechnen (ganzzahlig) mit Prozentzeichen
         stats["Winrate"] = stats.apply(
-            lambda row: int(round((row["Siege"] / row["Spiele"]) * 100)) if row["Spiele"] > 0 else 0,
+            lambda row: f"{int(round((row['Siege'] / row['Spiele']) * 100))}%" if row["Spiele"] > 0 else "0%",
             axis=1
         )
         # Statische Tabelle ohne Index
