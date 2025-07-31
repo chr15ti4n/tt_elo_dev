@@ -668,6 +668,11 @@ if st.session_state.view_mode == "home":
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
+        st.subheader("ELO-Übersicht")
+        # Sortierspalte wählen (nur absteigend)
+        sort_col = st.selectbox(
+            "Sortiere nach", ["Gesamt", "Einzel", "Doppel", "Rundlauf"], index=0
+        )
         # Übersichtstabelle aller Ratings
         df_stats = players[["Name", "G_ELO", "ELO", "D_ELO", "R_ELO"]].copy()
         df_stats = df_stats.rename(columns={
@@ -676,14 +681,20 @@ if st.session_state.view_mode == "home":
             "D_ELO": "Doppel",
             "R_ELO": "Rundlauf"
         })
-        st.subheader("ELO-Übersicht")
-        # Nach Gesamt-ELO sortieren
-        df_stats = df_stats.sort_values("Gesamt", ascending=False)
         # ELO-Werte als Ganzzahlen
         for col in ["Gesamt", "Einzel", "Doppel", "Rundlauf"]:
             df_stats[col] = df_stats[col].astype(int)
-        # Interaktive, sortierbare Tabelle ohne Index
-        st.dataframe(df_stats, use_container_width=True, hide_index=True)
+        # Daten absteigend sortieren
+        df_stats = df_stats.sort_values(sort_col, ascending=False)
+        # Highlight aktuellen Spieler
+        def highlight_current(row):
+            return [
+                "background-color: #ADD8E6; color: black"
+                if row["Name"] == current_player else ""
+                for _ in row
+            ]
+        styled = df_stats.style.apply(highlight_current, axis=1)
+        st.table(styled)
 
 
     st.stop()
