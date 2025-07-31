@@ -681,6 +681,14 @@ if st.session_state.view_mode == "home":
             """,
             unsafe_allow_html=True
         )
+        # ELO-Werte anzeigen
+        cols_center_e = st.columns([1, 1, 1])
+        with cols_center_e[1]:
+            st.metric("Gesamt-ELO", int(user.G_ELO))
+        ecols = st.columns(3)
+        ecols[0].metric("Einzel-ELO", int(user.ELO))
+        ecols[1].metric("Doppel-ELO", int(user.D_ELO))
+        ecols[2].metric("Rundlauf-ELO", int(user.R_ELO))
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
         # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
