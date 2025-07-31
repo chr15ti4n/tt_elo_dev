@@ -19,9 +19,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo 
-# region Imports
 import bcrypt
-import matplotlib.pyplot as plt
 # QR-Code generation
 import qrcode
 # Google Sheets
@@ -754,52 +752,77 @@ if st.session_state.view_mode == "home":
             if row["Spiele"] > 0 else 0,
             axis=1
         )
+
         # Statische Tabelle ohne Index
         st.table(stats)
 
-        # ELO-Verlauf pro Modus als Graph übereinander
-        # Einzel-Verlauf
-        base_single = players.copy()
-        # Reset Einzel-Stats
-        base_single["ELO"] = 1200
-        base_single[["Siege", "Niederlagen", "Spiele"]] = 0
-        single_sorted = matches[(matches["A"] == current_player) | (matches["B"] == current_player)].sort_values("Datum")
-        elos_single = [1200]
-        for i in range(1, len(single_sorted) + 1):
-            part = single_sorted.head(i)
-            new_players = rebuild_players(base_single, part)
-            elos_single.append(int(new_players.loc[new_players.Name == current_player, "ELO"].iat[0]))
-        # Doppel-Verlauf
-        base_double = players.copy()
-        base_double["D_ELO"] = 1200
-        base_double[["D_Siege", "D_Niederlagen", "D_Spiele"]] = 0
-        double_sorted = doubles[(doubles["A1"] == current_player) | (doubles["A2"] == current_player) |
-                                 (doubles["B1"] == current_player) | (doubles["B2"] == current_player)].sort_values("Datum")
-        elos_double = [1200]
-        for i in range(1, len(double_sorted) + 1):
-            part = double_sorted.head(i)
-            new_players = rebuild_players_d(base_double, part)
-            elos_double.append(int(new_players.loc[new_players.Name == current_player, "D_ELO"].iat[0]))
-        # Rundlauf-Verlauf
-        base_round = players.copy()
-        base_round["R_ELO"] = 1200
-        base_round[["R_Siege", "R_Niederlagen", "R_Spiele"]] = 0
-        round_sorted = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].sort_values("Datum")
-        elos_round = [1200]
-        for i in range(1, len(round_sorted) + 1):
-            part = round_sorted.head(i)
-            new_players = rebuild_players_r(base_round, part)
-            elos_round.append(int(new_players.loc[new_players.Name == current_player, "R_ELO"].iat[0]))
-        # Plot erstellen
-        fig, ax = plt.subplots()
-        ax.plot(range(len(elos_single)), elos_single, label="Einzel")
-        ax.plot(range(len(elos_double)), elos_double, label="Doppel")
-        ax.plot(range(len(elos_round)), elos_round, label="Rundlauf")
-        ax.set_title("ELO-Verlauf pro Spiel für alle Modi")
-        ax.set_xlabel("Anzahl Spiele")
-        ax.set_ylabel("ELO")
-        ax.legend()
-        st.pyplot(fig)
+        # Darstellung der letzten 5 Matches modusunabhängig
+        combined = []
+        # Einzelmatches
+        df_s = matches[
+            (matches["A"] == current_player) | (matches["B"] == current_player)
+        ].copy()
+        df_s["Modus"] = "Einzel"
+        df_s["Gegner"] = df_s.apply(
+            lambda r: r["B"] if r["A"] == current_player else r["A"], axis=1
+        )
+        df_s["Ergebnis"] = df_s.apply(
+            lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}" if r["A"] == current_player
+                      else f"{int(r['PunkteB'])}:{int(r['PunkteA'])}",
+            axis=1
+        )
+        df_s["Win"] = df_s.apply(
+            lambda r: (r["PunkteA"] > r["PunkteB"]) if r["A"] == current_player
+                      else (r["PunkteB"] > r["PunkteA"]),
+            axis=1
+        )
+        combined.append(df_s[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
+
+        # Doppelmatches
+        df_d = doubles[
+            (doubles["A1"] == current_player) | (doubles["A2"] == current_player)
+            | (doubles["B1"] == current_player) | (doubles["B2"] == current_player)
+        ].copy()
+        df_d["Modus"] = "Doppel"
+        df_d["Gegner"] = df_d.apply(
+            lambda r: f"{r['B1']} / {r['B2']}" if current_player in (r["A1"], r["A2"])
+                      else f"{r['A1']} / {r['A2']}",
+            axis=1
+        )
+        df_d["Ergebnis"] = df_d.apply(
+            lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}" if current_player in (r["A1"], r["A2"])
+                      else f"{int(r['PunkteB'])}:{int(r['PunkteA'])}",
+            axis=1
+        )
+        df_d["Win"] = df_d.apply(
+            lambda r: (r["PunkteA"] > r["PunkteB"]) if current_player in (r["A1"], r["A2"])
+                      else (r["PunkteB"] > r["PunkteA"]),
+            axis=1
+        )
+        combined.append(df_d[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
+
+        # Rundlaufmatches
+        df_r = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].copy()
+        df_r["Modus"] = "Rundlauf"
+        df_r["Gegner"] = df_r["Teilnehmer"].str.replace(";", " / ")
+        df_r["Ergebnis"] = df_r["Sieger"]
+        df_r["Win"] = df_r["Sieger"] == current_player
+        combined.append(df_r[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
+
+        # Vereinigen, sortieren und letzte 5 anzeigen
+        comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
+        last5 = comb_df.head(5).reset_index(drop=True)
+        st.subheader("Letzte 5 Matches (modusunabhängig)")
+        st.table(last5[["Datum", "Modus", "Gegner", "Ergebnis"]])
+
+        # Aktuelle Win-Streak berechnen
+        streak = 0
+        for _, row in comb_df.iterrows():
+            if row["Win"]:
+                streak += 1
+            else:
+                break
+        st.metric("Aktuelle Winning-Streak", f"{streak} Siege")
 
 
     st.stop()
