@@ -671,10 +671,10 @@ if st.session_state.view_mode == "home":
         # Übersichtstabelle aller Ratings
         df_stats = players[["Name", "G_ELO", "ELO", "D_ELO", "R_ELO"]].copy()
         df_stats = df_stats.rename(columns={
-            "G_ELO": "Gesamt-ELO",
-            "ELO": "Einzel-ELO",
-            "D_ELO": "Doppel-ELO",
-            "R_ELO": "Rundlauf-ELO"
+            "G_ELO": "Gesamt",
+            "ELO": "Einzel",
+            "D_ELO": "Doppel",
+            "R_ELO": "Rundlauf"
         })
         st.subheader("ELO-Übersicht")
         # Nach Gesamt-ELO sortieren
