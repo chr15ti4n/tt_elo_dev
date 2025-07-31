@@ -1387,7 +1387,7 @@ if st.session_state.view_mode == "turniermodus":
             ]
             save_csv(tournaments, TOURNAMENTS)
             st.success("Turnier erstellt!")
-            st.experimental_rerun()
+            st.rerun()
     with tab_join:
         if tournaments.empty:
             st.info("Noch keine Turniere verfügbar.")
@@ -1409,7 +1409,7 @@ if st.session_state.view_mode == "turniermodus":
                             tournaments.at[idx, "Teilnehmer"] = ";".join(parts)
                             save_csv(tournaments, TOURNAMENTS)
                             st.success("Beigetreten!")
-                            st.experimental_rerun()
+                            st.rerun()
                     else:
                         cols[1].write("🔒 Voll")
                 else:
