@@ -677,7 +677,13 @@ if st.session_state.view_mode == "home":
             "R_ELO": "Rundlauf-ELO"
         })
         st.subheader("ELO-Übersicht")
-        st.table(df_stats.sort_values("Gesamt-ELO", ascending=False))
+        # Nach Gesamt-ELO sortieren
+        df_stats = df_stats.sort_values("Gesamt-ELO", ascending=False)
+        # ELO-Werte als Ganzzahlen
+        for col in ["Gesamt-ELO", "Einzel-ELO", "Doppel-ELO", "Rundlauf-ELO"]:
+            df_stats[col] = df_stats[col].astype(int)
+        # Interaktive, sortierbare Tabelle ohne Index
+        st.dataframe(df_stats, use_container_width=True, hide_index=True)
 
         # Gesamt- und Modus-Leaderboards
         active = players[
