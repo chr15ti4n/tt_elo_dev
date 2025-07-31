@@ -669,32 +669,33 @@ if st.session_state.view_mode == "home":
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
         st.subheader("ELO-Übersicht")
-        # Sortierspalte wählen (nur absteigend)
-        sort_col = st.selectbox(
-            "Sortiere nach", ["Gesamt", "Einzel", "Doppel", "Rundlauf"], index=0
-        )
-        # Übersichtstabelle aller Ratings
-        df_stats = players[["Name", "G_ELO", "ELO", "D_ELO", "R_ELO"]].copy()
-        df_stats = df_stats.rename(columns={
-            "G_ELO": "Gesamt",
-            "ELO": "Einzel",
-            "D_ELO": "Doppel",
-            "R_ELO": "Rundlauf"
-        })
-        # ELO-Werte als Ganzzahlen
-        for col in ["Gesamt", "Einzel", "Doppel", "Rundlauf"]:
-            df_stats[col] = df_stats[col].astype(int)
-        # Daten absteigend sortieren
-        df_stats = df_stats.sort_values(sort_col, ascending=False)
-        # Highlight aktuellen Spieler
-        def highlight_current(row):
-            return [
-                "background-color: #ADD8E6; color: black"
-                if row["Name"] == current_player else ""
-                for _ in row
-            ]
-        styled = df_stats.style.apply(highlight_current, axis=1)
-        st.table(styled)
+        # Unter-Tabs für verschiedene Sortierungen
+        sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
+        for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
+            with sub_tabs[idx]:
+                # Tabelle vorbereiten
+                df_tab = players[["Name", "G_ELO", "ELO", "D_ELO", "R_ELO"]].copy()
+                df_tab = df_tab.rename(columns={
+                    "G_ELO": "Gesamt",
+                    "ELO": "Einzel",
+                    "D_ELO": "Doppel",
+                    "R_ELO": "Rundlauf"
+                })
+                # Ganzzahlige ELO-Werte
+                for col in ["Gesamt", "Einzel", "Doppel", "Rundlauf"]:
+                    df_tab[col] = df_tab[col].astype(int)
+                # Nach gewähltem Metric absteigend sortieren
+                col_name = ["Gesamt", "Einzel", "Doppel", "Rundlauf"][idx]
+                df_tab = df_tab.sort_values(col_name, ascending=False)
+                # Highlight aktiven Spieler
+                def highlight_current(row):
+                    return [
+                        "background-color: #ADD8E6; color: black"
+                        if row["Name"] == current_player else ""
+                        for _ in row
+                    ]
+                styled_tab = df_tab.style.apply(highlight_current, axis=1)
+                st.table(styled_tab)
 
 
     st.stop()
