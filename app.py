@@ -727,22 +727,22 @@ if st.session_state.view_mode == "home":
                 ])
                 st.table(styler_disp)
 
-        # Persönliche Statistiken als kompakte Tabelle
+        # Persönliche Statistiken in kompakter Tabelle (Kategorie, Spiele, Siege)
         st.markdown("---")
         st.subheader("Meine Statistiken")
         # DataFrame mit persönlichen Werten
         stats = pd.DataFrame({
-            "Kategorie": [
-                "Einzel-Spiele", "Einzel-Siege",
-                "Doppel-Spiele", "Doppel-Siege",
-                "Rundlauf-Spiele", "Rundlauf-Siege",
-                "Gesamt-Spiele", "Gesamt-Siege"
+            "Kategorie": ["Einzel", "Doppel", "Rundlauf", "Gesamt"],
+            "Spiele": [
+                int(user.Spiele),
+                int(user.D_Spiele),
+                int(user.R_Spiele),
+                int(user.Spiele + user.D_Spiele + user.R_Spiele)
             ],
-            "Wert": [
-                int(user.Spiele), int(user.Siege),
-                int(user.D_Spiele), int(user.D_Siege),
-                int(user.R_Spiele), int(user.R_Siege),
-                int(user.Spiele + user.D_Spiele + user.R_Spiele),
+            "Siege": [
+                int(user.Siege),
+                int(user.D_Siege),
+                int(user.R_Siege),
                 int(user.Siege + user.D_Siege + user.R_Siege)
             ]
         })
