@@ -695,7 +695,8 @@ if st.session_state.view_mode == "home":
                         for _ in row
                     ]
                 styled_tab = df_tab.style.apply(highlight_current, axis=1)
-                st.table(styled_tab)
+                styled_tab = styled_tab.hide_index()
+                st.dataframe(styled_tab, use_container_width=True)
 
 
     st.stop()
