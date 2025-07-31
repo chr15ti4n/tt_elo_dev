@@ -691,6 +691,22 @@ if st.session_state.view_mode == "home":
             """,
             unsafe_allow_html=True
         )
+        # CSS: Verhindere Umbruch der ELO-Modus-Spalten auf Mobil
+        st.markdown(
+            """
+            <style>
+            [data-testid="stColumns"] {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+            }
+            [data-testid="stColumn"] {
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         cols = st.columns(3)
         with cols[0]:
             st.markdown(
