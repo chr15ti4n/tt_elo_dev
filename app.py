@@ -776,7 +776,7 @@ if st.session_state.view_mode == "home":
                 break
         # Win-Streak zentral als Einzeiler mit einheitlicher Schriftgröße
         st.markdown(
-            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Winning-Streak: {streak}🔥 Siege</div>",
+            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: {streak}🔥 Siege</div>",
             unsafe_allow_html=True
         )
         # Unter-Tabs für verschiedene Sortierungen
@@ -794,36 +794,26 @@ if st.session_state.view_mode == "home":
         )
         for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
             with sub_tabs[idx]:
-                # Tabelle vorbereiten
-                df_tab = players[["Name", "G_ELO", "ELO", "D_ELO", "R_ELO"]].copy()
-                df_tab = df_tab.rename(columns={
-                    "G_ELO": "Gesamt",
-                    "ELO": "Einzel",
-                    "D_ELO": "Doppel",
-                    "R_ELO": "Rundlauf"
-                })
-                # Ganzzahlige ELO-Werte
-                for col in ["Gesamt", "Einzel", "Doppel", "Rundlauf"]:
-                    df_tab[col] = df_tab[col].astype(int)
-                # Nach gewähltem Metric absteigend sortieren
-                col_name = ["Gesamt", "Einzel", "Doppel", "Rundlauf"][idx]
-                df_tab = df_tab.sort_values(col_name, ascending=False)
-                # Statische Tabelle mit Hervorhebung des aktuellen Spielers, Index versteckt
-                df_disp = df_tab.reset_index(drop=True)
-                # Highlight aktueller Spieler
+                # Tabelle nur mit Name und ausgewählter Elo-Spalte
+                df_tab = players[["Name", metric]].copy()
+                df_tab = df_tab.rename(columns={metric: "ELO"})
+                df_tab["ELO"] = df_tab["ELO"].astype(int)
+                # Absteigend sortieren
+                df_tab = df_tab.sort_values("ELO", ascending=False).reset_index(drop=True)
+                # Highlight aktuellen Spieler
                 def highlight_current(row):
                     return [
                         "background-color: #ADD8E6; color: black"
                         if row["Name"] == current_player else ""
                         for _ in row
                     ]
-                styler_disp = df_disp.style.apply(highlight_current, axis=1)
-                # Index-Spalte in der gerenderten Tabelle ausblenden
-                styler_disp = styler_disp.set_table_styles([
+                styler = df_tab.style.apply(highlight_current, axis=1)
+                # Index-Spalte ausblenden
+                styler = styler.set_table_styles([
                     {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
                     {"selector": "th.blank.level0", "props": [("display", "none")]}
                 ])
-                st.table(styler_disp)
+                st.table(styler)
 
         # Persönliche Statistiken in kompakter Tabelle (Kategorie, Spiele, Siege, Winrate %)
         st.markdown("---")
