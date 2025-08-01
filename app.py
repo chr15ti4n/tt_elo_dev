@@ -109,11 +109,25 @@ def save_csv(df: pd.DataFrame, path: Path):
         df_to_write = df_to_write.fillna("")
         ws.clear()
         set_with_dataframe(ws, df_to_write.reset_index(drop=True))
+        # Cache leeren, damit erneutes Laden aktualisierte Daten holt
+        if "dfs" in st.session_state:
+            st.session_state["dfs"].clear()
+        try:
+            _get_ws.cache_clear()
+        except Exception:
+            pass
         # Cache aktualisieren
         st.session_state["dfs"][path.name] = df.copy()
         time.sleep(0.1)  # Throttle to avoid hitting per‑minute quota
     else:
         df.to_csv(path, index=False)
+        # Cache leeren, damit erneutes Laden aktualisierte Daten holt
+        if "dfs" in st.session_state:
+            st.session_state["dfs"].clear()
+        try:
+            _get_ws.cache_clear()
+        except Exception:
+            pass
         # Cache aktualisieren
         st.session_state["dfs"][path.name] = df.copy()
 
@@ -510,16 +524,6 @@ else:
         
         if st.button("🏆 Turniermodus", use_container_width=True):
             st.session_state.view_mode = "turniermodus"
-            st.rerun()
-
-        if st.button("♻️ Aktualisieren", use_container_width=True):
-            # Cache leeren, damit neu aus Google‑Sheets geladen wird
-            if "dfs" in st.session_state:
-                st.session_state["dfs"].clear()
-            try:
-                _get_ws.cache_clear()   # Worksheet‑Cache leeren
-            except Exception:
-                pass
             st.rerun()
 
         if st.button("📜 Regeln", use_container_width=True):
