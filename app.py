@@ -922,7 +922,9 @@ if st.session_state.view_mode == "home":
             /* Gegner (2. Spalte) flexibel */
             .stTable table th:nth-child(2), .stTable table td:nth-child(2) {
                 width: auto !important;
-                white-space: nowrap;
+                white-space: normal !important;
+                word-wrap: break-word !important;
+                overflow-wrap: anywhere !important;
             }
             </style>
             """,
