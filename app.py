@@ -625,25 +625,28 @@ if st.session_state.view_mode == "home":
     # Prepare tabs: Willkommen, Matches, Statistiken
     tab1, tab2, tab3 = st.tabs(["Willkommen", "Matches", "Statistiken"])
 
-    # Daten für aktuellen Spieler und offene Bestätigungen
+    # Offene Matches für Bestätigung (auch vom Ersteller angezeigt)
     user = players.loc[players.Name == current_player].iloc[0]
     sp = pending[
-        ((pending["A"] == current_player) & (~pending["confA"]))
-        | ((pending["B"] == current_player) & (~pending["confB"]))
-    ]
+        ((pending["A"] == current_player) & (~pending["confB"]))
+        | ((pending["B"] == current_player) & (~pending["confA"]))
+    ].copy()
     dp = pending_d[
         (
             ((pending_d["A1"] == current_player) | (pending_d["A2"] == current_player))
-            & (~pending_d["confA"])
+            & (~pending_d["confB"])
         )
         | (
             ((pending_d["B1"] == current_player) | (pending_d["B2"] == current_player))
-            & (~pending_d["confB"])
+            & (~pending_d["confA"])
         )
-    ]
-    rp = pending_r[pending_r["Teilnehmer"].str.contains(current_player, na=False)].copy()
-    rp["confirmed"] = rp["confirmed_by"].fillna("").apply(lambda s: current_player in s.split(";"))
-    rp = rp[~rp["confirmed"]]
+    ].copy()
+    # Rundlauf: nur eine Bestätigung benötigt, Zeilen für Ersteller oder Teilnehmer ohne Bestätigung
+    rp = pending_r[
+        ((pending_r["creator"] == current_player) & (pending_r["confirmed_by"].fillna("") == ""))
+        | (pending_r["Teilnehmer"].str.contains(current_player, na=False)
+           & (~pending_r["confirmed_by"].fillna("").str.split(";").apply(lambda lst: current_player in lst)))
+    ].copy()
     total_pending = len(sp) + len(dp) + len(rp)
 
     # Tab 1: Willkommen
@@ -762,7 +765,7 @@ if st.session_state.view_mode == "home":
                 for idx, row in sp.iterrows():
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    if cols[1].button("✔️", key=f"confirm_s_{idx}"):
+                    if cols[1].button("✅", key=f"confirm_s_{idx}"):
                         if row['A'] == current_player:
                             pending.loc[idx, 'confA'] = True
                         else:
@@ -781,7 +784,7 @@ if st.session_state.view_mode == "home":
                     cols[0].write(
                         f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}"
                     )
-                    if cols[1].button("✔️", key=f"confirm_d_{idx}"):
+                    if cols[1].button("✅", key=f"confirm_d_{idx}"):
                         if current_player in (row['A1'], row['A2']):
                             pending_d.loc[idx, 'confA'] = True
                         else:
@@ -798,7 +801,7 @@ if st.session_state.view_mode == "home":
                 for idx, row in rp.iterrows():
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                    if cols[1].button("✔️", key=f"confirm_r_{idx}"):
+                    if cols[1].button("✅", key=f"confirm_r_{idx}"):
                         pending_r.loc[row.name, 'confirmed_by'] = (
                             row['confirmed_by'] + f";{current_player}"
                         )
