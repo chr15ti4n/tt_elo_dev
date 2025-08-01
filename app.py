@@ -845,8 +845,8 @@ if st.session_state.view_mode == "home":
         # Doppelmatch eintragen
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
-            partner = st.selectbox("Partner", [p for p in players["Name"] if p != current_player])
             date2 = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date(), key="date_d")
+            partner = st.selectbox("Partner", [p for p in players["Name"] if p != current_player])
             dt2 = datetime.combine(date2, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
             opp1 = st.selectbox("Gegner 1", [p for p in players["Name"] if p not in [current_player, partner]])
             opp2 = st.selectbox("Gegner 2", [p for p in players["Name"] if p not in [current_player, partner, opp1]])
