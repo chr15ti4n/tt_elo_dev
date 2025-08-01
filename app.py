@@ -794,8 +794,35 @@ if st.session_state.view_mode == "home":
         )
         for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
             with sub_tabs[idx]:
-                # Tabelle nur mit Name und ausgewählter Elo-Spalte
-                df_tab = players[["Name", metric]].copy()
+                st.subheader("Leaderboard")
+                # CSS: Leaderboard-Tabelle auto width und layout
+                st.markdown(
+                    """
+                    <style>
+                    .stTable table {
+                        width: fit-content !important;
+                        table-layout: auto !important;
+                        margin-left: auto !important;
+                        margin-right: auto !important;
+                    }
+                    .stTable table th, .stTable table td {
+                        padding: 0.25rem 0.5rem !important;
+                        white-space: nowrap;
+                    }
+                    </style>
+                    """,
+                    unsafe_allow_html=True
+                )
+                # Nur Spieler mit mindestens einem Spiel im jeweiligen Modus anzeigen
+                if metric == "G_ELO":
+                    mask = (players.Spiele + players.D_Spiele + players.R_Spiele) > 0
+                elif metric == "ELO":
+                    mask = players.Spiele > 0
+                elif metric == "D_ELO":
+                    mask = players.D_Spiele > 0
+                else:  # "R_ELO"
+                    mask = players.R_Spiele > 0
+                df_tab = players.loc[mask, ["Name", metric]].copy()
                 df_tab = df_tab.rename(columns={metric: "ELO"})
                 df_tab["ELO"] = df_tab["ELO"].astype(int)
                 # Absteigend sortieren
