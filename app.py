@@ -848,7 +848,7 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="einzel_submit"):
                 pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
                 save_csv(pending, PENDING)
-                        st.rerun()
+                st.rerun()
         # Doppelmatch eintragen
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
@@ -865,7 +865,7 @@ if st.session_state.view_mode == "home":
                     opp1, opp2, pts_ad, pts_bd, True, False
                 ]
                 save_csv(pending_d, PENDING_D)
-                        st.rerun()
+                st.rerun()
         # Rundlauf eintragen
         with mtab3:
             st.subheader("Eintrag Rundlauf")
@@ -881,7 +881,7 @@ if st.session_state.view_mode == "home":
                     dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
                 ]
                 save_csv(pending_r, PENDING_R)
-                        st.rerun()
+                st.rerun()
 
         st.divider()
         # Offene Matches direkt anzeigen
