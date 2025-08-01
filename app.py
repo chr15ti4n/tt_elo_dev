@@ -668,6 +668,35 @@ if st.session_state.view_mode == "home":
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
+        # Kombiniere alle Modus-Matches modusunabhängig (für Win-Streak und letzte 5 Matches)
+        combined = []
+        # Einzelmatches
+        df_s = matches[
+            (matches["A"] == current_player) | (matches["B"] == current_player)
+        ].copy()
+        df_s["Win"] = df_s.apply(
+            lambda r: (r["PunkteA"] > r["PunkteB"]) if r["A"] == current_player
+                      else (r["PunkteB"] > r["PunkteA"]),
+            axis=1
+        )
+        combined.append(df_s[["Datum", "Win"]])
+        # Doppelmatches
+        df_d = doubles[
+            (doubles["A1"] == current_player) | (doubles["A2"] == current_player)
+            | (doubles["B1"] == current_player) | (doubles["B2"] == current_player)
+        ].copy()
+        df_d["Win"] = df_d.apply(
+            lambda r: (r["PunkteA"] > r["PunkteB"]) if current_player in (r["A1"], r["A2"])
+                      else (r["PunkteB"] > r["PunkteA"]),
+            axis=1
+        )
+        combined.append(df_d[["Datum", "Win"]])
+        # Rundlaufmatches
+        df_r = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].copy()
+        df_r["Win"] = df_r["Sieger"] == current_player
+        combined.append(df_r[["Datum", "Win"]])
+        # Chronologisch sortieren
+        comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
         st.subheader("ELO-Übersicht")
         # CSS, um die Index-Spalte in statischen Tabellen auszublenden
         st.markdown(
