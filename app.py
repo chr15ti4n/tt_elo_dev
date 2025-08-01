@@ -760,10 +760,48 @@ if st.session_state.view_mode == "home":
         rp_inv = rp[rp["creator"] != current_player]
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
-            st.info("Keine ausstehenden Bestätigungen.")
+            st.info("Keine offenen Matches.")
+        # Eigene ausstehende Matches (Ersteller-Status)
+        st.markdown("---")
+        st.subheader("Meine ausstehenden Matches")
+        sp_cre = sp[sp["A"] == current_player]
+        dp_cre = dp[(dp["A1"] == current_player) | (dp["A2"] == current_player)]
+        rp_cre = rp[rp["creator"] == current_player]
+
+        if sp_cre.empty and dp_cre.empty and rp_cre.empty:
+            st.info("Keine eigenen ausstehenden Matches.")
         else:
-            # Einzel-Einladungen
-            if not sp_inv.empty:
+            if not sp_cre.empty:
+                st.markdown("**Einzel**")
+                for idx, row in sp_cre.iterrows():
+                    cols = st.columns([3,1])
+                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("❌", key=f"reject_own_s_{idx}"):
+                        pending.drop(idx, inplace=True)
+                        save_csv(pending, PENDING)
+                        st.rerun()
+
+            if not dp_cre.empty:
+                st.markdown("**Doppel**")
+                for idx, row in dp_cre.iterrows():
+                    cols = st.columns([3,1])
+                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("❌", key=f"reject_own_d_{idx}"):
+                        pending_d.drop(idx, inplace=True)
+                        save_csv(pending_d, PENDING_D)
+                        st.rerun()
+
+            if not rp_cre.empty:
+                st.markdown("**Rundlauf**")
+                for idx, row in rp_cre.iterrows():
+                    cols = st.columns([3,1])
+                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    if cols[1].button("❌", key=f"reject_own_r_{idx}"):
+                        pending_r.drop(row.name, inplace=True)
+                        save_csv(pending_r, PENDING_R)
+                        st.rerun()
+        # Einzel-Einladungen
+        if not sp_inv.empty:
                 st.markdown("**Einzel**")
                 for idx, row in sp_inv.iterrows():
                     cols = st.columns([3,1,1])
