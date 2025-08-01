@@ -731,13 +731,63 @@ if st.session_state.view_mode == "home":
             f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
             unsafe_allow_html=True
         )
-        # Button: Offene Matches bestätigen
-        if total_pending > 0:
-            if st.button(f"✅ Offene Matches bestätigen ({total_pending})", use_container_width=True):
-                _open_modal("show_confirm_modal")
-                st.rerun()
+        # Offene Matches direkt anzeigen
+        st.subheader("Offene Matches")
+        if total_pending == 0:
+            st.info("Keine offenen Matches.")
         else:
-            st.button("✅ Offene Matches bestätigen", disabled=True, use_container_width=True)
+            # Einzel
+            if not sp.empty:
+                st.markdown("**Einzel**")
+                for idx, row in sp.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("✔️", key=f"confirm_s_{idx}"):
+                        if row['A'] == current_player:
+                            pending.loc[idx, 'confA'] = True
+                        else:
+                            pending.loc[idx, 'confB'] = True
+                        save_csv(pending, PENDING)
+                        st.experimental_rerun()
+                    if cols[2].button("❌", key=f"reject_s_{idx}"):
+                        pending.drop(idx, inplace=True)
+                        save_csv(pending, PENDING)
+                        st.experimental_rerun()
+            # Doppel
+            if not dp.empty:
+                st.markdown("**Doppel**")
+                for idx, row in dp.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(
+                        f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}"
+                    )
+                    if cols[1].button("✔️", key=f"confirm_d_{idx}"):
+                        if current_player in (row['A1'], row['A2']):
+                            pending_d.loc[idx, 'confA'] = True
+                        else:
+                            pending_d.loc[idx, 'confB'] = True
+                        save_csv(pending_d, PENDING_D)
+                        st.experimental_rerun()
+                    if cols[2].button("❌", key=f"reject_d_{idx}"):
+                        pending_d.drop(idx, inplace=True)
+                        save_csv(pending_d, PENDING_D)
+                        st.experimental_rerun()
+            # Rundlauf
+            if not rp.empty:
+                st.markdown("**Rundlauf**")
+                for idx, row in rp.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    if cols[1].button("✔️", key=f"confirm_r_{idx}"):
+                        pending_r.loc[row.name, 'confirmed_by'] = (
+                            row['confirmed_by'] + f";{current_player}"
+                        )
+                        save_csv(pending_r, PENDING_R)
+                        st.experimental_rerun()
+                    if cols[2].button("❌", key=f"reject_r_{idx}"):
+                        pending_r.drop(row.name, inplace=True)
+                        save_csv(pending_r, PENDING_R)
+                        st.experimental_rerun()
 
         # Allgemeine letzten 5 Matches (Update-Feed)
         df_sg = matches.copy()
