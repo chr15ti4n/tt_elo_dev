@@ -960,6 +960,75 @@ if st.session_state.view_mode == "home":
         # Offene Matches direkt anzeigen
         st.subheader("Offene Matches")
 
+        # Eingeladene Matches (Invitations)
+        sp_inv = sp[sp["A"] != current_player]
+        dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
+        rp_inv = rp[rp["creator"] != current_player]
+
+        if sp_inv.empty and dp_inv.empty and rp_inv.empty:
+            st.info("Keine ausstehenden Bestätigungen.")
+        else:
+            # Einzel-Einladungen
+            if not sp_inv.empty:
+                st.markdown("**Einzel**")
+                for idx, row in sp_inv.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("✅", key=f"confirm_s_{idx}"):
+                        matches.loc[len(matches)] = [
+                            row["Datum"], row["A"], row["B"],
+                            row["PunkteA"], row["PunkteB"]
+                        ]
+                        save_csv(matches, MATCHES)
+                        _rebuild_all()
+                        pending.drop(idx, inplace=True)
+                        save_csv(pending, PENDING)
+                        st.rerun()
+                    if cols[2].button("❌", key=f"reject_s_{idx}"):
+                        pending.drop(idx, inplace=True)
+                        save_csv(pending, PENDING)
+                        st.rerun()
+            # Doppel-Einladungen
+            if not dp_inv.empty:
+                st.markdown("**Doppel**")
+                for idx, row in dp_inv.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("✅", key=f"confirm_d_{idx}"):
+                        doubles.loc[len(doubles)] = [
+                            row["Datum"], row["A1"], row["A2"], row["B1"], row["B2"],
+                            row["PunkteA"], row["PunkteB"]
+                        ]
+                        save_csv(doubles, DOUBLES)
+                        _rebuild_all()
+                        pending_d.drop(idx, inplace=True)
+                        save_csv(pending_d, PENDING_D)
+                        st.rerun()
+                    if cols[2].button("❌", key=f"reject_d_{idx}"):
+                        pending_d.drop(idx, inplace=True)
+                        save_csv(pending_d, PENDING_D)
+                        st.rerun()
+            # Rundlauf-Einladungen
+            if not rp_inv.empty:
+                st.markdown("**Rundlauf**")
+                for idx, row in rp_inv.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    if cols[1].button("✅", key=f"confirm_r_{idx}"):
+                        rounds.loc[len(rounds)] = [
+                            row["Datum"], row["Teilnehmer"],
+                            row["Finalist1"], row["Finalist2"], row["Sieger"]
+                        ]
+                        save_csv(rounds, ROUNDS)
+                        _rebuild_all()
+                        pending_r.drop(row.name, inplace=True)
+                        save_csv(pending_r, PENDING_R)
+                        st.rerun()
+                    if cols[2].button("❌", key=f"reject_r_{idx}"):
+                        pending_r.drop(row.name, inplace=True)
+                        save_csv(pending_r, PENDING_R)
+                        st.rerun()
+
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
         # Kombiniere alle Modus-Matches modusunabhängig (für Win-Streak und letzte 5 Matches)
