@@ -668,8 +668,6 @@ if st.session_state.view_mode == "home":
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
-        # Haupt-Überschrift für das Leaderboard
-        st.subheader("Leaderboard")
         # Kombiniere alle Modus-Matches modusunabhängig (für Win-Streak und letzte 5 Matches)
         combined = []
         # Einzelmatches
@@ -699,8 +697,7 @@ if st.session_state.view_mode == "home":
         combined.append(df_r[["Datum", "Win"]])
         # Chronologisch sortieren
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
-        st.subheader("ELO-Übersicht")
-        # CSS, um die Index-Spalte in statischen Tabellen auszublenden
+
         st.markdown(
             """
             <style>
@@ -781,6 +778,8 @@ if st.session_state.view_mode == "home":
             f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: {streak} 🏆</div>",
             unsafe_allow_html=True
         )
+
+        st.subheader("Leaderboard")
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
         # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
@@ -904,23 +903,26 @@ if st.session_state.view_mode == "home":
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Meine letzten 5 Spiele")
         st.table(last5[["Modus", "Gegner", "Ergebnis"]])
-        # CSS: Gegner-Spalte komprimieren, Modus und Ergebnis expandieren, Tabelle zentrieren
+        # CSS: Modus und Ergebnis breit, Gegner flexibel in der Mitte
         st.markdown(
             """
             <style>
             .stTable table {
+                table-layout: fixed !important;
+                width: 100% !important;
                 margin-left: auto !important;
                 margin-right: auto !important;
             }
-            /* Komprimiere Gegner-Spalte */
-            .stTable table td:nth-child(2), .stTable table th:nth-child(2) {
-                width: 1% !important;
+            /* Modus (1. Spalte) und Ergebnis (3. Spalte) immer breit genug */
+            .stTable table th:nth-child(1), .stTable table td:nth-child(1),
+            .stTable table th:nth-child(3), .stTable table td:nth-child(3) {
+                width: 35% !important;
                 white-space: nowrap;
             }
-            /* Erste und dritte Spalte auf auto setzen */
-            .stTable table td:nth-child(1), .stTable table th:nth-child(1),
-            .stTable table td:nth-child(3), .stTable table th:nth-child(3) {
+            /* Gegner (2. Spalte) flexibel */
+            .stTable table th:nth-child(2), .stTable table td:nth-child(2) {
                 width: auto !important;
+                white-space: nowrap;
             }
             </style>
             """,
