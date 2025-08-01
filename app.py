@@ -648,6 +648,9 @@ if st.session_state.view_mode == "home":
 
     # Tab 1: Willkommen
     with tab1:
+        # Flash-Meldung anzeigen, wenn gesetzt
+        if st.session_state.get("status_message"):
+            st.success(st.session_state["status_message"])
         st.markdown(
             f'<h3 style="text-align:center;">Willkommen, <strong>{current_player}</strong>!</h3>',
             unsafe_allow_html=True
@@ -762,6 +765,8 @@ if st.session_state.view_mode == "home":
                     _get_ws.cache_clear()
                 except Exception:
                     pass
+                # Flash-Meldung zurücksetzen
+                st.session_state["status_message"] = None
                 st.rerun()
         # Eingeladene Matches (nur diese können bestätigt werden)
         sp_inv = sp[sp["A"] != current_player]
@@ -785,12 +790,13 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.session_state.status_message = "Match wurde abgelehnt und entfernt."
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
 
         # Doppel-Einladungen
         if not dp_inv.empty:
@@ -807,11 +813,13 @@ if st.session_state.view_mode == "home":
                     _rebuild_all()
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
-                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.session_state["status_message"] = "Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen."
+                    st.rerun()
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
-                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.session_state["status_message"] = "Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen."
+                    st.rerun()
 
         # Rundlauf-Einladungen
         if not rp_inv.empty:
@@ -828,11 +836,13 @@ if st.session_state.view_mode == "home":
                     _rebuild_all()
                     pending_r.drop(row.name, inplace=True)
                     save_csv(pending_r, PENDING_R)
-                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.session_state["status_message"] = "Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen."
+                    st.rerun()
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
                     pending_r.drop(row.name, inplace=True)
                     save_csv(pending_r, PENDING_R)
-                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.session_state["status_message"] = "Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen."
+                    st.rerun()
 
         st.divider()
         # Allgemeine letzten 5 Matches (Update-Feed)
@@ -874,6 +884,9 @@ if st.session_state.view_mode == "home":
 
     # Tab 2: Match-Eintrag per Sub-Tabs und Bestätigung
     with tab2:
+        # Flash-Meldung anzeigen, wenn gesetzt
+        if st.session_state.get("status_message"):
+            st.success(st.session_state["status_message"])
         # Unter-Tabs für Match-Eintrag
         mtab1, mtab2, mtab3 = st.tabs(["Einzel", "Doppel", "Rundlauf"])
         # Einzelmatch eintragen
@@ -887,7 +900,8 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="einzel_submit"):
                 pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
                 save_csv(pending, PENDING)
-                st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
+                st.session_state["status_message"] = "Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen."
+                st.rerun()
         # Doppelmatch eintragen
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
@@ -904,7 +918,8 @@ if st.session_state.view_mode == "home":
                     opp1, opp2, pts_ad, pts_bd, True, False
                 ]
                 save_csv(pending_d, PENDING_D)
-                st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
+                st.session_state["status_message"] = "Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen."
+                st.rerun()
         # Rundlauf eintragen
         with mtab3:
             st.subheader("Eintrag Rundlauf")
@@ -920,7 +935,8 @@ if st.session_state.view_mode == "home":
                     dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
                 ]
                 save_csv(pending_r, PENDING_R)
-                st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
+                st.session_state["status_message"] = "Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen."
+                st.rerun()
 
         st.divider()
         cols_refresh2 = st.columns([4,1])
@@ -934,6 +950,8 @@ if st.session_state.view_mode == "home":
                     _get_ws.cache_clear()
                 except Exception:
                     pass
+                # Flash-Meldung zurücksetzen
+                st.session_state["status_message"] = None
                 st.rerun()
 
         # Eingeladene Matches (Invitations)
@@ -959,11 +977,13 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
 
             # Doppel-Einladungen
             if not dp_inv.empty:
@@ -980,11 +1000,13 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
             # Rundlauf-Einladungen
             if not rp_inv.empty:
                 st.markdown("**Rundlauf**")
@@ -1000,11 +1022,13 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.session_state["status_message"] = "Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen."
+                        st.rerun()
 
         # Eigene ausstehende Matches (Ersteller-Status)
         st.divider()
