@@ -756,7 +756,18 @@ if st.session_state.view_mode == "home":
         )
 
         st.divider()
-        st.subheader("Match-Bestätigungen")
+        cols_refresh1 = st.columns([4,1])
+        with cols_refresh1[0]:
+            st.subheader("Match-Bestätigungen")
+        with cols_refresh1[1]:
+            if st.button("♻️ Aktualisieren", key="refresh_tab1"):
+                if "dfs" in st.session_state:
+                    st.session_state["dfs"].clear()
+                try:
+                    _get_ws.cache_clear()
+                except Exception:
+                    pass
+                st.rerun()
         # Eingeladene Matches (nur diese können bestätigt werden)
         sp_inv = sp[sp["A"] != current_player]
         dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
@@ -916,8 +927,18 @@ if st.session_state.view_mode == "home":
                 st.rerun()
 
         st.divider()
-        # Offene Matches direkt anzeigen
-        st.subheader("Offene Matches")
+        cols_refresh2 = st.columns([4,1])
+        with cols_refresh2[0]:
+            st.subheader("Offene Matches")
+        with cols_refresh2[1]:
+            if st.button("♻️ Aktualisieren", key="refresh_tab2"):
+                if "dfs" in st.session_state:
+                    st.session_state["dfs"].clear()
+                try:
+                    _get_ws.cache_clear()
+                except Exception:
+                    pass
+                st.rerun()
 
         # Eingeladene Matches (Invitations)
         sp_inv = sp[sp["A"] != current_player]
