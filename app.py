@@ -1044,6 +1044,26 @@ if st.session_state.view_mode == "home":
         )
         st.table(styler_last5)
 
+        # Modal: Offene Matches bestätigen
+        if st.session_state.show_confirm_modal:
+            with ui_container("Offene Matches bestätigen"):
+                if total_pending == 0:
+                    st.info("Keine offenen Matches.")
+                else:
+                    if not sp.empty:
+                        st.subheader("Einzel-Matches")
+                        st.table(sp[["Datum", "A", "PunkteA", "PunkteB", "B"]])
+                    if not dp.empty:
+                        st.subheader("Doppel-Matches")
+                        st.table(dp[["Datum", "A1", "A2", "B1", "B2", "PunkteA", "PunkteB"]])
+                    if not rp.empty:
+                        st.subheader("Rundlauf-Matches")
+                        st.table(rp[["Datum", "Teilnehmer", "Sieger"]])
+                # Close button
+                if st.button("Schließen"):
+                    st.session_state.show_confirm_modal = False
+                    st.rerun()
+
 
 
     st.stop()
