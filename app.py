@@ -604,6 +604,7 @@ current_player = st.session_state.current_player
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
+    st.title("🏓 AK-Tischtennis")
     # Prepare tabs: Willkommen, Matches, Statistiken
     tab1, tab2, tab3 = st.tabs(["Willkommen", "Matches", "Statistiken"])
 
@@ -731,6 +732,8 @@ if st.session_state.view_mode == "home":
             f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
             unsafe_allow_html=True
         )
+
+        st.divider()
         # Offene Matches direkt anzeigen
         st.subheader("Offene Matches")
         if total_pending == 0:
@@ -789,6 +792,7 @@ if st.session_state.view_mode == "home":
                         save_csv(pending_r, PENDING_R)
                         st.experimental_rerun()
 
+        st.divider()
         # Allgemeine letzten 5 Matches (Update-Feed)
         df_sg = matches.copy()
         df_sg["Modus"] = "Einzel"
@@ -876,6 +880,7 @@ if st.session_state.view_mode == "home":
                 save_csv(pending_r, PENDING_R)
                 st.experimental_rerun()
 
+        st.divider()
         # Offene Matches direkt anzeigen
         st.subheader("Offene Matches")
 
