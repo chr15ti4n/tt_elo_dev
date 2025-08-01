@@ -92,6 +92,11 @@ if USE_GSHEETS:
 # region Helper Functions
 # ---------- Hilfsfunktionen ----------
 
+def show_status_message():
+    if "status_message" in st.session_state and st.session_state.status_message:
+        st.success(st.session_state.status_message)
+        st.session_state.status_message = ""  # Nach Anzeige zurücksetzen
+
 # --------- Session‑Cache für DataFrames (verhindert unnötige Sheets‑Reads) ---------
 if "dfs" not in st.session_state:   # Key: Path.name  |  Value: DataFrame
     st.session_state["dfs"] = {}
@@ -1337,7 +1342,7 @@ if st.session_state.view_mode == "home":
     st.stop()
 # endregion
 
- # region Regel Ansicht
+# region Regel Ansicht
 if st.session_state.view_mode == "regeln":
     rules_html = """
     <style>
