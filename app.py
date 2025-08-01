@@ -840,8 +840,7 @@ if st.session_state.view_mode == "home":
                 for idx, row in sp_cre.iterrows():
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    cols[1].button("❌", key=f"reject_own_s_{idx}")
-                    if cols[1].button:
+                    if cols[1].button("❌", key=f"reject_own_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.rerun()
@@ -851,8 +850,7 @@ if st.session_state.view_mode == "home":
                 for idx, row in dp_cre.iterrows():
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    cols[1].button("❌", key=f"reject_own_d_{idx}")
-                    if cols[1].button:
+                    if cols[1].button("❌", key=f"reject_own_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
                         st.rerun()
@@ -862,8 +860,7 @@ if st.session_state.view_mode == "home":
                 for idx, row in rp_cre.iterrows():
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                    cols[1].button("❌", key=f"reject_own_r_{idx}")
-                    if cols[1].button:
+                    if cols[1].button("❌", key=f"reject_own_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
                         st.rerun()
