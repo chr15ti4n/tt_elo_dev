@@ -910,9 +910,15 @@ if st.session_state.view_mode == "home":
                 margin-left: auto !important;
                 margin-right: auto !important;
             }
+            /* Komprimiere Gegner-Spalte */
             .stTable table td:nth-child(2), .stTable table th:nth-child(2) {
                 width: 1% !important;
                 white-space: nowrap;
+            }
+            /* Erste und dritte Spalte auf auto setzen */
+            .stTable table td:nth-child(1), .stTable table th:nth-child(1),
+            .stTable table td:nth-child(3), .stTable table th:nth-child(3) {
+                width: auto !important;
             }
             </style>
             """,
