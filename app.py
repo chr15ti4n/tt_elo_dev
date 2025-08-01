@@ -796,24 +796,6 @@ if st.session_state.view_mode == "home":
         )
         for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
             with sub_tabs[idx]:
-                # CSS: Name- und ELO-Spalte gleich breit machen
-                st.markdown(
-                    """
-                    <style>
-                    .stTable table {
-                        table-layout: fixed !important;
-                        width: 100% !important;
-                    }
-                    .stTable table th:nth-child(1),
-                    .stTable table td:nth-child(1),
-                    .stTable table th:nth-child(2),
-                    .stTable table td:nth-child(2) {
-                        width: 50% !important;
-                    }
-                    </style>
-                    """,
-                    unsafe_allow_html=True
-                )
                 # Tabelle nur mit Name und ausgewählter Elo-Spalte
                 df_tab = players[["Name", metric]].copy()
                 df_tab = df_tab.rename(columns={metric: "ELO"})
