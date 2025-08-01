@@ -634,23 +634,129 @@ if st.session_state.view_mode == "home":
             f'<h3 style="text-align:center;">Willkommen, <strong>{current_player}</strong>!</h3>',
             unsafe_allow_html=True
         )
-        st.markdown(
-            f"**Gesamt-ELO:** {int(user.G_ELO)}  |  Einzel: {int(user.ELO)}  |  Doppel: {int(user.D_ELO)}  |  Rundlauf: {int(user.R_ELO)}"
-        )
-        # Button: offene Matches bestätigen
-        if total_pending > 0:
-            if st.button(f"✅ Offene Matches bestätigen ({total_pending})", use_container_width=True):
-                _open_modal("show_confirm_modal")
-                st.rerun()
-        else:
-            st.button("✅ Offene Matches bestätigen", disabled=True)
-        # Letzte 5 Einzel-Matches anzeigen
-        recent = matches[
+        # Kombiniere alle Modus-Matches modusunabhängig für Win-Streak
+        combined = []
+        # Einzelmatches
+        df_s = matches[
             (matches["A"] == current_player) | (matches["B"] == current_player)
-        ].sort_values("Datum", ascending=False).head(5)
-        if not recent.empty:
-            st.subheader("Letzten 5 Spiele")
-            st.table(recent[["Datum", "A", "PunkteA", "PunkteB", "B"]])
+        ].copy()
+        df_s["Win"] = df_s.apply(
+            lambda r: (r["PunkteA"] > r["PunkteB"]) if r["A"] == current_player
+                      else (r["PunkteB"] > r["PunkteA"]),
+            axis=1
+        )
+        combined.append(df_s[["Datum", "Win"]])
+        # Doppelmatches
+        df_d = doubles[
+            (doubles["A1"] == current_player) | (doubles["A2"] == current_player)
+            | (doubles["B1"] == current_player) | (doubles["B2"] == current_player)
+        ].copy()
+        df_d["Win"] = df_d.apply(
+            lambda r: (r["PunkteA"] > r["PunkteB"]) if current_player in (r["A1"], r["A2"])
+                      else (r["PunkteB"] > r["PunkteA"]),
+            axis=1
+        )
+        combined.append(df_d[["Datum", "Win"]])
+        # Rundlaufmatches
+        df_r = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].copy()
+        df_r["Win"] = df_r["Sieger"] == current_player
+        combined.append(df_r[["Datum", "Win"]])
+        # Chronologisch sortieren
+        comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
+
+        # ELO-Übersicht optisch wie im Statistik-Tab
+        st.markdown(
+            f"""
+            <div style="text-align:center; margin:1rem 0;">
+              <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
+              <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            """
+            <style>
+            [data-testid="stColumns"] {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+            }
+            [data-testid="stColumn"] {
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        cols_e = st.columns(3)
+        with cols_e[0]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                  <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with cols_e[1]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                  <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with cols_e[2]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                  <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        # Win-Streak zentral als Einzeiler
+        streak = 0
+        for _, row in comb_df.iterrows():
+            if row["Win"]:
+                streak += 1
+            else:
+                break
+        st.markdown(
+            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: {streak} 🏆</div>",
+            unsafe_allow_html=True
+        )
+
+        # Allgemeine letzten 5 Matches (Update-Feed)
+        df_sg = matches.copy()
+        df_sg["Modus"] = "Einzel"
+        df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['A']} vs {r['B']}", axis=1)
+        df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}", axis=1)
+        df_dg = doubles.copy()
+        df_dg["Modus"] = "Doppel"
+        df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['A1']}/{r['A2']} vs {r['B1']}/{r['B2']}", axis=1)
+        df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}", axis=1)
+        df_rg = rounds.copy()
+        df_rg["Modus"] = "Rundlauf"
+        df_rg["Teilnehmer"] = df_rg["Teilnehmer"].str.replace(";", " / ")
+        df_rg["Ergebnis"] = df_rg["Sieger"]
+        feed = pd.concat([df_sg[['Datum','Modus','Teilnehmer','Ergebnis']],
+                          df_dg[['Datum','Modus','Teilnehmer','Ergebnis']],
+                          df_rg[['Datum','Modus','Teilnehmer','Ergebnis']]])
+        feed = feed.sort_values("Datum", ascending=False).head(5).reset_index(drop=True)
+        st.subheader("Letzte 5 Spiele (Update)")
+        # Tabelle ohne Datum und Index
+        feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
+        styler_feed = feed_disp.style.set_table_styles([
+            {"selector": "th.row_heading, td.row_heading", "props":[("display","none")]},
+            {"selector": "th.blank.level0", "props":[("display","none")]}
+        ])
+        st.table(styler_feed)
 
     # Tab 2: Match-Eintrag und Bestätigung (wie bisher)
     with tab2:
