@@ -634,6 +634,13 @@ if st.session_state.view_mode == "home":
             f'<h3 style="text-align:center;">Willkommen, <strong>{current_player}</strong>!</h3>',
             unsafe_allow_html=True
         )
+        # Button: Offene Matches bestätigen
+        if total_pending > 0:
+            if st.button(f"✅ Offene Matches bestätigen ({total_pending})", use_container_width=True):
+                _open_modal("show_confirm_modal")
+                st.rerun()
+        else:
+            st.button("✅ Offene Matches bestätigen", disabled=True, use_container_width=True)
         # Kombiniere alle Modus-Matches modusunabhängig für Win-Streak
         combined = []
         # Einzelmatches
@@ -728,7 +735,7 @@ if st.session_state.view_mode == "home":
             else:
                 break
         st.markdown(
-            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: {streak} 🏆</div>",
+            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: **{streak}** 🏆</div>",
             unsafe_allow_html=True
         )
 
@@ -892,7 +899,7 @@ if st.session_state.view_mode == "home":
                 break
         # Win-Streak zentral als Einzeiler mit einheitlicher Schriftgröße
         st.markdown(
-            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: {streak} 🏆</div>",
+            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: **{streak}** 🏆</div>",
             unsafe_allow_html=True
         )
 
