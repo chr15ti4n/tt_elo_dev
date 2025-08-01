@@ -627,19 +627,18 @@ if st.session_state.view_mode == "home":
 
     # Offene Matches für Bestätigung (auch vom Ersteller angezeigt)
     user = players.loc[players.Name == current_player].iloc[0]
+    # Einfache Bestätigung: pending solange confB False, für beide Teilnehmer
     sp = pending[
-        ((pending["A"] == current_player) & (~pending["confB"]))
-        | ((pending["B"] == current_player) & (~pending["confA"]))
+        ((pending["A"] == current_player) | (pending["B"] == current_player))
+        & (~pending["confB"])
     ].copy()
+    # Einfache Bestätigung: pending_d solange confB False, für beide Teams
     dp = pending_d[
         (
-            ((pending_d["A1"] == current_player) | (pending_d["A2"] == current_player))
-            & (~pending_d["confB"])
+            (pending_d["A1"] == current_player) | (pending_d["A2"] == current_player)
+            | (pending_d["B1"] == current_player) | (pending_d["B2"] == current_player)
         )
-        | (
-            ((pending_d["B1"] == current_player) | (pending_d["B2"] == current_player))
-            & (~pending_d["confA"])
-        )
+        & (~pending_d["confB"])
     ].copy()
     # Rundlauf: nur eine Bestätigung benötigt, Zeilen für Ersteller oder Teilnehmer ohne Bestätigung
     rp = pending_r[
@@ -766,10 +765,8 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                        if row['A'] == current_player:
-                            pending.loc[idx, 'confA'] = True
-                        else:
-                            pending.loc[idx, 'confB'] = True
+                        # Einfaches Bestätigen: setze confB auf True
+                        pending.loc[idx, 'confB'] = True
                         save_csv(pending, PENDING)
                         st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
@@ -785,10 +782,8 @@ if st.session_state.view_mode == "home":
                         f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}"
                     )
                     if cols[1].button("✅", key=f"confirm_d_{idx}"):
-                        if current_player in (row['A1'], row['A2']):
-                            pending_d.loc[idx, 'confA'] = True
-                        else:
-                            pending_d.loc[idx, 'confB'] = True
+                        # Einfaches Bestätigen: setze confB auf True
+                        pending_d.loc[idx, 'confB'] = True
                         save_csv(pending_d, PENDING_D)
                         st.rerun()
                     if cols[2].button("❌", key=f"reject_d_{idx}"):
