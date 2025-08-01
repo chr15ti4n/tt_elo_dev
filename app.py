@@ -902,19 +902,22 @@ if st.session_state.view_mode == "home":
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Meine letzten 5 Spiele")
-        # Stilisiere letzte 5 Spiele: Wrap für Gegner-Spalte, Index ausblenden
         last5_disp = last5[["Modus", "Gegner", "Ergebnis"]].reset_index(drop=True)
-        styler_last5 = last5_disp.style.set_properties(
-            subset=["Gegner"],
-            **{
-                "white-space": "normal",
-                "word-wrap": "break-word",
-                "overflow-wrap": "anywhere"
-            }
-        ).set_table_styles([
-            {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
-            {"selector": "th.blank.level0", "props": [("display", "none")]}
-        ])
+        styler_last5 = (
+            last5_disp.style
+            .set_properties(
+                subset=["Modus", "Ergebnis"],
+                **{"white-space": "nowrap", "min-width": "100px"}
+            )
+            .set_properties(
+                subset=["Gegner"],
+                **{"white-space": "normal", "word-wrap": "break-word", "overflow-wrap": "anywhere"}
+            )
+            .set_table_styles([
+                {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
+                {"selector": "th.blank.level0", "props": [("display", "none")]}
+            ])
+        )
         st.table(styler_last5)
 
 
