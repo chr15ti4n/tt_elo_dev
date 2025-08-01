@@ -604,7 +604,10 @@ current_player = st.session_state.current_player
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
-    st.title("🏓 AK-Tischtennis")
+    st.markdown(
+        '<h1 style="text-align:center; margin-top:0.25rem; margin-bottom:0.25rem;">🏓 AK-Tischtennis</h1>',
+        unsafe_allow_html=True
+    )
     # Prepare tabs: Willkommen, Matches, Statistiken
     tab1, tab2, tab3 = st.tabs(["Willkommen", "Matches", "Statistiken"])
 
@@ -751,11 +754,11 @@ if st.session_state.view_mode == "home":
                         else:
                             pending.loc[idx, 'confB'] = True
                         save_csv(pending, PENDING)
-                        st.experimental_rerun()
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.experimental_rerun()
+                        st.rerun()
             # Doppel
             if not dp.empty:
                 st.markdown("**Doppel**")
@@ -770,11 +773,11 @@ if st.session_state.view_mode == "home":
                         else:
                             pending_d.loc[idx, 'confB'] = True
                         save_csv(pending_d, PENDING_D)
-                        st.experimental_rerun()
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
-                        st.experimental_rerun()
+                        st.rerun()
             # Rundlauf
             if not rp.empty:
                 st.markdown("**Rundlauf**")
@@ -786,11 +789,11 @@ if st.session_state.view_mode == "home":
                             row['confirmed_by'] + f";{current_player}"
                         )
                         save_csv(pending_r, PENDING_R)
-                        st.experimental_rerun()
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
-                        st.experimental_rerun()
+                        st.rerun()
 
         st.divider()
         # Allgemeine letzten 5 Matches (Update-Feed)
@@ -845,7 +848,7 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="einzel_submit"):
                 pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
                 save_csv(pending, PENDING)
-                st.experimental_rerun()
+                        st.rerun()
         # Doppelmatch eintragen
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
@@ -862,7 +865,7 @@ if st.session_state.view_mode == "home":
                     opp1, opp2, pts_ad, pts_bd, True, False
                 ]
                 save_csv(pending_d, PENDING_D)
-                st.experimental_rerun()
+                        st.rerun()
         # Rundlauf eintragen
         with mtab3:
             st.subheader("Eintrag Rundlauf")
@@ -878,7 +881,7 @@ if st.session_state.view_mode == "home":
                     dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
                 ]
                 save_csv(pending_r, PENDING_R)
-                st.experimental_rerun()
+                        st.rerun()
 
         st.divider()
         # Offene Matches direkt anzeigen
