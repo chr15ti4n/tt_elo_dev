@@ -790,12 +790,12 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.success("Match wurde bestätigt und gewertet.")
+                        st.session_state.status_message = "Match wurde bestätigt und gewertet."
                         st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.info("Match wurde abgelehnt und entfernt.")
+                        st.session_state.status_message = "Match wurde abgelehnt und entfernt."
                         st.rerun()
 
         # Doppel-Einladungen
@@ -893,7 +893,7 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="einzel_submit"):
                 pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
                 save_csv(pending, PENDING)
-                st.success("Einzelmatch wurde eingetragen und wartet auf Bestätigung.")
+                st.session_state.status_message = "Einzelmatch wurde eingetragen und wartet auf Bestätigung."
                 st.rerun()
         # Doppelmatch eintragen
         with mtab2:
@@ -911,7 +911,7 @@ if st.session_state.view_mode == "home":
                     opp1, opp2, pts_ad, pts_bd, True, False
                 ]
                 save_csv(pending_d, PENDING_D)
-                st.success("Doppelmatch wurde eingetragen und wartet auf Bestätigung.")
+                st.session_state.status_message = "Doppelmatch wurde eingetragen und wartet auf Bestätigung."
                 st.rerun()
         # Rundlauf eintragen
         with mtab3:
@@ -928,7 +928,7 @@ if st.session_state.view_mode == "home":
                     dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
                 ]
                 save_csv(pending_r, PENDING_R)
-                st.success("Rundlauf wurde eingetragen und wartet auf Bestätigung.")
+                st.session_state.status_message = "Rundlauf wurde eingetragen und wartet auf Bestätigung."
                 st.rerun()
 
         st.divider()
@@ -968,7 +968,7 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.success("Match wurde bestätigt und gewertet.")
+                        st.session_state.status_message = "Match wurde bestätigt und gewertet."
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
@@ -1330,6 +1330,9 @@ if st.session_state.view_mode == "home":
                     st.rerun()
 
 
+
+    # Direkt nach dem Laden der Seite (z.B. in jedem Tab oben):
+    show_status_message()
 
     st.stop()
 # endregion
