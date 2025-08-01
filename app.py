@@ -604,6 +604,20 @@ current_player = st.session_state.current_player
 
 # region Home Ansicht
 if st.session_state.view_mode == "home":
+    # CSS: Titel-Abstand reduzieren
+    st.markdown(
+        """
+        <style>
+        h1 {
+            margin-top: 0rem !important;
+            margin-bottom: 0rem !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
     st.markdown(
         '<h1 style="text-align:center; margin-top:0rem; margin-bottom:0rem;">🏓 AK-Tischtennis</h1>',
         unsafe_allow_html=True
