@@ -735,7 +735,7 @@ if st.session_state.view_mode == "home":
             else:
                 break
         st.markdown(
-            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: **{streak}** 🏆</div>",
+            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
             unsafe_allow_html=True
         )
 
@@ -899,7 +899,7 @@ if st.session_state.view_mode == "home":
                 break
         # Win-Streak zentral als Einzeiler mit einheitlicher Schriftgröße
         st.markdown(
-            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: **{streak}** 🏆</div>",
+            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
             unsafe_allow_html=True
         )
 
