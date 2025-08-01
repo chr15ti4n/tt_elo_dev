@@ -760,7 +760,7 @@ if st.session_state.view_mode == "home":
         with cols_refresh1[0]:
             st.subheader("Match-Bestätigungen")
         with cols_refresh1[1]:
-            if st.button("♻️ Aktualisieren", key="refresh_tab1"):
+            if st.button("🔄", key="refresh_tab1"):
                 if "dfs" in st.session_state:
                     st.session_state["dfs"].clear()
                 try:
@@ -931,7 +931,7 @@ if st.session_state.view_mode == "home":
         with cols_refresh2[0]:
             st.subheader("Offene Matches")
         with cols_refresh2[1]:
-            if st.button("♻️ Aktualisieren", key="refresh_tab2"):
+            if st.button("🔄", key="refresh_tab2"):
                 if "dfs" in st.session_state:
                     st.session_state["dfs"].clear()
                 try:
