@@ -626,29 +626,6 @@ if st.session_state.view_mode == "home":
         '<h1 style="text-align:center; margin-top:0rem; margin-bottom:0rem;">🏓 AK-Tischtennis</h1>',
         unsafe_allow_html=True
     )
-    # Daten bei jedem Tab-Wechsel neu laden
-    if "dfs" in st.session_state:
-        st.session_state["dfs"].clear()
-    try:
-        _get_ws.cache_clear()
-    except Exception:
-        pass
-    # CSV/Sheets erneut einlesen
-    matches = load_or_create(MATCHES, ["Datum","A","B","PunkteA","PunkteB"])
-    pending = load_or_create(PENDING, ["Datum","A","B","PunkteA","PunkteB","confA","confB"])
-    pending_d = load_or_create(PENDING_D, ["Datum","A1","A2","B1","B2","PunkteA","PunkteB","confA","confB"])
-    doubles = load_or_create(DOUBLES, ["Datum","A1","A2","B1","B2","PunkteA","PunkteB"])
-    pending_r = load_or_create(PENDING_R, ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger","creator","confirmed_by"])
-    rounds = load_or_create(ROUNDS, ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
-    # Nach Reload: sicherstellen, dass Flags bool und Datum datetime sind
-    pending["confA"]   = pending["confA"].astype(bool)
-    pending["confB"]   = pending["confB"].astype(bool)
-    pending_d["confA"] = pending_d["confA"].astype(bool)
-    pending_d["confB"] = pending_d["confB"].astype(bool)
-    for df in (matches, pending, pending_d, doubles, pending_r, rounds):
-        df["Datum"] = pd.to_datetime(df["Datum"], utc=True, errors="coerce")\
-                         .dt.tz_convert("Europe/Berlin")
-    # Prepare tabs: Willkommen, Matches, Statistiken
     tab1, tab2, tab3 = st.tabs(["Willkommen", "Spielen", "Statistiken"])
 
     # Offene Matches für Bestätigung (auch vom Ersteller angezeigt)
