@@ -738,6 +738,16 @@ if st.session_state.view_mode == "home":
                 """,
                 unsafe_allow_html=True
             )
+        # Aktuelle Win-Streak berechnen
+        streak = 0
+        for _, row in comb_df.iterrows():
+            if row["Win"]:
+                streak += 1
+            else:
+                break
+        # Zentriere die Winning-Streak-Metric
+        cols_center = st.columns([1, 1, 1])
+        cols_center[1].metric("Aktuelle Winning-Streak", f"{streak}🔥 Siege")
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
         # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
@@ -888,16 +898,6 @@ if st.session_state.view_mode == "home":
             unsafe_allow_html=True
         )
 
-        # Aktuelle Win-Streak berechnen
-        streak = 0
-        for _, row in comb_df.iterrows():
-            if row["Win"]:
-                streak += 1
-            else:
-                break
-        # Zentriere die Winning-Streak-Metric
-        cols_center = st.columns([1, 1, 1])
-        cols_center[1].metric("Aktuelle Winning-Streak", f"{streak}🔥 Siege")
 
 
     st.stop()
