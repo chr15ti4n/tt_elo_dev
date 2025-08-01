@@ -92,11 +92,6 @@ if USE_GSHEETS:
 # region Helper Functions
 # ---------- Hilfsfunktionen ----------
 
-def show_status_message():
-    if "status_message" in st.session_state and st.session_state.status_message:
-        st.success(st.session_state.status_message)
-        st.session_state.status_message = ""  # Nach Anzeige zurücksetzen
-
 # --------- Session‑Cache für DataFrames (verhindert unnötige Sheets‑Reads) ---------
 if "dfs" not in st.session_state:   # Key: Path.name  |  Value: DataFrame
     st.session_state["dfs"] = {}
@@ -514,8 +509,8 @@ if not st.session_state.logged_in:
                 players = pd.concat([players, pd.DataFrame([new_player])], ignore_index=True)
                 players = compute_gelo(players)  # Gesamt-ELO für neuen Spieler
                 save_csv(players, PLAYERS)
-                st.success(f"{reg_name} angelegt. Jetzt einloggen.")
                 st.rerun()
+                st.success(f"{reg_name} angelegt. Jetzt einloggen.")
 # Eingeloggt: Sidebar zeigt Menü und Logout
 else:
     with st.sidebar:
@@ -589,19 +584,17 @@ else:
                 save_csv(rounds,    ROUNDS)
                 save_csv(pending_r, PENDING_R)
 
-                st.query_params.clear()  # clear URL params
-                st.success("Account und alle zugehörigen Daten wurden gelöscht.")
+                st.query_params.clear()  # clear URL params            
                 st.session_state.logged_in = False
                 st.session_state.current_player = None
                 st.rerun()
-
+                st.success("Account und alle zugehörigen Daten wurden gelöscht.")
         # Admin: vollständigen Rebuild auslösen
         if current_player in ADMINS:
             if st.button("🔄 Admin: Alle ELO neu berechnen", use_container_width=True):
                 _rebuild_all()
-                st.success("Alle Elo-Werte neu berechnet.")
                 st.rerun()
-
+                st.success("Alle Elo-Werte neu berechnet.")
 
 if not st.session_state.logged_in:
     st.stop()
@@ -1334,11 +1327,6 @@ if st.session_state.view_mode == "home":
                     st.session_state.show_confirm_modal = False
                     st.rerun()
 
-
-
-    # Direkt nach dem Laden der Seite (z.B. in jedem Tab oben):
-    show_status_message()
-
     st.stop()
 # endregion
 
@@ -1546,8 +1534,9 @@ if st.session_state.view_mode == "turniermodus":
                 False
             ]
             save_csv(tournaments, TOURNAMENTS)
-            st.success("Turnier erstellt!")
             st.rerun()
+            st.success("Turnier erstellt!")
+
     # Expander zum Beitreten bestehender Turniere
     with st.expander("Turnier beitreten", expanded=False):
         if tournaments.empty:
@@ -1570,8 +1559,8 @@ if st.session_state.view_mode == "turniermodus":
                             parts.append(current_player)
                             tournaments.at[idx, "Teilnehmer"] = ";".join(parts)
                             save_csv(tournaments, TOURNAMENTS)
-                            st.success("Beigetreten!")
                             st.rerun()
+                            st.success("Beigetreten!")
                     else:
                         cols[1].write("🔒 Voll")
                 else:
@@ -1581,8 +1570,8 @@ if st.session_state.view_mode == "turniermodus":
                     if cols[1].button("Turnier starten", key=f"start_{idx}"):
                         tournaments.at[idx, "Started"] = True
                         save_csv(tournaments, TOURNAMENTS)
-                        st.success("Turnier gestartet!")
                         st.rerun()
+                        st.success("Turnier gestartet!")
     st.stop()
 # endregion
 
