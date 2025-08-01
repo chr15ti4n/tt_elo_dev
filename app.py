@@ -753,94 +753,117 @@ if st.session_state.view_mode == "home":
         )
 
         st.divider()
-        # Offene Matches direkt anzeigen
-        st.subheader("Offene Matches")
-        if total_pending == 0:
-            st.info("Keine offenen Matches.")
+        st.subheader("Match-Bestätigungen")
+        # Eingeladene Matches (nur diese können bestätigt werden)
+        sp_inv = sp[sp["A"] != current_player]
+        dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
+        rp_inv = rp[rp["creator"] != current_player]
+
+        if sp_inv.empty and dp_inv.empty and rp_inv.empty:
+            st.info("Keine ausstehenden Bestätigungen.")
         else:
-            # Einzel
-            if not sp.empty:
+            # Einzel-Einladungen
+            if not sp_inv.empty:
                 st.markdown("**Einzel**")
-                for idx, row in sp.iterrows():
+                for idx, row in sp_inv.iterrows():
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    # Nur eingeladenen Spieler bestätigen lassen
-                    if row["A"] == current_player:
-                        # Ersteller sieht nur den Status
-                        cols[1].write("Ausstehend")
-                    else:
-                        if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                            # Match in Matches übertragen
-                            matches.loc[len(matches)] = [
-                                row["Datum"].isoformat(), row["A"], row["B"],
-                                row["PunkteA"], row["PunkteB"]
-                            ]
-                            save_csv(matches, MATCHES)
-                            _rebuild_all()
-                            # Pending-Zeile löschen
-                            pending.drop(idx, inplace=True)
-                            save_csv(pending, PENDING)
-                            st.rerun()
-                    # Ablehnen für beide
+                    if cols[1].button("✅", key=f"confirm_s_{idx}"):
+                        matches.loc[len(matches)] = [
+                            row["Datum"], row["A"], row["B"],
+                            row["PunkteA"], row["PunkteB"]
+                        ]
+                        save_csv(matches, MATCHES)
+                        _rebuild_all()
+                        pending.drop(idx, inplace=True)
+                        save_csv(pending, PENDING)
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.rerun()
-            # Doppel
-            if not dp.empty:
+
+            # Doppel-Einladungen
+            if not dp_inv.empty:
                 st.markdown("**Doppel**")
-                for idx, row in dp.iterrows():
+                for idx, row in dp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(
-                        f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}"
-                    )
-                    # Nur eingeladenes Team bestätigen lassen
-                    if current_player in (row["A1"], row["A2"]):
-                        # Ersteller sieht nur den Status
-                        cols[1].write("Ausstehend")
-                    else:
-                        if cols[1].button("✅", key=f"confirm_d_{idx}"):
-                            # Match in Doubles übertragen
-                            doubles.loc[len(doubles)] = [
-                                row["Datum"].isoformat(),
-                                row["A1"], row["A2"], row["B1"], row["B2"],
-                                row["PunkteA"], row["PunkteB"]
-                            ]
-                            save_csv(doubles, DOUBLES)
-                            _rebuild_all()
-                            pending_d.drop(idx, inplace=True)
-                            save_csv(pending_d, PENDING_D)
-                            st.rerun()
-                    # Ablehnen für beide
+                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("✅", key=f"confirm_d_{idx}"):
+                        doubles.loc[len(doubles)] = [
+                            row["Datum"], row["A1"], row["A2"], row["B1"], row["B2"],
+                            row["PunkteA"], row["PunkteB"]
+                        ]
+                        save_csv(doubles, DOUBLES)
+                        _rebuild_all()
+                        pending_d.drop(idx, inplace=True)
+                        save_csv(pending_d, PENDING_D)
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
                         st.rerun()
-            # Rundlauf
-            if not rp.empty:
+
+            # Rundlauf-Einladungen
+            if not rp_inv.empty:
                 st.markdown("**Rundlauf**")
-                for idx, row in rp.iterrows():
+                for idx, row in rp_inv.iterrows():
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                    # Nur eingeladene Teilnehmer bestätigen lassen
-                    if row["creator"] == current_player:
-                        cols[1].write("Ausstehend")
-                    else:
-                        if cols[1].button("✅", key=f"confirm_r_{idx}"):
-                            # Match in Rounds übertragen
-                            rounds.loc[len(rounds)] = [
-                                row["Datum"].isoformat(),
-                                row["Teilnehmer"],
-                                row["Finalist1"], row["Finalist2"],
-                                row["Sieger"]
-                            ]
-                            save_csv(rounds, ROUNDS)
-                            _rebuild_all()
-                            pending_r.drop(row.name, inplace=True)
-                            save_csv(pending_r, PENDING_R)
-                            st.rerun()
-                    # Ablehnen für beide
+                    if cols[1].button("✅", key=f"confirm_r_{idx}"):
+                        rounds.loc[len(rounds)] = [
+                            row["Datum"], row["Teilnehmer"],
+                            row["Finalist1"], row["Finalist2"], row["Sieger"]
+                        ]
+                        save_csv(rounds, ROUNDS)
+                        _rebuild_all()
+                        pending_r.drop(row.name, inplace=True)
+                        save_csv(pending_r, PENDING_R)
+                        st.rerun()
                     if cols[2].button("❌", key=f"reject_r_{idx}"):
+                        pending_r.drop(row.name, inplace=True)
+                        save_csv(pending_r, PENDING_R)
+                        st.rerun()
+
+        # Eigene ausstehende Matches (Ersteller-Status)
+        st.markdown("---")
+        st.subheader("Meine ausstehenden Matches")
+        sp_cre = sp[sp["A"] == current_player]
+        dp_cre = dp[(dp["A1"] == current_player) | (dp["A2"] == current_player)]
+        rp_cre = rp[rp["creator"] == current_player]
+
+        if sp_cre.empty and dp_cre.empty and rp_cre.empty:
+            st.info("Keine eigenen ausstehenden Matches.")
+        else:
+            if not sp_cre.empty:
+                st.markdown("**Einzel**")
+                for idx, row in sp_cre.iterrows():
+                    cols = st.columns([3,1])
+                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    cols[1].button("❌", key=f"reject_own_s_{idx}")
+                    if cols[1].button:
+                        pending.drop(idx, inplace=True)
+                        save_csv(pending, PENDING)
+                        st.rerun()
+
+            if not dp_cre.empty:
+                st.markdown("**Doppel**")
+                for idx, row in dp_cre.iterrows():
+                    cols = st.columns([3,1])
+                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    cols[1].button("❌", key=f"reject_own_d_{idx}")
+                    if cols[1].button:
+                        pending_d.drop(idx, inplace=True)
+                        save_csv(pending_d, PENDING_D)
+                        st.rerun()
+
+            if not rp_cre.empty:
+                st.markdown("**Rundlauf**")
+                for idx, row in rp_cre.iterrows():
+                    cols = st.columns([3,1])
+                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    cols[1].button("❌", key=f"reject_own_r_{idx}")
+                    if cols[1].button:
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
                         st.rerun()
