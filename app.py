@@ -830,73 +830,54 @@ if st.session_state.view_mode == "home":
     with tab2:
         # Unter-Tabs für Match-Eintrag
         mtab1, mtab2, mtab3 = st.tabs(["Einzel", "Doppel", "Rundlauf"])
+        # Einzelmatch eintragen
         with mtab1:
-            if st.button("➕ Einzel", use_container_width=True):
-                _open_modal("show_single_modal"); st.rerun()
+            st.subheader("Eintrag Einzelmatch")
+            date = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date())
+            dt = datetime.combine(date, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
+            opponent = st.selectbox("Gegner", [p for p in players["Name"] if p != current_player])
+            pts_a = st.number_input(f"Punkte {current_player}", min_value=0, max_value=100, value=11)
+            pts_b = st.number_input(f"Punkte {opponent}", min_value=0, max_value=100, value=9)
+            if st.button("Eintragen", key="einzel_submit"):
+                pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
+                save_csv(pending, PENDING)
+                st.experimental_rerun()
+        # Doppelmatch eintragen
         with mtab2:
-            if st.button("➕ Doppel", use_container_width=True):
-                _open_modal("show_double_modal"); st.rerun()
+            st.subheader("Eintrag Doppelmatch")
+            partner = st.selectbox("Partner", [p for p in players["Name"] if p != current_player])
+            date2 = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date(), key="date_d")
+            dt2 = datetime.combine(date2, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
+            opp1 = st.selectbox("Gegner 1", [p for p in players["Name"] if p not in [current_player, partner]])
+            opp2 = st.selectbox("Gegner 2", [p for p in players["Name"] if p not in [current_player, partner, opp1]])
+            pts_ad = st.number_input("Punkte Team A", min_value=0, max_value=100, value=11)
+            pts_bd = st.number_input("Punkte Team B", min_value=0, max_value=100, value=9)
+            if st.button("Eintragen", key="doppel_submit"):
+                pending_d.loc[len(pending_d)] = [
+                    dt2.isoformat(), current_player, partner,
+                    opp1, opp2, pts_ad, pts_bd, True, False
+                ]
+                save_csv(pending_d, PENDING_D)
+                st.experimental_rerun()
+        # Rundlauf eintragen
         with mtab3:
-            if st.button("➕ Rundlauf", use_container_width=True):
-                _open_modal("show_round_modal"); st.rerun()
+            st.subheader("Eintrag Rundlauf")
+            date3 = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date(), key="date_r")
+            dt3 = datetime.combine(date3, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
+            participants = st.multiselect("Teilnehmer", players["Name"].tolist())
+            finalists = st.multiselect("Finalisten (2)", participants)
+            winner = st.selectbox("Sieger", participants, key="winner_r")
+            if st.button("Eintragen", key="rund_submit"):
+                part_str = ";".join(participants)
+                f1, f2 = (finalists + ["", ""])[:2]
+                pending_r.loc[len(pending_r)] = [
+                    dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
+                ]
+                save_csv(pending_r, PENDING_R)
+                st.experimental_rerun()
 
         # Offene Matches direkt anzeigen
         st.subheader("Offene Matches")
-        if total_pending == 0:
-            st.info("Keine offenen Matches.")
-        else:
-            # Einzel
-            if not sp.empty:
-                st.markdown("**Einzel**")
-                for idx, row in sp.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    if cols[1].button("✔️", key=f"confirm_s_{idx}"):
-                        if row['A'] == current_player:
-                            pending.loc[idx, 'confA'] = True
-                        else:
-                            pending.loc[idx, 'confB'] = True
-                        save_csv(pending, PENDING)
-                        st.experimental_rerun()
-                    if cols[2].button("❌", key=f"reject_s_{idx}"):
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
-                        st.experimental_rerun()
-            # Doppel
-            if not dp.empty:
-                st.markdown("**Doppel**")
-                for idx, row in dp.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(
-                        f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}"
-                    )
-                    if cols[1].button("✔️", key=f"confirm_d_{idx}"):
-                        if current_player in (row['A1'], row['A2']):
-                            pending_d.loc[idx, 'confA'] = True
-                        else:
-                            pending_d.loc[idx, 'confB'] = True
-                        save_csv(pending_d, PENDING_D)
-                        st.experimental_rerun()
-                    if cols[2].button("❌", key=f"reject_d_{idx}"):
-                        pending_d.drop(idx, inplace=True)
-                        save_csv(pending_d, PENDING_D)
-                        st.experimental_rerun()
-            # Rundlauf
-            if not rp.empty:
-                st.markdown("**Rundlauf**")
-                for idx, row in rp.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                    if cols[1].button("✔️", key=f"confirm_r_{idx}"):
-                        pending_r.loc[row.name, 'confirmed_by'] = (
-                            row['confirmed_by'] + f";{current_player}"
-                        )
-                        save_csv(pending_r, PENDING_R)
-                        st.experimental_rerun()
-                    if cols[2].button("❌", key=f"reject_r_{idx}"):
-                        pending_r.drop(row.name, inplace=True)
-                        save_csv(pending_r, PENDING_R)
-                        st.experimental_rerun()
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
