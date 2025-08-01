@@ -902,34 +902,20 @@ if st.session_state.view_mode == "home":
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Meine letzten 5 Spiele")
-        st.table(last5[["Modus", "Gegner", "Ergebnis"]])
-        # CSS: Modus und Ergebnis breit, Gegner flexibel in der Mitte
-        st.markdown(
-            """
-            <style>
-            .stTable table {
-                table-layout: fixed !important;
-                width: 100% !important;
-                margin-left: auto !important;
-                margin-right: auto !important;
+        # Stilisiere letzte 5 Spiele: Wrap für Gegner-Spalte, Index ausblenden
+        last5_disp = last5[["Modus", "Gegner", "Ergebnis"]].reset_index(drop=True)
+        styler_last5 = last5_disp.style.set_properties(
+            subset=["Gegner"],
+            **{
+                "white-space": "normal",
+                "word-wrap": "break-word",
+                "overflow-wrap": "anywhere"
             }
-            /* Modus (1. Spalte) und Ergebnis (3. Spalte) immer breit genug */
-            .stTable table th:nth-child(1), .stTable table td:nth-child(1),
-            .stTable table th:nth-child(3), .stTable table td:nth-child(3) {
-                width: 35% !important;
-                white-space: nowrap;
-            }
-            /* Gegner (2. Spalte) flexibel */
-            .stTable table th:nth-child(2), .stTable table td:nth-child(2) {
-                width: auto !important;
-                white-space: normal !important;
-                word-wrap: break-word !important;
-                overflow-wrap: anywhere !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
+        ).set_table_styles([
+            {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
+            {"selector": "th.blank.level0", "props": [("display", "none")]}
+        ])
+        st.table(styler_last5)
 
 
 
