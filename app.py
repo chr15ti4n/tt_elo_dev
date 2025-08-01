@@ -749,13 +749,24 @@ if st.session_state.view_mode == "home":
                           df_dg[['Datum','Modus','Teilnehmer','Ergebnis']],
                           df_rg[['Datum','Modus','Teilnehmer','Ergebnis']]])
         feed = feed.sort_values("Datum", ascending=False).head(5).reset_index(drop=True)
-        st.subheader("Letzte 5 Spiele (Update)")
+        st.subheader("Letzte Spiele")
         # Tabelle ohne Datum und Index
         feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
-        styler_feed = feed_disp.style.set_table_styles([
-            {"selector": "th.row_heading, td.row_heading", "props":[("display","none")]},
-            {"selector": "th.blank.level0", "props":[("display","none")]}
-        ])
+        styler_feed = (
+            feed_disp.style
+            .set_properties(
+                subset=["Modus", "Ergebnis"],
+                **{"white-space": "nowrap", "min-width": "100px"}
+            )
+            .set_properties(
+                subset=["Teilnehmer"],
+                **{"white-space": "normal", "word-wrap": "break-word", "overflow-wrap": "anywhere"}
+            )
+            .set_table_styles([
+                {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
+                {"selector": "th.blank.level0", "props": [("display", "none")]}
+            ])
+        )
         st.table(styler_feed)
 
     # Tab 2: Match-Eintrag und Bestätigung (wie bisher)
