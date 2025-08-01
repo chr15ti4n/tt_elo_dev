@@ -605,7 +605,7 @@ current_player = st.session_state.current_player
 # region Home Ansicht
 if st.session_state.view_mode == "home":
     st.markdown(
-        '<h1 style="text-align:center; margin-top:0.25rem; margin-bottom:0.25rem;">🏓 AK-Tischtennis</h1>',
+        '<h1 style="text-align:center; margin-top:0rem; margin-bottom:0rem;">🏓 AK-Tischtennis</h1>',
         unsafe_allow_html=True
     )
     # Prepare tabs: Willkommen, Matches, Statistiken
