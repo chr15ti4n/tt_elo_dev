@@ -510,7 +510,6 @@ if not st.session_state.logged_in:
                 players = compute_gelo(players)  # Gesamt-ELO für neuen Spieler
                 save_csv(players, PLAYERS)
                 st.rerun()
-                st.success(f"{reg_name} angelegt. Jetzt einloggen.")
 # Eingeloggt: Sidebar zeigt Menü und Logout
 else:
     with st.sidebar:
@@ -588,13 +587,11 @@ else:
                 st.session_state.logged_in = False
                 st.session_state.current_player = None
                 st.rerun()
-                st.success("Account und alle zugehörigen Daten wurden gelöscht.")
         # Admin: vollständigen Rebuild auslösen
         if current_player in ADMINS:
             if st.button("🔄 Admin: Alle ELO neu berechnen", use_container_width=True):
                 _rebuild_all()
                 st.rerun()
-                st.success("Alle Elo-Werte neu berechnet.")
 
 if not st.session_state.logged_in:
     st.stop()
@@ -788,13 +785,12 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.session_state.status_message = "Match wurde bestätigt und gewertet."
-                        st.rerun()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.session_state.status_message = "Match wurde abgelehnt und entfernt."
-                        st.rerun()
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
 
         # Doppel-Einladungen
         if not dp_inv.empty:
@@ -811,11 +807,11 @@ if st.session_state.view_mode == "home":
                     _rebuild_all()
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
-                    st.rerun()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
-                    st.rerun()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
 
         # Rundlauf-Einladungen
         if not rp_inv.empty:
@@ -832,11 +828,11 @@ if st.session_state.view_mode == "home":
                     _rebuild_all()
                     pending_r.drop(row.name, inplace=True)
                     save_csv(pending_r, PENDING_R)
-                    st.rerun()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
                     pending_r.drop(row.name, inplace=True)
                     save_csv(pending_r, PENDING_R)
-                    st.rerun()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
 
         st.divider()
         # Allgemeine letzten 5 Matches (Update-Feed)
@@ -891,8 +887,7 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="einzel_submit"):
                 pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
                 save_csv(pending, PENDING)
-                st.session_state.status_message = "Einzelmatch wurde eingetragen und wartet auf Bestätigung."
-                st.rerun()
+                st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
         # Doppelmatch eintragen
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
@@ -909,8 +904,7 @@ if st.session_state.view_mode == "home":
                     opp1, opp2, pts_ad, pts_bd, True, False
                 ]
                 save_csv(pending_d, PENDING_D)
-                st.session_state.status_message = "Doppelmatch wurde eingetragen und wartet auf Bestätigung."
-                st.rerun()
+                st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
         # Rundlauf eintragen
         with mtab3:
             st.subheader("Eintrag Rundlauf")
@@ -926,8 +920,7 @@ if st.session_state.view_mode == "home":
                     dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
                 ]
                 save_csv(pending_r, PENDING_R)
-                st.session_state.status_message = "Rundlauf wurde eingetragen und wartet auf Bestätigung."
-                st.rerun()
+                st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
 
         st.divider()
         cols_refresh2 = st.columns([4,1])
@@ -966,12 +959,12 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.session_state.status_message = "Match wurde bestätigt und gewertet."
-                        st.rerun()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.rerun()
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+
             # Doppel-Einladungen
             if not dp_inv.empty:
                 st.markdown("**Doppel**")
@@ -987,11 +980,11 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
-                        st.rerun()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
-                        st.rerun()
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
             # Rundlauf-Einladungen
             if not rp_inv.empty:
                 st.markdown("**Rundlauf**")
@@ -1007,11 +1000,11 @@ if st.session_state.view_mode == "home":
                         _rebuild_all()
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
-                        st.rerun()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
-                        st.rerun()
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
 
         # Eigene ausstehende Matches (Ersteller-Status)
         st.divider()
@@ -1534,8 +1527,7 @@ if st.session_state.view_mode == "turniermodus":
                 False
             ]
             save_csv(tournaments, TOURNAMENTS)
-            st.rerun()
-            st.success("Turnier erstellt!")
+            st.success("Turnier erstellt! Bitte aktualisieren, um es zu sehen.")
 
     # Expander zum Beitreten bestehender Turniere
     with st.expander("Turnier beitreten", expanded=False):
@@ -1560,7 +1552,6 @@ if st.session_state.view_mode == "turniermodus":
                             tournaments.at[idx, "Teilnehmer"] = ";".join(parts)
                             save_csv(tournaments, TOURNAMENTS)
                             st.rerun()
-                            st.success("Beigetreten!")
                     else:
                         cols[1].write("🔒 Voll")
                 else:
@@ -1571,7 +1562,6 @@ if st.session_state.view_mode == "turniermodus":
                         tournaments.at[idx, "Started"] = True
                         save_csv(tournaments, TOURNAMENTS)
                         st.rerun()
-                        st.success("Turnier gestartet!")
     st.stop()
 # endregion
 
