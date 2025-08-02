@@ -36,8 +36,10 @@ supabase = get_supabase_client()
 def load_table(table_name: str) -> pd.DataFrame:
     res = supabase.table(table_name).select("*").execute().data
     df = pd.DataFrame(res)
-    if "Datum" in df.columns:
-        df["Datum"] = pd.to_datetime(df["Datum"], utc=True).dt.tz_convert("Europe/Berlin")
+    # Normalize column names to lowercase for consistent access
+    df.columns = [col.lower() for col in df.columns]
+    if "datum" in df.columns:
+        df["datum"] = pd.to_datetime(df["datum"], utc=True).dt.tz_convert("Europe/Berlin")
     return df
 
 
@@ -161,12 +163,8 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
     return round(r1 + delta), round(r2 + delta)
 
 # ---------- Daten laden ----------
-# Clear cached tables to ensure fresh data after policy changes
-load_table.clear()
+# Load normalized tables (columns all lowercase)
 players   = load_table("players")
-# Ensure lowercase "name" column exists
-if "Name" in players.columns:
-    players.rename(columns={"Name": "name"}, inplace=True)
 matches   = load_table("matches")
 pending   = load_table("pending_matches")
 pending_d = load_table("pending_doubles")
@@ -501,7 +499,7 @@ if st.session_state.view_mode == "home":
                   else (r["punkteb"] > r["punktea"]),
         axis=1
     )
-    combined.append(df_s[["Datum", "Win"]])
+    combined.append(df_s[["datum", "Win"]])
     # Doppelmatches
     df_d = doubles[
         (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
@@ -512,13 +510,13 @@ if st.session_state.view_mode == "home":
                   else (r["punkteb"] > r["punktea"]),
         axis=1
     )
-    combined.append(df_d[["Datum", "Win"]])
+    combined.append(df_d[["datum", "Win"]])
     # Rundlaufmatches
     df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
     df_r["Win"] = df_r["sieger"] == current_player
-    combined.append(df_r[["Datum", "Win"]])
+    combined.append(df_r[["datum", "Win"]])
     # Chronologisch sortieren
-    comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
+    comb_df = pd.concat(combined).sort_values("datum", ascending=False)
 
     # ELO-Übersicht optisch wie im Statistik-Tab
     st.markdown(
@@ -681,10 +679,10 @@ if st.session_state.view_mode == "home":
         df_rg["Modus"] = "Rundlauf"
         df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
         df_rg["Ergebnis"] = df_rg["sieger"]
-        feed = pd.concat([df_sg[['Datum','Modus','Teilnehmer','Ergebnis']],
-                          df_dg[['Datum','Modus','Teilnehmer','Ergebnis']],
-                          df_rg[['Datum','Modus','Teilnehmer','Ergebnis']]])
-        feed = feed.sort_values("Datum", ascending=False).head(5).reset_index(drop=True)
+        feed = pd.concat([df_sg[['datum','Modus','Teilnehmer','Ergebnis']],
+                          df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
+                          df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
+        feed = feed.sort_values("datum", ascending=False).head(5).reset_index(drop=True)
         st.subheader("Letzte Spiele")
         # Tabelle ohne Datum und Index
         feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
@@ -895,7 +893,7 @@ if st.session_state.view_mode == "home":
                       else (r["punkteb"] > r["punktea"]),
             axis=1
         )
-        combined.append(df_s[["Datum", "Win"]])
+        combined.append(df_s[["datum", "Win"]])
         # Doppelmatches
         df_d = doubles[
             (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
@@ -906,13 +904,13 @@ if st.session_state.view_mode == "home":
                       else (r["punkteb"] > r["punktea"]),
             axis=1
         )
-        combined.append(df_d[["Datum", "Win"]])
+        combined.append(df_d[["datum", "Win"]])
         # Rundlaufmatches
         df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
         df_r["Win"] = df_r["sieger"] == current_player
-        combined.append(df_r[["Datum", "Win"]])
+        combined.append(df_r[["datum", "Win"]])
         # Chronologisch sortieren
-        comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
+        comb_df = pd.concat(combined).sort_values("datum", ascending=False)
 
         st.markdown(
             """
@@ -1081,7 +1079,7 @@ if st.session_state.view_mode == "home":
                       else (r["punkteb"] > r["punktea"]),
             axis=1
         )
-        combined.append(df_s[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
+        combined.append(df_s[["datum", "Modus", "Gegner", "Ergebnis", "Win"]])
 
         # Doppelmatches
         df_d = doubles[
@@ -1104,7 +1102,7 @@ if st.session_state.view_mode == "home":
                       else (r["punkteb"] > r["punktea"]),
             axis=1
         )
-        combined.append(df_d[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
+        combined.append(df_d[["datum", "Modus", "Gegner", "Ergebnis", "Win"]])
 
         # Rundlaufmatches
         df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
@@ -1112,10 +1110,10 @@ if st.session_state.view_mode == "home":
         df_r["Gegner"] = df_r["teilnehmer"].str.replace(";", " / ")
         df_r["Ergebnis"] = df_r["sieger"]
         df_r["Win"] = df_r["sieger"] == current_player
-        combined.append(df_r[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
+        combined.append(df_r[["datum", "Modus", "Gegner", "Ergebnis", "Win"]])
 
         # Vereinigen, sortieren und letzte 5 anzeigen
-        comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
+        comb_df = pd.concat(combined).sort_values("datum", ascending=False)
         last5 = comb_df.head(5).reset_index(drop=True)
         st.subheader("Meine letzten 5 Spiele")
         last5_disp = last5[["Modus", "Gegner", "Ergebnis"]].reset_index(drop=True)
@@ -1144,13 +1142,13 @@ if st.session_state.view_mode == "home":
                 else:
                     if not sp.empty:
                         st.subheader("Einzel-Matches")
-                        st.table(sp[["Datum", "a", "punktea", "punkteb", "b"]])
+                        st.table(sp[["datum", "a", "punktea", "punkteb", "b"]])
                     if not dp.empty:
                         st.subheader("Doppel-Matches")
-                        st.table(dp[["Datum", "a1", "a2", "b1", "b2", "punktea", "punkteb"]])
+                        st.table(dp[["datum", "a1", "a2", "b1", "b2", "punktea", "punkteb"]])
                     if not rp.empty:
                         st.subheader("Rundlauf-Matches")
-                        st.table(rp[["Datum", "teilnehmer", "sieger"]])
+                        st.table(rp[["datum", "teilnehmer", "sieger"]])
                 # Close button
                 if st.button("Schließen"):
                     st.session_state.show_confirm_modal = False
