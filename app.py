@@ -786,13 +786,11 @@ if st.session_state.view_mode == "home":
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
 
         # Doppel-Einladungen
@@ -811,13 +809,11 @@ if st.session_state.view_mode == "home":
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    time.sleep(3)
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    time.sleep(3)
                     st.rerun()
 
         # Rundlauf-Einladungen
@@ -836,13 +832,11 @@ if st.session_state.view_mode == "home":
                     pending_r.drop(row.name, inplace=True)
                     save_csv(pending_r, PENDING_R)
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    time.sleep(3)
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
                     pending_r.drop(row.name, inplace=True)
                     save_csv(pending_r, PENDING_R)
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    time.sleep(3)
                     st.rerun()
 
         st.divider()
@@ -899,7 +893,6 @@ if st.session_state.view_mode == "home":
                 pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
                 save_csv(pending, PENDING)
                 st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
-                time.sleep(3)
                 st.rerun()
         # Doppelmatch eintragen
         with mtab2:
@@ -918,7 +911,6 @@ if st.session_state.view_mode == "home":
                 ]
                 save_csv(pending_d, PENDING_D)
                 st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
-                time.sleep(3)
                 st.rerun()
         # Rundlauf eintragen
         with mtab3:
@@ -936,7 +928,6 @@ if st.session_state.view_mode == "home":
                 ]
                 save_csv(pending_r, PENDING_R)
                 st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
-                time.sleep(3)
                 st.rerun()
 
         st.divider()
@@ -977,13 +968,11 @@ if st.session_state.view_mode == "home":
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
 
             # Doppel-Einladungen
@@ -1002,13 +991,11 @@ if st.session_state.view_mode == "home":
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
             # Rundlauf-Einladungen
             if not rp_inv.empty:
@@ -1026,13 +1013,11 @@ if st.session_state.view_mode == "home":
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
 
         # Eigene ausstehende Matches (Ersteller-Status)
@@ -1054,7 +1039,6 @@ if st.session_state.view_mode == "home":
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    time.sleep(3)
                     st.rerun()
 
             if not dp_cre.empty:
@@ -1066,7 +1050,6 @@ if st.session_state.view_mode == "home":
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
 
             if not rp_cre.empty:
@@ -1078,7 +1061,6 @@ if st.session_state.view_mode == "home":
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        time.sleep(3)
                         st.rerun()
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
