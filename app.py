@@ -172,6 +172,8 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
     return round(r1 + delta), round(r2 + delta)
 
 # ---------- Daten laden ----------
+# Clear cached tables to ensure fresh data after policy changes
+load_table.clear()
 players   = load_table("players")
 # Ensure lowercase "name" column exists
 if "Name" in players.columns:
