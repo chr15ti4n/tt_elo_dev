@@ -31,17 +31,6 @@ def get_supabase_client():
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
 supabase = get_supabase_client()
-# --- Debug Supabase-Verbindung ---
-try:
-    test = supabase.table("players").select("*").limit(1).execute()
-    st.write("Supabase-Abfrage erfolgreich:", test)
-    st.write("Daten-Teil:", test.data)
-except Exception as e:
-    st.error(f"Supabase-Fehler: {e}")
-    st.stop()
-# --- Debug Supabase-Secrets ---
-st.write("Supabase URL:", st.secrets["supabase"]["url"])
-st.write("Supabase Key (Anfang):", st.secrets["supabase"]["key"][:8] + "…")
 
 @st.cache_data
 def load_table(table_name: str) -> pd.DataFrame:
@@ -121,8 +110,8 @@ def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int =
     matches_sorted = matches_df.sort_values("Datum")
 
     for _, row in matches_sorted.iterrows():
-        a, b = row["A"], row["B"]
-        pa, pb = int(row["PunkteA"]), int(row["PunkteB"])
+        a, b = row["a"], row["b"]
+        pa, pb = int(row["punktea"]), int(row["punkteb"])
 
         # Falls Spieler inzwischen gelöscht wurden, Match überspringen
         if a not in players_df["Name"].values or b not in players_df["Name"].values:
@@ -178,9 +167,6 @@ players   = load_table("players")
 # Ensure lowercase "name" column exists
 if "Name" in players.columns:
     players.rename(columns={"Name": "name"}, inplace=True)
-# Debug: Inspect loaded players DataFrame after rename
-st.write("Columns in players (nach Rename):", players.columns.tolist())
-st.write(players.head())
 matches   = load_table("matches")
 pending   = load_table("pending_matches")
 pending_d = load_table("pending_doubles")
@@ -196,8 +182,8 @@ def rebuild_players_d(players_df, doubles_df, k=48):
     players_df[["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = 0
     players_df["D_ELO"] = 1200
     for _, row in doubles_df.sort_values("Datum").iterrows():
-        a1,a2,b1,b2 = row[["A1","A2","B1","B2"]]
-        pa,pb = int(row["PunkteA"]), int(row["PunkteB"])
+        a1,a2,b1,b2 = row[["a1","a2","b1","b2"]]
+        pa,pb = int(row["punktea"]), int(row["punkteb"])
         ra1 = players_df.loc[players_df.Name==a1,"D_ELO"].iat[0]
         ra2 = players_df.loc[players_df.Name==a2,"D_ELO"].iat[0]
         rb1 = players_df.loc[players_df.Name==b1,"D_ELO"].iat[0]
@@ -247,8 +233,8 @@ def rebuild_players_r(players_df, rounds_df, k=48):
     if rounds_df.empty:
         return players_df
     for _, row in rounds_df.sort_values("Datum").iterrows():
-        teilnehmer = row["Teilnehmer"].split(";")
-        fin1, fin2, winner = row["Finalist1"], row["Finalist2"], row["Sieger"]
+        teilnehmer = row["teilnehmer"].split(";")
+        fin1, fin2, winner = row["finalisten"].split(";")[0], row["finalisten"].split(";")[1], row["sieger"]
         avg = players_df.loc[players_df.Name.isin(teilnehmer), "R_ELO"].mean()
         deltas = {}
         for p in teilnehmer:
@@ -419,22 +405,22 @@ else:
                 # Remove player from Supabase
                 supabase.table("players").delete().eq("name", current_player).execute()
                 # Remove matches, pending, doubles, pending_d, rounds, pending_r involving player
-                supabase.table("matches").delete().or_(f"A.eq.{current_player},B.eq.{current_player}").execute()
-                supabase.table("pending_matches").delete().or_(f"A.eq.{current_player},B.eq.{current_player}").execute()
+                supabase.table("matches").delete().or_(f"a.eq.{current_player},b.eq.{current_player}").execute()
+                supabase.table("pending_matches").delete().or_(f"a.eq.{current_player},b.eq.{current_player}").execute()
                 supabase.table("doubles").delete().or_(
-                    f"A1.eq.{current_player},A2.eq.{current_player},B1.eq.{current_player},B2.eq.{current_player}"
+                    f"a1.eq.{current_player},a2.eq.{current_player},b1.eq.{current_player},b2.eq.{current_player}"
                 ).execute()
                 supabase.table("pending_doubles").delete().or_(
-                    f"A1.eq.{current_player},A2.eq.{current_player},B1.eq.{current_player},B2.eq.{current_player}"
+                    f"a1.eq.{current_player},a2.eq.{current_player},b1.eq.{current_player},b2.eq.{current_player}"
                 ).execute()
                 # Remove from rounds and pending_rounds where Teilnehmer contains player
                 if not rounds.empty:
                     for idx, row in rounds.iterrows():
-                        if current_player in str(row["Teilnehmer"]):
+                        if current_player in str(row["teilnehmer"]):
                             supabase.table("rounds").delete().eq("id", row["id"]).execute()
                 if not pending_r.empty:
                     for idx, row in pending_r.iterrows():
-                        if current_player in str(row["Teilnehmer"]):
+                        if current_player in str(row["teilnehmer"]):
                             supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                 st.query_params.clear()  # clear URL params            
                 st.session_state.logged_in = False
@@ -480,21 +466,21 @@ if st.session_state.view_mode == "home":
     user = players.loc[players["name"] == current_player].iloc[0]
     # Einfache Bestätigung: pending solange confB False, für beide Teilnehmer
     sp = pending[
-        ((pending["A"] == current_player) | (pending["B"] == current_player))
-        & (~pending["confB"])
+        ((pending["a"] == current_player) | (pending["b"] == current_player))
+        & (~pending["confb"])
     ].copy()
     # Einfache Bestätigung: pending_d solange confB False, für beide Teams
     dp = pending_d[
         (
-            (pending_d["A1"] == current_player) | (pending_d["A2"] == current_player)
-            | (pending_d["B1"] == current_player) | (pending_d["B2"] == current_player)
+            (pending_d["a1"] == current_player) | (pending_d["a2"] == current_player)
+            | (pending_d["b1"] == current_player) | (pending_d["b2"] == current_player)
         )
-        & (~pending_d["confB"])
+        & (~pending_d["confb"])
     ].copy()
     # Rundlauf: nur eine Bestätigung benötigt, Zeilen für Teilnehmer ohne Bestätigung
     rp = pending_r[
-        pending_r["Teilnehmer"].str.contains(current_player, na=False)
-        & (~pending_r["confB"])
+        pending_r["teilnehmer"].str.contains(current_player, na=False)
+        & (~pending_r["confb"])
     ].copy()
     total_pending = len(sp) + len(dp) + len(rp)
 
@@ -507,30 +493,30 @@ if st.session_state.view_mode == "home":
         # Kombiniere alle Modus-Matches modusunabhängig für Win-Streak
         combined = []
         # Einzelmatches
-        df_s = matches[
-            (matches["A"] == current_player) | (matches["B"] == current_player)
-        ].copy()
-        df_s["Win"] = df_s.apply(
-            lambda r: (r["PunkteA"] > r["PunkteB"]) if r["A"] == current_player
-                      else (r["PunkteB"] > r["PunkteA"]),
-            axis=1
-        )
-        combined.append(df_s[["Datum", "Win"]])
-        # Doppelmatches
-        df_d = doubles[
-            (doubles["A1"] == current_player) | (doubles["A2"] == current_player)
-            | (doubles["B1"] == current_player) | (doubles["B2"] == current_player)
-        ].copy()
-        df_d["Win"] = df_d.apply(
-            lambda r: (r["PunkteA"] > r["PunkteB"]) if current_player in (r["A1"], r["A2"])
-                      else (r["PunkteB"] > r["PunkteA"]),
-            axis=1
-        )
-        combined.append(df_d[["Datum", "Win"]])
-        # Rundlaufmatches
-        df_r = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].copy()
-        df_r["Win"] = df_r["Sieger"] == current_player
-        combined.append(df_r[["Datum", "Win"]])
+    df_s = matches[
+        (matches["a"] == current_player) | (matches["b"] == current_player)
+    ].copy()
+    df_s["Win"] = df_s.apply(
+        lambda r: (r["punktea"] > r["punkteb"]) if r["a"] == current_player
+                  else (r["punkteb"] > r["punktea"]),
+        axis=1
+    )
+    combined.append(df_s[["Datum", "Win"]])
+    # Doppelmatches
+    df_d = doubles[
+        (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
+        | (doubles["b1"] == current_player) | (doubles["b2"] == current_player)
+    ].copy()
+    df_d["Win"] = df_d.apply(
+        lambda r: (r["punktea"] > r["punkteb"]) if current_player in (r["a1"], r["a2"])
+                  else (r["punkteb"] > r["punktea"]),
+        axis=1
+    )
+    combined.append(df_d[["Datum", "Win"]])
+    # Rundlaufmatches
+    df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
+    df_r["Win"] = df_r["sieger"] == current_player
+    combined.append(df_r[["Datum", "Win"]])
         # Chronologisch sortieren
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
 
@@ -612,8 +598,8 @@ if st.session_state.view_mode == "home":
                     st.session_state["dfs"].clear()
                 st.rerun()
         # Eingeladene Matches (nur diese können bestätigt werden)
-        sp_inv = sp[sp["A"] != current_player]
-        dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
+        sp_inv = sp[sp["a"] != current_player]
+        dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
         rp_inv = rp.copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
@@ -685,16 +671,16 @@ if st.session_state.view_mode == "home":
         # Allgemeine letzten 5 Matches (Update-Feed)
         df_sg = matches.copy()
         df_sg["Modus"] = "Einzel"
-        df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['A']} vs {r['B']}", axis=1)
-        df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}", axis=1)
+        df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['a']} vs {r['b']}", axis=1)
+        df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
         df_dg = doubles.copy()
         df_dg["Modus"] = "Doppel"
-        df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['A1']}/{r['A2']} vs {r['B1']}/{r['B2']}", axis=1)
-        df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}", axis=1)
+        df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['a1']}/{r['a2']} vs {r['b1']}/{r['b2']}", axis=1)
+        df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
         df_rg = rounds.copy()
         df_rg["Modus"] = "Rundlauf"
-        df_rg["Teilnehmer"] = df_rg["Teilnehmer"].str.replace(";", " / ")
-        df_rg["Ergebnis"] = df_rg["Sieger"]
+        df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
+        df_rg["Ergebnis"] = df_rg["sieger"]
         feed = pd.concat([df_sg[['Datum','Modus','Teilnehmer','Ergebnis']],
                           df_dg[['Datum','Modus','Teilnehmer','Ergebnis']],
                           df_rg[['Datum','Modus','Teilnehmer','Ergebnis']]])
@@ -788,8 +774,8 @@ if st.session_state.view_mode == "home":
                 st.rerun()
 
         # Eingeladene Matches (Invitations)
-        sp_inv = sp[sp["A"] != current_player]
-        dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
+        sp_inv = sp[sp["a"] != current_player]
+        dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
         rp_inv = rp.copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
@@ -859,8 +845,8 @@ if st.session_state.view_mode == "home":
         # Eigene ausstehende Matches (Ersteller-Status)
         st.divider()
         st.subheader("Meine ausstehenden Matches")
-        sp_cre = sp[sp["A"] == current_player]
-        dp_cre = dp[(dp["A1"] == current_player) | (dp["A2"] == current_player)]
+        sp_cre = sp[sp["a"] == current_player]
+        dp_cre = dp[(dp["a1"] == current_player) | (dp["a2"] == current_player)]
         rp_cre = pd.DataFrame(columns=rp.columns)
 
         if sp_cre.empty and dp_cre.empty and rp_cre.empty:
@@ -902,28 +888,28 @@ if st.session_state.view_mode == "home":
         combined = []
         # Einzelmatches
         df_s = matches[
-            (matches["A"] == current_player) | (matches["B"] == current_player)
+            (matches["a"] == current_player) | (matches["b"] == current_player)
         ].copy()
         df_s["Win"] = df_s.apply(
-            lambda r: (r["PunkteA"] > r["PunkteB"]) if r["A"] == current_player
-                      else (r["PunkteB"] > r["PunkteA"]),
+            lambda r: (r["punktea"] > r["punkteb"]) if r["a"] == current_player
+                      else (r["punkteb"] > r["punktea"]),
             axis=1
         )
         combined.append(df_s[["Datum", "Win"]])
         # Doppelmatches
         df_d = doubles[
-            (doubles["A1"] == current_player) | (doubles["A2"] == current_player)
-            | (doubles["B1"] == current_player) | (doubles["B2"] == current_player)
+            (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
+            | (doubles["b1"] == current_player) | (doubles["b2"] == current_player)
         ].copy()
         df_d["Win"] = df_d.apply(
-            lambda r: (r["PunkteA"] > r["PunkteB"]) if current_player in (r["A1"], r["A2"])
-                      else (r["PunkteB"] > r["PunkteA"]),
+            lambda r: (r["punktea"] > r["punkteb"]) if current_player in (r["a1"], r["a2"])
+                      else (r["punkteb"] > r["punktea"]),
             axis=1
         )
         combined.append(df_d[["Datum", "Win"]])
         # Rundlaufmatches
-        df_r = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].copy()
-        df_r["Win"] = df_r["Sieger"] == current_player
+        df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
+        df_r["Win"] = df_r["sieger"] == current_player
         combined.append(df_r[["Datum", "Win"]])
         # Chronologisch sortieren
         comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
@@ -1079,53 +1065,53 @@ if st.session_state.view_mode == "home":
         combined = []
         # Einzelmatches
         df_s = matches[
-            (matches["A"] == current_player) | (matches["B"] == current_player)
+            (matches["a"] == current_player) | (matches["b"] == current_player)
         ].copy()
         df_s["Modus"] = "Einzel"
         df_s["Gegner"] = df_s.apply(
-            lambda r: r["B"] if r["A"] == current_player else r["A"], axis=1
+            lambda r: r["b"] if r["a"] == current_player else r["a"], axis=1
         )
         df_s["Ergebnis"] = df_s.apply(
-            lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}" if r["A"] == current_player
-                      else f"{int(r['PunkteB'])}:{int(r['PunkteA'])}",
+            lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}" if r["a"] == current_player
+                      else f"{int(r['punkteb'])}:{int(r['punktea'])}",
             axis=1
         )
         df_s["Win"] = df_s.apply(
-            lambda r: (r["PunkteA"] > r["PunkteB"]) if r["A"] == current_player
-                      else (r["PunkteB"] > r["PunkteA"]),
+            lambda r: (r["punktea"] > r["punkteb"]) if r["a"] == current_player
+                      else (r["punkteb"] > r["punktea"]),
             axis=1
         )
         combined.append(df_s[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
 
         # Doppelmatches
         df_d = doubles[
-            (doubles["A1"] == current_player) | (doubles["A2"] == current_player)
-            | (doubles["B1"] == current_player) | (doubles["B2"] == current_player)
+            (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
+            | (doubles["b1"] == current_player) | (doubles["b2"] == current_player)
         ].copy()
         df_d["Modus"] = "Doppel"
         df_d["Gegner"] = df_d.apply(
-            lambda r: f"{r['B1']} / {r['B2']}" if current_player in (r["A1"], r["A2"])
-                      else f"{r['A1']} / {r['A2']}",
+            lambda r: f"{r['b1']} / {r['b2']}" if current_player in (r["a1"], r["a2"])
+                      else f"{r['a1']} / {r['a2']}",
             axis=1
         )
         df_d["Ergebnis"] = df_d.apply(
-            lambda r: f"{int(r['PunkteA'])}:{int(r['PunkteB'])}" if current_player in (r["A1"], r["A2"])
-                      else f"{int(r['PunkteB'])}:{int(r['PunkteA'])}",
+            lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}" if current_player in (r["a1"], r["a2"])
+                      else f"{int(r['punkteb'])}:{int(r['punktea'])}",
             axis=1
         )
         df_d["Win"] = df_d.apply(
-            lambda r: (r["PunkteA"] > r["PunkteB"]) if current_player in (r["A1"], r["A2"])
-                      else (r["PunkteB"] > r["PunkteA"]),
+            lambda r: (r["punktea"] > r["punkteb"]) if current_player in (r["a1"], r["a2"])
+                      else (r["punkteb"] > r["punktea"]),
             axis=1
         )
         combined.append(df_d[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
 
         # Rundlaufmatches
-        df_r = rounds[rounds["Teilnehmer"].str.contains(current_player, na=False)].copy()
+        df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
         df_r["Modus"] = "Rundlauf"
-        df_r["Gegner"] = df_r["Teilnehmer"].str.replace(";", " / ")
-        df_r["Ergebnis"] = df_r["Sieger"]
-        df_r["Win"] = df_r["Sieger"] == current_player
+        df_r["Gegner"] = df_r["teilnehmer"].str.replace(";", " / ")
+        df_r["Ergebnis"] = df_r["sieger"]
+        df_r["Win"] = df_r["sieger"] == current_player
         combined.append(df_r[["Datum", "Modus", "Gegner", "Ergebnis", "Win"]])
 
         # Vereinigen, sortieren und letzte 5 anzeigen
@@ -1158,13 +1144,13 @@ if st.session_state.view_mode == "home":
                 else:
                     if not sp.empty:
                         st.subheader("Einzel-Matches")
-                        st.table(sp[["Datum", "A", "PunkteA", "PunkteB", "B"]])
+                        st.table(sp[["Datum", "a", "punktea", "punkteb", "b"]])
                     if not dp.empty:
                         st.subheader("Doppel-Matches")
-                        st.table(dp[["Datum", "A1", "A2", "B1", "B2", "PunkteA", "PunkteB"]])
+                        st.table(dp[["Datum", "a1", "a2", "b1", "b2", "punktea", "punkteb"]])
                     if not rp.empty:
                         st.subheader("Rundlauf-Matches")
-                        st.table(rp[["Datum", "Teilnehmer", "Sieger"]])
+                        st.table(rp[["Datum", "teilnehmer", "sieger"]])
                 # Close button
                 if st.button("Schließen"):
                     st.session_state.show_confirm_modal = False
