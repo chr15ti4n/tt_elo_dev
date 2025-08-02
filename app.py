@@ -786,7 +786,9 @@ if st.session_state.view_mode == "home":
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+                        if not st.session_state.get(f"confirmed_once_s_{idx}", False):
+                            st.session_state[f"confirmed_once_s_{idx}"] = True
+                            st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
@@ -809,7 +811,9 @@ if st.session_state.view_mode == "home":
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
+                    if not st.session_state.get(f"confirmed_once_d_{idx}", False):
+                        st.session_state[f"confirmed_once_d_{idx}"] = True
+                        st.rerun()
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
                     pending_d.drop(idx, inplace=True)
                     save_csv(pending_d, PENDING_D)
@@ -822,16 +826,18 @@ if st.session_state.view_mode == "home":
             for idx, row in rp_inv.iterrows():
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                if cols[1].button("✅", key=f"confirm_r_{idx}"):
-                    rounds.loc[len(rounds)] = [
-                        row["Datum"], row["Teilnehmer"],
-                        row["Finalist1"], row["Finalist2"], row["Sieger"]
-                    ]
-                    save_csv(rounds, ROUNDS)
-                    _rebuild_all()
-                    pending_r.drop(row.name, inplace=True)
-                    save_csv(pending_r, PENDING_R)
-                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+            if cols[1].button("✅", key=f"confirm_r_{idx}"):
+                rounds.loc[len(rounds)] = [
+                    row["Datum"], row["Teilnehmer"],
+                    row["Finalist1"], row["Finalist2"], row["Sieger"]
+                ]
+                save_csv(rounds, ROUNDS)
+                _rebuild_all()
+                pending_r.drop(row.name, inplace=True)
+                save_csv(pending_r, PENDING_R)
+                st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                if not st.session_state.get(f"confirmed_once_r_{idx}", False):
+                    st.session_state[f"confirmed_once_r_{idx}"] = True
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
                     pending_r.drop(row.name, inplace=True)
@@ -968,7 +974,9 @@ if st.session_state.view_mode == "home":
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+                        if not st.session_state.get(f"tab2_confirm_once_s_{idx}", False):
+                            st.session_state[f"tab2_confirm_once_s_{idx}"] = True
+                            st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
@@ -991,7 +999,9 @@ if st.session_state.view_mode == "home":
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+                        if not st.session_state.get(f"tab2_confirm_once_d_{idx}", False):
+                            st.session_state[f"tab2_confirm_once_d_{idx}"] = True
+                            st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
@@ -1013,7 +1023,9 @@ if st.session_state.view_mode == "home":
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+                        if not st.session_state.get(f"tab2_confirm_once_r_{idx}", False):
+                            st.session_state[f"tab2_confirm_once_r_{idx}"] = True
+                            st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
