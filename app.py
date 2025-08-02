@@ -16,31 +16,30 @@ def ui_container(title: str):
             yield
             
 import pandas as pd
-from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo 
 import bcrypt
 # QR-Code generation
 import qrcode
-# Google Sheets
-import os
-import functools
-import time
-import gspread
-from gspread_dataframe import get_as_dataframe, set_with_dataframe
+from pathlib import Path
 
-# region Paths
-# ---------- Konstante Pfade ----------
-PLAYERS = Path("players.csv")
-MATCHES = Path("matches.csv")
-PENDING = Path("pending_matches.csv")
-PENDING_D = Path("pending_doubles.csv")
-DOUBLES   = Path("doubles.csv")
-PENDING_R = Path("pending_rounds.csv")  
-ROUNDS    = Path("rounds.csv")          
-# Turniermodus
-TOURNAMENTS = Path("tournaments.csv")
-# endregion
+from supabase import create_client
+
+@st.experimental_singleton
+def get_supabase_client():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+supabase = get_supabase_client()
+
+@st.experimental_memo
+def load_table(table_name: str) -> pd.DataFrame:
+    res = supabase.table(table_name).select("*").execute().data
+    df = pd.DataFrame(res)
+    if "Datum" in df.columns:
+        df["Datum"] = pd.to_datetime(df["Datum"], utc=True).dt.tz_convert("Europe/Berlin")
+    return df
+
 
 
 # ---------- QR-Code für Schnellzugriff ----------
@@ -50,114 +49,12 @@ if not QR_FILE.exists():
     qr_img = qrcode.make(APP_URL)
     qr_img.save(QR_FILE)
 
-# ---------- Google Sheets ----------
-USE_GSHEETS = "gcp" in st.secrets  # Nur aktiv, wenn Service‑Account‑Creds hinterlegt
-
-# Google Sheets Caching/Singleton helpers
-if USE_GSHEETS:
-
-    @st.cache_resource
-    def _get_sheet():
-        gc_local = gspread.service_account_from_dict(st.secrets["gcp"])
-        spread_id = st.secrets.get("spread_id", "")
-        if spread_id:
-            return gc_local.open_by_key(spread_id)
-
-        # live / dev umschalten:
-        # return gc_local.open("tt_elo")    # Produktion
-        return gc_local.open("ttelodev")    # Dev-Umgebung
-
-    sh = _get_sheet()  # einmal pro Session
-
-    SHEET_NAMES = {
-        "players.csv":  "players",
-        "matches.csv":  "matches",
-        "pending_matches.csv": "pending_matches",
-        "pending_doubles.csv": "pending_doubles",
-        "doubles.csv":  "doubles",
-        "pending_rounds.csv": "pending_rounds",
-        "rounds.csv":   "rounds",
-    }
-
-    @functools.lru_cache(maxsize=None)
-    def _get_ws(name: str, cols: list[str]):
-        """Gibt Worksheet‑Objekt; legt es bei Bedarf an (cached)."""
-        try:
-            return sh.worksheet(name)
-        except gspread.WorksheetNotFound:
-            return sh.add_worksheet(name, rows=1000, cols=len(cols))
-# endregion
 
 
 # region Helper Functions
 # ---------- Hilfsfunktionen ----------
 
 # --------- Session‑Cache für DataFrames (verhindert unnötige Sheets‑Reads) ---------
-if "dfs" not in st.session_state:   # Key: Path.name  |  Value: DataFrame
-    st.session_state["dfs"] = {}
-
-def save_csv(df: pd.DataFrame, path: Path):
-    """Speichert DataFrame entweder als lokale CSV oder in Google‑Sheets."""
-    if USE_GSHEETS and path.name in SHEET_NAMES:
-        ws_name = SHEET_NAMES[path.name]
-        ws = _get_ws(ws_name, tuple(df.columns))
-        # gspread verträgt keine Datetime‑Objekte → zuerst in Strings wandeln
-        df_to_write = df.copy()
-        for col in df_to_write.select_dtypes(include=["datetimetz", "datetime64[ns, UTC]", "datetime64[ns]"]).columns:
-            df_to_write[col] = df_to_write[col].dt.strftime("%Y-%m-%d %H:%M:%S")
-        # Google Sheets kann kein NaN serialisieren → NaN durch leere Strings ersetzen
-        df_to_write = df_to_write.fillna("")
-        ws.clear()
-        set_with_dataframe(ws, df_to_write.reset_index(drop=True))
-        # Cache leeren, damit erneutes Laden aktualisierte Daten holt
-        if "dfs" in st.session_state:
-            st.session_state["dfs"].clear()
-        try:
-            _get_ws.cache_clear()
-        except Exception:
-            pass
-        # Cache aktualisieren
-        st.session_state["dfs"][path.name] = df.copy()
-        time.sleep(0.1)  # Throttle to avoid hitting per‑minute quota
-    else:
-        df.to_csv(path, index=False)
-        # Cache leeren, damit erneutes Laden aktualisierte Daten holt
-        if "dfs" in st.session_state:
-            st.session_state["dfs"].clear()
-        try:
-            _get_ws.cache_clear()
-        except Exception:
-            pass
-        # Cache aktualisieren
-        st.session_state["dfs"][path.name] = df.copy()
-
-
-def load_or_create(path: Path, cols: list[str]) -> pd.DataFrame:
-    """Lädt DataFrame aus CSV oder Google‑Sheets; legt bei Bedarf leere Tabelle an."""
-    # Zuerst Session‑Cache prüfen
-    if path.name in st.session_state["dfs"]:
-        return st.session_state["dfs"][path.name]
-
-    if USE_GSHEETS and path.name in SHEET_NAMES:
-        ws = _get_ws(SHEET_NAMES[path.name], tuple(cols))
-        df = get_as_dataframe(ws).dropna(how="all")
-        # Falls Sheet gerade frisch angelegt → Kopfzeile schreiben
-        if df.empty and ws.row_count == 0:
-            set_with_dataframe(ws, pd.DataFrame(columns=cols))
-            df = pd.DataFrame(columns=cols)
-            st.session_state["dfs"][path.name] = df.copy()
-            return df
-        result_df = df if not df.empty else pd.DataFrame(columns=cols)
-        st.session_state["dfs"][path.name] = result_df.copy()
-        return result_df
-    else:
-        if path.exists():
-            df = pd.read_csv(path)
-            st.session_state["dfs"][path.name] = df.copy()
-            return df
-        df = pd.DataFrame(columns=cols)
-        st.session_state["dfs"][path.name] = df.copy()
-        return df
 
 def calc_elo(r_a, r_b, score_a, k=32):
     """ELO‑Formel mit Punktdifferenz.
@@ -264,51 +161,13 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
     return round(r1 + delta), round(r2 + delta)
 
 # ---------- Daten laden ----------
-players = load_or_create(PLAYERS, ["Name", "ELO", "Siege", "Niederlagen", "Spiele", "Pin"])
-# Falls alte CSV noch keine Pin‑Spalte hatte
-if "Pin" not in players.columns:
-    players["Pin"] = ""
-# Doppel-Spalten ergänzen
-for col in ["D_ELO", "D_Siege", "D_Niederlagen", "D_Spiele"]:
-    if col not in players.columns:
-        players[col] = 1200 if col == "D_ELO" else 0
-# Rundlauf-Spalten ergänzen
-for col in ["R_ELO", "R_Siege", "R_Zweite", "R_Niederlagen", "R_Spiele"]:
-    if col not in players.columns:
-        players[col] = 1200 if col == "R_ELO" else 0
-        
-players = compute_gelo(players)
-# Daten laden
-matches = load_or_create(MATCHES, ["Datum", "A", "B", "PunkteA", "PunkteB"])
-pending = load_or_create(PENDING, ["Datum", "A", "B", "PunkteA", "PunkteB", "confA", "confB"])
-pending_d = load_or_create(PENDING_D, ["Datum","A1","A2","B1","B2","PunkteA","PunkteB","confA","confB"])
-doubles   = load_or_create(DOUBLES,   ["Datum","A1","A2","B1","B2","PunkteA","PunkteB"])
-pending_r = load_or_create(PENDING_R, ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger","creator","confirmed_by"])
-# -- Kompatibilität älterer CSV-Versionen --
-if "confirmed_by" not in pending_r.columns:
-    if "conf" in pending_r.columns:
-        pending_r = pending_r.rename(columns={"conf": "confirmed_by"})
-    else:
-        pending_r["confirmed_by"] = ""
-    save_csv(pending_r, PENDING_R)
-rounds    = load_or_create(ROUNDS,    ["Datum","Teilnehmer","Finalist1","Finalist2","Sieger"])
-
-# Turniere laden
-tournaments = load_or_create(TOURNAMENTS, ["ID","Name","Creator","Time","Note","Limit","Teilnehmer"])
-if "Teilnehmer" not in tournaments.columns:
-    tournaments["Teilnehmer"] = ""
-    save_csv(tournaments, TOURNAMENTS)
-
-# Ensure confA/confB are boolean for logical operations
-pending["confA"]   = pending["confA"].astype(bool)
-pending["confB"]   = pending["confB"].astype(bool)
-pending_d["confA"] = pending_d["confA"].astype(bool)
-pending_d["confB"] = pending_d["confB"].astype(bool)
-
-# Always convert Datum to pandas datetime with Berlin timezone
-for df in (matches, pending, pending_d, doubles, pending_r, rounds):
-    df["Datum"] = pd.to_datetime(df["Datum"], utc=True, errors="coerce")\
-                       .dt.tz_convert("Europe/Berlin")
+players   = load_table("players")
+matches   = load_table("matches")
+pending   = load_table("pending_matches")
+pending_d = load_table("pending_doubles")
+doubles   = load_table("doubles")
+pending_r = load_table("pending_rounds")
+rounds    = load_table("rounds")
 # endregion
 
 # region Doppel ELO Rebuild
@@ -413,12 +272,12 @@ def _open_modal(which: str):
 
 # -------- Rebuild all ratings helper ----------
 def _rebuild_all():
-    """Rebuilds all ELO ratings after a confirmed match and saves players.csv."""
+    """Rebuilds all ELO ratings after a confirmed match and upserts to Supabase."""
     global players, matches, doubles, rounds
     players = rebuild_players(players, matches)
     players = rebuild_players_d(players, doubles)
     players = rebuild_players_r(players, rounds)
-    save_csv(players, PLAYERS)
+    supabase.table("players").upsert(players.to_dict(orient="records"), on_conflict="id").execute()
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "current_player" not in st.session_state:
@@ -461,7 +320,7 @@ if not st.session_state.logged_in:
                         # Falls PIN noch im Klartext war: sofort hash speichern
                         if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
                             players.loc[players["Name"] == login_name, "Pin"] = hash_pin(login_pin)
-                            save_csv(players, PLAYERS)
+                            supabase.table("players").update({"Pin": players.loc[players["Name"] == login_name, "Pin"].iat[0]}).eq("Name", login_name).execute()
                         st.session_state.logged_in = True
                         st.session_state.current_player = login_name
                         # Save login in URL so refresh preserves session
@@ -508,7 +367,7 @@ if not st.session_state.logged_in:
                 }
                 players = pd.concat([players, pd.DataFrame([new_player])], ignore_index=True)
                 players = compute_gelo(players)  # Gesamt-ELO für neuen Spieler
-                save_csv(players, PLAYERS)
+                supabase.table("players").insert([new_player]).execute()
                 st.rerun()
 # Eingeloggt: Sidebar zeigt Menü und Logout
 else:
@@ -519,14 +378,6 @@ else:
         if st.button("🏓 Home", use_container_width=True):
             _open_modal("")                    # alle Modals schließen
             st.session_state.view_mode = "home"
-            st.rerun()
-        
-        if st.button("🏆 Turniermodus", use_container_width=True):
-            st.session_state.view_mode = "turniermodus"
-            st.rerun()
-
-        if st.button("📜 Regeln", use_container_width=True):
-            st.session_state.view_mode = "regeln"
             st.rerun()
 
         if st.button("🚪 Logout", use_container_width=True):
@@ -546,43 +397,26 @@ else:
             confirm = st.checkbox("Ich bin mir absolut sicher.")
             if st.button("Account unwiderruflich löschen") and confirm:
                 # Spieler aus players entfernen
-                players = players[players["Name"] != current_player]
-
-                # Helferfunktion: Zeilen entfernen, in denen Name auftaucht
-                def drop_rows(df: pd.DataFrame, cols: list[str]):
-                    if df.empty:
-                        return df
-                    mask = df[cols].astype(str).eq(current_player).any(axis=1)
-                    return df[~mask]
-
-                # Einzel
-                matches   = drop_rows(matches,   ["A", "B"])
-                pending   = drop_rows(pending,   ["A", "B"])
-
-                # Doppel
-                doubles    = drop_rows(doubles,    ["A1","A2","B1","B2"])
-                pending_d  = drop_rows(pending_d,  ["A1","A2","B1","B2"])
-
-                # Rundlauf
+                # Remove player from Supabase
+                supabase.table("players").delete().eq("Name", current_player).execute()
+                # Remove matches, pending, doubles, pending_d, rounds, pending_r involving player
+                supabase.table("matches").delete().or_(f"A.eq.{current_player},B.eq.{current_player}").execute()
+                supabase.table("pending_matches").delete().or_(f"A.eq.{current_player},B.eq.{current_player}").execute()
+                supabase.table("doubles").delete().or_(
+                    f"A1.eq.{current_player},A2.eq.{current_player},B1.eq.{current_player},B2.eq.{current_player}"
+                ).execute()
+                supabase.table("pending_doubles").delete().or_(
+                    f"A1.eq.{current_player},A2.eq.{current_player},B1.eq.{current_player},B2.eq.{current_player}"
+                ).execute()
+                # Remove from rounds and pending_rounds where Teilnehmer contains player
                 if not rounds.empty:
-                    rounds = rounds[~rounds["Teilnehmer"].str.contains(current_player)]
+                    for idx, row in rounds.iterrows():
+                        if current_player in str(row["Teilnehmer"]):
+                            supabase.table("rounds").delete().eq("id", row["id"]).execute()
                 if not pending_r.empty:
-                    pending_r = pending_r[~pending_r["Teilnehmer"].str.contains(current_player)]
-
-                # Elo neu berechnen
-                players = rebuild_players(players, matches)
-                players = rebuild_players_d(players, doubles)
-                players = rebuild_players_r(players, rounds)
-
-                # CSV speichern
-                save_csv(players,   PLAYERS)
-                save_csv(matches,   MATCHES)
-                save_csv(pending,   PENDING)
-                save_csv(doubles,   DOUBLES)
-                save_csv(pending_d, PENDING_D)
-                save_csv(rounds,    ROUNDS)
-                save_csv(pending_r, PENDING_R)
-
+                    for idx, row in pending_r.iterrows():
+                        if current_player in str(row["Teilnehmer"]):
+                            supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                 st.query_params.clear()  # clear URL params            
                 st.session_state.logged_in = False
                 st.session_state.current_player = None
@@ -638,11 +472,10 @@ if st.session_state.view_mode == "home":
         )
         & (~pending_d["confB"])
     ].copy()
-    # Rundlauf: nur eine Bestätigung benötigt, Zeilen für Ersteller oder Teilnehmer ohne Bestätigung
+    # Rundlauf: nur eine Bestätigung benötigt, Zeilen für Teilnehmer ohne Bestätigung
     rp = pending_r[
-        ((pending_r["creator"] == current_player) & (pending_r["confirmed_by"].fillna("") == ""))
-        | (pending_r["Teilnehmer"].str.contains(current_player, na=False)
-           & (~pending_r["confirmed_by"].fillna("").str.split(";").apply(lambda lst: current_player in lst)))
+        pending_r["Teilnehmer"].str.contains(current_player, na=False)
+        & (~pending_r["confB"])
     ].copy()
     total_pending = len(sp) + len(dp) + len(rp)
 
@@ -758,15 +591,11 @@ if st.session_state.view_mode == "home":
             if st.button("🔄", key="refresh_tab1"):
                 if "dfs" in st.session_state:
                     st.session_state["dfs"].clear()
-                try:
-                    _get_ws.cache_clear()
-                except Exception:
-                    pass
                 st.rerun()
         # Eingeladene Matches (nur diese können bestätigt werden)
         sp_inv = sp[sp["A"] != current_player]
         dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
-        rp_inv = rp[rp["creator"] != current_player]
+        rp_inv = rp.copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
             st.info("Keine offenen Matches.")
@@ -777,19 +606,17 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                        matches.loc[len(matches)] = [
-                            row["Datum"], row["A"], row["B"],
-                            row["PunkteA"], row["PunkteB"]
-                        ]
-                        save_csv(matches, MATCHES)
+                        # Insert into Supabase matches
+                        supabase.table("matches").insert([{
+                            "Datum": row["Datum"], "A": row["A"], "B": row["B"],
+                            "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                        }]).execute()
                         _rebuild_all()
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"reject_s_{idx}"):
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -800,19 +627,16 @@ if st.session_state.view_mode == "home":
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                 if cols[1].button("✅", key=f"confirm_d_{idx}"):
-                    doubles.loc[len(doubles)] = [
-                        row["Datum"], row["A1"], row["A2"], row["B1"], row["B2"],
-                        row["PunkteA"], row["PunkteB"]
-                    ]
-                    save_csv(doubles, DOUBLES)
+                    supabase.table("doubles").insert([{
+                        "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
+                        "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                    }]).execute()
                     _rebuild_all()
-                    pending_d.drop(idx, inplace=True)
-                    save_csv(pending_d, PENDING_D)
+                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
-                    pending_d.drop(idx, inplace=True)
-                    save_csv(pending_d, PENDING_D)
+                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
 
@@ -823,19 +647,18 @@ if st.session_state.view_mode == "home":
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
                 if cols[1].button("✅", key=f"confirm_r_{idx}"):
-                    rounds.loc[len(rounds)] = [
-                        row["Datum"], row["Teilnehmer"],
-                        row["Finalist1"], row["Finalist2"], row["Sieger"]
-                    ]
-                    save_csv(rounds, ROUNDS)
+                    supabase.table("rounds").insert({
+                        "Datum": row["Datum"],
+                        "Teilnehmer": row["Teilnehmer"],
+                        "Finalisten": row["Finalisten"],
+                        "Sieger": row["Sieger"]
+                    }).execute()
                     _rebuild_all()
-                    pending_r.drop(row.name, inplace=True)
-                    save_csv(pending_r, PENDING_R)
+                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
-                    pending_r.drop(row.name, inplace=True)
-                    save_csv(pending_r, PENDING_R)
+                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
 
@@ -890,8 +713,10 @@ if st.session_state.view_mode == "home":
             pts_a = st.number_input(f"Punkte {current_player}", min_value=0, max_value=100, value=11)
             pts_b = st.number_input(f"Punkte {opponent}", min_value=0, max_value=100, value=9)
             if st.button("Eintragen", key="einzel_submit"):
-                pending.loc[len(pending)] = [dt.isoformat(), current_player, opponent, pts_a, pts_b, True, False]
-                save_csv(pending, PENDING)
+                supabase.table("pending_matches").insert([{
+                    "Datum": dt.isoformat(), "A": current_player, "B": opponent,
+                    "PunkteA": pts_a, "PunkteB": pts_b, "confA": True, "confB": False
+                }]).execute()
                 st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
                 st.rerun()
         # Doppelmatch eintragen
@@ -905,11 +730,10 @@ if st.session_state.view_mode == "home":
             pts_ad = st.number_input("Punkte Team A", min_value=0, max_value=100, value=11)
             pts_bd = st.number_input("Punkte Team B", min_value=0, max_value=100, value=9)
             if st.button("Eintragen", key="doppel_submit"):
-                pending_d.loc[len(pending_d)] = [
-                    dt2.isoformat(), current_player, partner,
-                    opp1, opp2, pts_ad, pts_bd, True, False
-                ]
-                save_csv(pending_d, PENDING_D)
+                supabase.table("pending_doubles").insert([{
+                    "Datum": dt2.isoformat(), "A1": current_player, "A2": partner,
+                    "B1": opp1, "B2": opp2, "PunkteA": pts_ad, "PunkteB": pts_bd, "confA": True, "confB": False
+                }]).execute()
                 st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
                 st.rerun()
         # Rundlauf eintragen
@@ -923,10 +747,14 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="rund_submit"):
                 part_str = ";".join(participants)
                 f1, f2 = (finalists + ["", ""])[:2]
-                pending_r.loc[len(pending_r)] = [
-                    dt3.isoformat(), part_str, f1, f2, winner, current_player, ""
-                ]
-                save_csv(pending_r, PENDING_R)
+                supabase.table("pending_rounds").insert({
+                    "Datum": dt3.isoformat(),
+                    "Teilnehmer": part_str,
+                    "Finalisten": f"{f1};{f2}",
+                    "Sieger": winner,
+                    "confA": True,
+                    "confB": False
+                }).execute()
                 st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
                 st.rerun()
 
@@ -938,16 +766,12 @@ if st.session_state.view_mode == "home":
             if st.button("🔄", key="refresh_tab2"):
                 if "dfs" in st.session_state:
                     st.session_state["dfs"].clear()
-                try:
-                    _get_ws.cache_clear()
-                except Exception:
-                    pass
                 st.rerun()
 
         # Eingeladene Matches (Invitations)
         sp_inv = sp[sp["A"] != current_player]
         dp_inv = dp[~dp["A1"].eq(current_player) & ~dp["A2"].eq(current_player)]
-        rp_inv = rp[rp["creator"] != current_player]
+        rp_inv = rp.copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
             st.info("Keine ausstehenden Bestätigungen.")
@@ -959,19 +783,16 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_s_{idx}"):
-                        matches.loc[len(matches)] = [
-                            row["Datum"], row["A"], row["B"],
-                            row["PunkteA"], row["PunkteB"]
-                        ]
-                        save_csv(matches, MATCHES)
+                        supabase.table("matches").insert([{
+                            "Datum": row["Datum"], "A": row["A"], "B": row["B"],
+                            "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                        }]).execute()
                         _rebuild_all()
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -982,19 +803,16 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
-                        doubles.loc[len(doubles)] = [
-                            row["Datum"], row["A1"], row["A2"], row["B1"], row["B2"],
-                            row["PunkteA"], row["PunkteB"]
-                        ]
-                        save_csv(doubles, DOUBLES)
+                        supabase.table("doubles").insert([{
+                            "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
+                            "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                        }]).execute()
                         _rebuild_all()
-                        pending_d.drop(idx, inplace=True)
-                        save_csv(pending_d, PENDING_D)
+                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
-                        pending_d.drop(idx, inplace=True)
-                        save_csv(pending_d, PENDING_D)
+                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
             # Rundlauf-Einladungen
@@ -1004,19 +822,18 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
                     if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
-                        rounds.loc[len(rounds)] = [
-                            row["Datum"], row["Teilnehmer"],
-                            row["Finalist1"], row["Finalist2"], row["Sieger"]
-                        ]
-                        save_csv(rounds, ROUNDS)
+                        supabase.table("rounds").insert({
+                            "Datum": row["Datum"],
+                            "Teilnehmer": row["Teilnehmer"],
+                            "Finalisten": row["Finalisten"],
+                            "Sieger": row["Sieger"]
+                        }).execute()
                         _rebuild_all()
-                        pending_r.drop(row.name, inplace=True)
-                        save_csv(pending_r, PENDING_R)
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
-                        pending_r.drop(row.name, inplace=True)
-                        save_csv(pending_r, PENDING_R)
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -1025,7 +842,7 @@ if st.session_state.view_mode == "home":
         st.subheader("Meine ausstehenden Matches")
         sp_cre = sp[sp["A"] == current_player]
         dp_cre = dp[(dp["A1"] == current_player) | (dp["A2"] == current_player)]
-        rp_cre = rp[rp["creator"] == current_player]
+        rp_cre = pd.DataFrame(columns=rp.columns)
 
         if sp_cre.empty and dp_cre.empty and rp_cre.empty:
             st.info("Keine eigenen ausstehenden Matches.")
@@ -1036,8 +853,7 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("❌", key=f"reject_own_s_{idx}"):
-                        pending.drop(idx, inplace=True)
-                        save_csv(pending, PENDING)
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -1047,8 +863,7 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("❌", key=f"reject_own_d_{idx}"):
-                        pending_d.drop(idx, inplace=True)
-                        save_csv(pending_d, PENDING_D)
+                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -1058,8 +873,7 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
                     if cols[1].button("❌", key=f"reject_own_r_{idx}"):
-                        pending_r.drop(row.name, inplace=True)
-                        save_csv(pending_r, PENDING_R)
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -1339,246 +1153,3 @@ if st.session_state.view_mode == "home":
 
     st.stop()
 # endregion
-
-# region Regel Ansicht
-if st.session_state.view_mode == "regeln":
-    rules_html = """
-    <style>
-    .rulebox {
-      font-size: 18px;
-      line-height: 1.45;
-      padding: 1rem;
-      border-radius: 8px;
-      background-color: rgba(255,255,255,0.9);
-      color: #000;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      border: 1px solid rgba(0, 0, 0, 0.1);
-    }
-    .rulebox h2 {
-      font-size: 24px;
-      margin: 1.2em 0 0.5em;
-    }
-    .rulebox h3 {
-      font-size: 20px;
-      margin: 1em 0 0.3em;
-    }
-    .rulebox ul {
-      margin: 0 0 1em 1.3em;
-      list-style: disc;
-    }
-    @media (prefers-color-scheme: dark) {
-      .rulebox {
-        background-color: rgba(33,33,33,0.85);
-        color: #fff;
-        box-shadow: 0 2px 6px rgba(255, 255, 255, 0.15);
-        border: 1px solid #ffffff !important;
-      }
-    }
-    </style>
-
-    <div class="rulebox">
-
-    <h2>Einzelmatch</h2>
-
-    <h3>1.&nbsp;Spielziel:</h3>
-    <p>Wer zuerst 11&nbsp;Punkte (mit mindestens&nbsp;2 Punkten Vorsprung) erreicht, gewinnt das Match.</p>
-
-    <h3>2.&nbsp;Aufschlag&nbsp;&amp;&nbsp;Rückschlag:</h3>
-    <p>
-    Der Aufschlag beginnt offen (sichtbar) und wird vom eigenen Spielfeld auf das gegnerische Feld gespielt.<br>
-    Der Ball muss dabei einmal auf der eigenen Seite und dann einmal auf der gegnerischen Seite aufkommen.<br>
-    Nach dem Aufschlag erfolgt der Rückschlag: Der Ball wird direkt auf die gegnerische Seite geschlagen
-    (nicht mehr auf der eigenen aufkommen lassen).
-    </p>
-
-    <h3>3.&nbsp;Rallye:</h3>
-    <p>
-    Nach dem Aufschlag wechseln sich die Spieler ab.<br>
-    Der Ball darf maximal einmal aufspringen, muss über oder um das Netz geschlagen werden.<br>
-    Berührt der Ball das Netz beim Rückschlag, aber landet korrekt, wird weitergespielt.<br>
-    Beim Aufschlag hingegen führt Netzberührung bei korrektem Verlauf zu einem „Let“ (Wiederholung des Aufschlags).
-    </p>
-
-    <h3>4.&nbsp;Punktevergabe:</h3>
-    <ul>
-      <li>Aufschlagfehler (z.&nbsp;B. Ball landet nicht auf gegnerischer Seite)</li>
-      <li>Ball verfehlt</li>
-      <li>Ball springt zweimal auf der eigenen Seite</li>
-      <li>Rückschlag landet außerhalb oder im Netz</li>
-      <li>Ball wird vor dem Aufspringen, aber über der Tischfläche getroffen</li>
-      <li>Netz oder Tisch wird mit der Hand oder dem Körper berührt</li>
-    </ul>
-
-    <h3>5.&nbsp;Aufschlagwechsel:</h3>
-    <p>
-    Alle&nbsp;2 Punkte wird der Aufschlag gewechselt.<br>
-    Bei 10&nbsp;:&nbsp;10 wird nach jedem Punkt der Aufschlag gewechselt
-    (bis einer 2&nbsp;Punkte Vorsprung hat).
-    </p>
-
-    <h3>6.&nbsp;Seitenwechsel:</h3>
-    <p>
-    Nach jedem Satz werden die Seiten gewechselt.<br>
-    Im Entscheidungssatz (z.&nbsp;B. 5.&nbsp;Satz bei 3&nbsp;:&nbsp;2) zusätzlich bei 5 Punkten.
-    </p>
-
-    </div>
-
-    <div class="rulebox">
-
-    <h2>Doppelmatch</h2>
-
-    <h3>1.&nbsp;Spielziel:</h3>
-    <p>Wie beim Einzel gilt: 11&nbsp;Punkte mit mindestens 2 Punkten Vorsprung.</p>
-
-    <h3>2.&nbsp;Aufschlag&nbsp;&amp;&nbsp;Rückschlag:</h3>
-    <p>
-    Aufschlag erfolgt immer diagonal von der rechten Hälfte zur rechten Hälfte des Gegners.<br>
-    Reihenfolge: A1 schlägt auf B1 auf, dann B1 auf A2, dann A2 auf B2, dann B2 auf A1 usw.
-    </p>
-
-    <h3>3.&nbsp;Schlagreihenfolge:</h3>
-    <p>
-    Innerhalb eines Ballwechsels muss sich jedes Team beim Schlagen abwechseln.<br>
-    Es darf also nicht zweimal hintereinander vom selben Spieler eines Teams gespielt werden.
-    </p>
-
-    <h3>4.&nbsp;Punktevergabe:</h3>
-    <p>Fehler führen wie im Einzelspiel zu einem Punkt für das gegnerische Team:</p>
-    <ul>
-      <li>Aufschlagfehler (z.&nbsp;B. falsches Feld, Netz)</li>
-      <li>Ball ins Aus oder ins Netz</li>
-      <li>Fehlerhafte Reihenfolge beim Schlagen</li>
-      <li>Berührung von Netz oder Tisch mit dem Körper</li>
-    </ul>
-
-    <h3>5.&nbsp;Aufschlagwechsel:</h3>
-    <p>
-    Der Aufschlag wechselt alle 2 Punkte – dabei ändert sich auch die Reihenfolge der Spieler.<br>
-    Nach jedem Satz rotiert die Reihenfolge, sodass jeder mal mit jedem spielt.
-    </p>
-
-    <h3>6.&nbsp;Seitenwechsel:</h3>
-    <p>Wie im Einzel: Nach jedem Satz und bei 5 Punkten im letzten Satz.</p>
-
-    </div>
-
-    <div class="rulebox">
-
-    <h2>Rundlauf</h2>
-
-    <h3>1.&nbsp;Spielprinzip:</h3>
-    <p>
-    Alle Spieler laufen im Kreis um den Tisch. Jeder darf nur einen Schlag ausführen und muss danach sofort weiterlaufen.<br>
-    Wer einen Fehler macht, verliert ein Leben.
-    </p>
-
-    <h3>2.&nbsp;Leben &amp; Ausscheiden:</h3>
-    <p>
-    Jeder Spieler startet mit <strong>3 Leben</strong>. Wer keine Leben mehr hat, scheidet aus.<br>
-    Der erste Spieler, der ausscheidet, bekommt automatisch einen <strong>„Schwimmer“</strong> (ein zusätzliches Leben) und darf wieder mitspielen.
-    </p>
-
-    <h3>3.&nbsp;Finalrunde:</h3>
-    <p>
-    Wenn nur noch zwei Spieler übrig sind, beginnt das <strong>Finale</strong>.<br>
-    Es wird auf Punkte gespielt: <strong>Bis 3 Punkte mit mindestens 2 Punkten Abstand</strong>.
-    </p>
-
-    <h3>4.&nbsp;Aufschlag im Finale:</h3>
-    <p>
-    Im Finale wechselt der Aufschlag nach jedem Punkt. Es wird ganz normal mit einem regulären Aufschlag begonnen.
-    </p>
-
-    <h3>5.&nbsp;Fehlerquellen:</h3>
-    <ul>
-      <li>Ball im Netz oder im Aus</li>
-      <li>Ball springt nicht auf gegnerischer Seite</li>
-      <li>Doppelberührung oder Schlag vor dem Aufspringen</li>
-      <li>Zu spät am Tisch (wenn Ball schon 2× aufspringt oder Mitspieler warten muss)</li>
-    </ul>
-
-    </div>
-    """
-    st.markdown(rules_html, unsafe_allow_html=True)
-    st.stop()
-# endregion
-
-# region Turniermodus Ansicht
-# region Turniermodus Ansicht
-if st.session_state.view_mode == "turniermodus":
-    st.markdown(
-        '<h1 style="text-align:center; margin-bottom:0.25rem;">🏆 Turniermodus</h1>',
-        unsafe_allow_html=True
-    )
-    # Expander zum Erstellen eines Turniers
-    with st.expander("Turnier erstellen", expanded=True):
-        turnier_name = st.text_input("Turniername")
-        # Datum und Uhrzeit separat erfassen
-        turnier_date = st.date_input(
-            "Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date()
-        )
-        turnier_time_input = st.time_input(
-            "Uhrzeit", value=datetime.now(ZoneInfo("Europe/Berlin")).timetz().replace(second=0, microsecond=0)
-        )
-        turnier_time = datetime.combine(turnier_date, turnier_time_input).astimezone(ZoneInfo("Europe/Berlin"))
-        turnier_note = st.text_area("Notiz (optional)")
-        turnier_limit = st.number_input(
-            "Maximale Teilnehmer (0 = unbegrenzt)",
-            min_value=0, value=0, step=1
-        )
-        if st.button("Turnier erstellen"):
-            import uuid
-            tid = uuid.uuid4().hex[:8]
-            # Ensure Started column exists
-            if "Started" not in tournaments.columns:
-                tournaments["Started"] = False
-            tournaments.loc[len(tournaments)] = [
-                tid,
-                turnier_name,
-                current_player,
-                turnier_time.isoformat(),
-                turnier_note,
-                int(turnier_limit),
-                current_player,
-                False
-            ]
-            save_csv(tournaments, TOURNAMENTS)
-            st.success("Turnier erstellt! Bitte aktualisieren, um es zu sehen.")
-
-    # Expander zum Beitreten bestehender Turniere
-    with st.expander("Turnier beitreten", expanded=False):
-        if tournaments.empty:
-            st.info("Noch keine Turniere verfügbar.")
-        else:
-            for idx, row in tournaments.iterrows():
-                parts = row["Teilnehmer"].split(";") if row["Teilnehmer"] else []
-                cols = st.columns([3,1])
-                # Turnier-Info
-                cols[0].markdown(
-                    f"**{row['Name']}** von {row['Creator']}<br>"
-                    f"{row['Time']}<br>"
-                    f"Teilnehmer: {len(parts)}"
-                    , unsafe_allow_html=True
-                )
-                # Join-Button, Voll-Status oder schon beigetreten
-                if current_player not in parts:
-                    if row["Limit"] == 0 or len(parts) < row["Limit"]:
-                        if cols[1].button("Beitreten", key=f"join_{idx}"):
-                            parts.append(current_player)
-                            tournaments.at[idx, "Teilnehmer"] = ";".join(parts)
-                            save_csv(tournaments, TOURNAMENTS)
-                            st.rerun()
-                    else:
-                        cols[1].write("🔒 Voll")
-                else:
-                    cols[1].write("✅ Beigetreten")
-                # Ersteller kann ab 4 Teilnehmern starten
-                if row["Creator"] == current_player and len(parts) >= 4 and not row.get("Started", False):
-                    if cols[1].button("Turnier starten", key=f"start_{idx}"):
-                        tournaments.at[idx, "Started"] = True
-                        save_csv(tournaments, TOURNAMENTS)
-                        st.rerun()
-    st.stop()
-# endregion
-
