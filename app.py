@@ -1014,6 +1014,10 @@ if st.session_state.view_mode == "home":
         st.subheader("Leaderboard")
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
+        # --- Debug players DataFrame columns ---
+        st.write("Players columns before leaderboard:", players.columns.tolist())
+        st.stop()
+        # --- End debug ---
         # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
         st.markdown(
             """
