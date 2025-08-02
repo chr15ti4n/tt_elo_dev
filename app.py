@@ -173,13 +173,12 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
 
 # ---------- Daten laden ----------
 players   = load_table("players")
-# --- Debug Loaded Players ---
-st.write("Columns in players:", players.columns.tolist())
-st.write("First rows of players:", players.head())
-st.stop()
-# Ensure we have a lowercase name column for lookups
+# Ensure lowercase "name" column exists
 if "Name" in players.columns:
     players.rename(columns={"Name": "name"}, inplace=True)
+# Debug: Inspect loaded players DataFrame after rename
+st.write("Columns in players (nach Rename):", players.columns.tolist())
+st.write(players.head())
 matches   = load_table("matches")
 pending   = load_table("pending_matches")
 pending_d = load_table("pending_doubles")
