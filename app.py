@@ -607,9 +607,9 @@ if st.session_state.view_mode == "home":
             if "dfs" in st.session_state:
                 st.session_state["dfs"].clear()
             st.rerun()
-        # Eingeladene Matches (nur diese können bestätigt werden)
-        sp_inv = sp[sp["a"] != current_player]
-        dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
+        # Show all pending matches for confirmation, including creator’s own
+        sp_inv = sp.copy()
+        dp_inv = dp.copy()
         rp_inv = rp.copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
