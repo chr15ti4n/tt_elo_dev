@@ -1014,10 +1014,6 @@ if st.session_state.view_mode == "home":
         st.subheader("Leaderboard")
         # Unter-Tabs für verschiedene Sortierungen
         sub_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf"])
-        # --- Debug players DataFrame columns ---
-        st.write("Players columns before leaderboard:", players.columns.tolist())
-        st.stop()
-        # --- End debug ---
         # CSS, um die Tabs gleichmäßig über die Breite zu verteilen
         st.markdown(
             """
@@ -1029,7 +1025,7 @@ if st.session_state.view_mode == "home":
             """,
             unsafe_allow_html=True
         )
-        for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
+        for idx, metric in enumerate(["g_elo", "elo", "d_elo", "r_elo"]):
             with sub_tabs[idx]:
                 # Tabelle nur mit Name und ausgewählter Elo-Spalte
                 df_tab = players[["name", metric]].copy()
@@ -1178,3 +1174,4 @@ if st.session_state.view_mode == "home":
 
     st.stop()
 # endregion
+ 
