@@ -600,85 +600,82 @@ if st.session_state.view_mode == "home":
             unsafe_allow_html=True
         )
 
-        # Center Match-Bestätigungen section
-        cols_center = st.columns([1, 10, 1])
-        with cols_center[1]:
-            # Match-Bestätigungen code (formerly inside cols_refresh1/with block)
-            st.divider()
-            st.subheader("Match-Bestätigungen")
-            if st.button("🔄", key="refresh_tab1"):
-                if "dfs" in st.session_state:
-                    st.session_state["dfs"].clear()
-                st.rerun()
-            # Eingeladene Matches (nur diese können bestätigt werden)
-            sp_inv = sp[sp["a"] != current_player]
-            dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
-            rp_inv = rp.copy()
+        # Match-Bestätigungen section (now full-width)
+        st.divider()
+        st.subheader("Match-Bestätigungen")
+        if st.button("🔄", key="refresh_tab1"):
+            if "dfs" in st.session_state:
+                st.session_state["dfs"].clear()
+            st.rerun()
+        # Eingeladene Matches (nur diese können bestätigt werden)
+        sp_inv = sp[sp["a"] != current_player]
+        dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
+        rp_inv = rp.copy()
 
-            if sp_inv.empty and dp_inv.empty and rp_inv.empty:
-                st.info("Keine offenen Matches.")
-            # Einzel-Einladungen
-            if not sp_inv.empty:
-                st.markdown("**Einzel**")
-                for idx, row in sp_inv.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                        # Insert into Supabase matches
-                        supabase.table("matches").insert([{
-                            "Datum": row["Datum"], "A": row["A"], "B": row["B"],
-                            "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
-                        }]).execute()
-                        _rebuild_all()
-                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
-                    if cols[2].button("❌", key=f"reject_s_{idx}"):
-                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+        if sp_inv.empty and dp_inv.empty and rp_inv.empty:
+            st.info("Keine offenen Matches.")
+        # Einzel-Einladungen
+        if not sp_inv.empty:
+            st.markdown("**Einzel**")
+            for idx, row in sp_inv.iterrows():
+                cols = st.columns([3,1,1])
+                cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                if cols[1].button("✅", key=f"confirm_s_{idx}"):
+                    # Insert into Supabase matches
+                    supabase.table("matches").insert([{
+                        "Datum": row["Datum"], "A": row["A"], "B": row["B"],
+                        "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                    }]).execute()
+                    _rebuild_all()
+                    supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
+                if cols[2].button("❌", key=f"reject_s_{idx}"):
+                    supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
 
-            # Doppel-Einladungen
-            if not dp_inv.empty:
-                st.markdown("**Doppel**")
-                for idx, row in dp_inv.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    if cols[1].button("✅", key=f"confirm_d_{idx}"):
-                        supabase.table("doubles").insert([{
-                            "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
-                            "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
-                        }]).execute()
-                        _rebuild_all()
-                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
-                    if cols[2].button("❌", key=f"reject_d_{idx}"):
-                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+        # Doppel-Einladungen
+        if not dp_inv.empty:
+            st.markdown("**Doppel**")
+            for idx, row in dp_inv.iterrows():
+                cols = st.columns([3,1,1])
+                cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                if cols[1].button("✅", key=f"confirm_d_{idx}"):
+                    supabase.table("doubles").insert([{
+                        "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
+                        "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                    }]).execute()
+                    _rebuild_all()
+                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
+                if cols[2].button("❌", key=f"reject_d_{idx}"):
+                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
 
-            # Rundlauf-Einladungen
-            if not rp_inv.empty:
-                st.markdown("**Rundlauf**")
-                for idx, row in rp_inv.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                    if cols[1].button("✅", key=f"confirm_r_{idx}"):
-                        supabase.table("rounds").insert({
-                            "Datum": row["Datum"],
-                            "Teilnehmer": row["Teilnehmer"],
-                            "Finalisten": row["Finalisten"],
-                            "Sieger": row["Sieger"]
-                        }).execute()
-                        _rebuild_all()
-                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
-                    if cols[2].button("❌", key=f"reject_r_{idx}"):
-                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+        # Rundlauf-Einladungen
+        if not rp_inv.empty:
+            st.markdown("**Rundlauf**")
+            for idx, row in rp_inv.iterrows():
+                cols = st.columns([3,1,1])
+                cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                if cols[1].button("✅", key=f"confirm_r_{idx}"):
+                    supabase.table("rounds").insert({
+                        "Datum": row["Datum"],
+                        "Teilnehmer": row["Teilnehmer"],
+                        "Finalisten": row["Finalisten"],
+                        "Sieger": row["Sieger"]
+                    }).execute()
+                    _rebuild_all()
+                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
+                if cols[2].button("❌", key=f"reject_r_{idx}"):
+                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
 
         # Center Letzte Spiele table
         cols_center2 = st.columns([1, 10, 1])
