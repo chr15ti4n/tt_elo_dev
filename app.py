@@ -640,6 +640,12 @@ if st.session_state.view_mode == "home":
                         st.error(f"DEBUG Insert Error: {e}")
                         st.write("Payload:", payload)
                         st.write("Supabase URL:", st.secrets['supabase']['url'])
+                        # --- Debug: inspect table schema/sample data ---
+                        schema_res = supabase.table("matches").select("*").limit(1).execute()
+                        st.write("Matches table sample data:", schema_res.data)
+                        if schema_res.data:
+                            st.write("Available columns in 'matches':", list(schema_res.data[0].keys()))
+                        # --- End debug ---
                         st.stop()
                 if cols[2].button("❌", key=f"reject_s_{idx}"):
                     supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
