@@ -504,217 +504,217 @@ if st.session_state.view_mode == "home":
         # Kombiniere alle Modus-Matches modusunabhängig für Win-Streak
         combined = []
         # Einzelmatches
-    df_s = matches[
+        df_s = matches[
         (matches["a"] == current_player) | (matches["b"] == current_player)
-    ].copy()
-    df_s["Win"] = df_s.apply(
+        ].copy()
+        df_s["Win"] = df_s.apply(
         lambda r: (r["punktea"] > r["punkteb"]) if r["a"] == current_player
                   else (r["punkteb"] > r["punktea"]),
         axis=1
-    )
-    combined.append(df_s[["datum", "Win"]])
-    # Doppelmatches
-    df_d = doubles[
-        (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
-        | (doubles["b1"] == current_player) | (doubles["b2"] == current_player)
-    ].copy()
-    df_d["Win"] = df_d.apply(
-        lambda r: (r["punktea"] > r["punkteb"]) if current_player in (r["a1"], r["a2"])
-                  else (r["punkteb"] > r["punktea"]),
-        axis=1
-    )
-    combined.append(df_d[["datum", "Win"]])
-    # Rundlaufmatches
-    df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
-    df_r["Win"] = df_r["sieger"] == current_player
-    combined.append(df_r[["datum", "Win"]])
-    # Chronologisch sortieren
-    comb_df = pd.concat(combined).sort_values("datum", ascending=False)
+        )
+        combined.append(df_s[["datum", "Win"]])
+        # Doppelmatches
+        df_d = doubles[
+            (doubles["a1"] == current_player) | (doubles["a2"] == current_player)
+            | (doubles["b1"] == current_player) | (doubles["b2"] == current_player)
+        ].copy()
+        df_d["Win"] = df_d.apply(
+            lambda r: (r["punktea"] > r["punkteb"]) if current_player in (r["a1"], r["a2"])
+                    else (r["punkteb"] > r["punktea"]),
+            axis=1
+        )
+        combined.append(df_d[["datum", "Win"]])
+        # Rundlaufmatches
+        df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
+        df_r["Win"] = df_r["sieger"] == current_player
+        combined.append(df_r[["datum", "Win"]])
+        # Chronologisch sortieren
+        comb_df = pd.concat(combined).sort_values("datum", ascending=False)
 
-    # ELO-Übersicht optisch wie im Statistik-Tab
-    st.markdown(
-        f"""
-        <div style="text-align:center; margin:1rem 0;">
-            <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
-            <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user["g_elo"])}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        """
-        <style>
-        [data-testid="stColumns"] {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-        }
-        [data-testid="stColumn"] {
-            min-width: 0 !important;
-            flex: 1 1 auto !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    cols_e = st.columns(3)
-    with cols_e[0]:
+        # ELO-Übersicht optisch wie im Statistik-Tab
         st.markdown(
             f"""
-            <div style="text-align:center;">
-                <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
-                <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["elo"])}</div>
+            <div style="text-align:center; margin:1rem 0;">
+                <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
+                <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user["g_elo"])}</div>
             </div>
             """,
             unsafe_allow_html=True
         )
-    with cols_e[1]:
         st.markdown(
-            f"""
-            <div style="text-align:center;">
-                <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
-                <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["d_elo"])}</div>
-            </div>
+            """
+            <style>
+            [data-testid="stColumns"] {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+            }
+            [data-testid="stColumn"] {
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+            }
+            </style>
             """,
             unsafe_allow_html=True
         )
-    with cols_e[2]:
-        st.markdown(
-            f"""
-            <div style="text-align:center;">
-                <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
-                <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["r_elo"])}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        # Win-Streak zentral als Einzeiler
-        streak = 0
-        for _, row in comb_df.iterrows():
-            if row["Win"]:
-                streak += 1
-            else:
-                break
-        st.markdown(
-            f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
-            unsafe_allow_html=True
-        )
+        cols_e = st.columns(3)
+        with cols_e[0]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                    <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
+                    <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["elo"])}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with cols_e[1]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                    <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
+                    <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["d_elo"])}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with cols_e[2]:
+            st.markdown(
+                f"""
+                <div style="text-align:center;">
+                    <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
+                    <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["r_elo"])}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            # Win-Streak zentral als Einzeiler
+            streak = 0
+            for _, row in comb_df.iterrows():
+                if row["Win"]:
+                    streak += 1
+                else:
+                    break
+            st.markdown(
+                f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
+                unsafe_allow_html=True
+            )
 
-        st.divider()
-        cols_refresh1 = st.columns([4,1])
-        with cols_refresh1[0]:
-            st.subheader("Match-Bestätigungen")
-        with cols_refresh1[1]:
-            if st.button("🔄", key="refresh_tab1"):
-                if "dfs" in st.session_state:
-                    st.session_state["dfs"].clear()
-                st.rerun()
-        # Eingeladene Matches (nur diese können bestätigt werden)
-        sp_inv = sp[sp["a"] != current_player]
-        dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
-        rp_inv = rp.copy()
+            st.divider()
+            cols_refresh1 = st.columns([4,1])
+            with cols_refresh1[0]:
+                st.subheader("Match-Bestätigungen")
+            with cols_refresh1[1]:
+                if st.button("🔄", key="refresh_tab1"):
+                    if "dfs" in st.session_state:
+                        st.session_state["dfs"].clear()
+                    st.rerun()
+            # Eingeladene Matches (nur diese können bestätigt werden)
+            sp_inv = sp[sp["a"] != current_player]
+            dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
+            rp_inv = rp.copy()
 
-        if sp_inv.empty and dp_inv.empty and rp_inv.empty:
-            st.info("Keine offenen Matches.")
-        # Einzel-Einladungen
-        if not sp_inv.empty:
-                st.markdown("**Einzel**")
-                for idx, row in sp_inv.iterrows():
+            if sp_inv.empty and dp_inv.empty and rp_inv.empty:
+                st.info("Keine offenen Matches.")
+            # Einzel-Einladungen
+            if not sp_inv.empty:
+                    st.markdown("**Einzel**")
+                    for idx, row in sp_inv.iterrows():
+                        cols = st.columns([3,1,1])
+                        cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                        if cols[1].button("✅", key=f"confirm_s_{idx}"):
+                            # Insert into Supabase matches
+                            supabase.table("matches").insert([{
+                                "Datum": row["Datum"], "A": row["A"], "B": row["B"],
+                                "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                            }]).execute()
+                            _rebuild_all()
+                            supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                            st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                            st.rerun()
+                        if cols[2].button("❌", key=f"reject_s_{idx}"):
+                            supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                            st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                            st.rerun()
+
+            # Doppel-Einladungen
+            if not dp_inv.empty:
+                st.markdown("**Doppel**")
+                for idx, row in dp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                    if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                        # Insert into Supabase matches
-                        supabase.table("matches").insert([{
-                            "Datum": row["Datum"], "A": row["A"], "B": row["B"],
+                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("✅", key=f"confirm_d_{idx}"):
+                        supabase.table("doubles").insert([{
+                            "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
                             "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
                         }]).execute()
                         _rebuild_all()
-                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
-                    if cols[2].button("❌", key=f"reject_s_{idx}"):
-                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                    if cols[2].button("❌", key=f"reject_d_{idx}"):
+                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
-        # Doppel-Einladungen
-        if not dp_inv.empty:
-            st.markdown("**Doppel**")
-            for idx, row in dp_inv.iterrows():
-                cols = st.columns([3,1,1])
-                cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                if cols[1].button("✅", key=f"confirm_d_{idx}"):
-                    supabase.table("doubles").insert([{
-                        "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
-                        "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
-                    }]).execute()
-                    _rebuild_all()
-                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
-                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
-                if cols[2].button("❌", key=f"reject_d_{idx}"):
-                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
-                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
+            # Rundlauf-Einladungen
+            if not rp_inv.empty:
+                st.markdown("**Rundlauf**")
+                for idx, row in rp_inv.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    if cols[1].button("✅", key=f"confirm_r_{idx}"):
+                        supabase.table("rounds").insert({
+                            "Datum": row["Datum"],
+                            "Teilnehmer": row["Teilnehmer"],
+                            "Finalisten": row["Finalisten"],
+                            "Sieger": row["Sieger"]
+                        }).execute()
+                        _rebuild_all()
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.rerun()
+                    if cols[2].button("❌", key=f"reject_r_{idx}"):
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.rerun()
 
-        # Rundlauf-Einladungen
-        if not rp_inv.empty:
-            st.markdown("**Rundlauf**")
-            for idx, row in rp_inv.iterrows():
-                cols = st.columns([3,1,1])
-                cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
-                if cols[1].button("✅", key=f"confirm_r_{idx}"):
-                    supabase.table("rounds").insert({
-                        "Datum": row["Datum"],
-                        "Teilnehmer": row["Teilnehmer"],
-                        "Finalisten": row["Finalisten"],
-                        "Sieger": row["Sieger"]
-                    }).execute()
-                    _rebuild_all()
-                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
-                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
-                if cols[2].button("❌", key=f"reject_r_{idx}"):
-                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
-                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
-
-        st.divider()
-        # Allgemeine letzten 5 Matches (Update-Feed)
-        df_sg = matches.copy()
-        df_sg["Modus"] = "Einzel"
-        df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['a']} vs {r['b']}", axis=1)
-        df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
-        df_dg = doubles.copy()
-        df_dg["Modus"] = "Doppel"
-        df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['a1']}/{r['a2']} vs {r['b1']}/{r['b2']}", axis=1)
-        df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
-        df_rg = rounds.copy()
-        df_rg["Modus"] = "Rundlauf"
-        df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
-        df_rg["Ergebnis"] = df_rg["sieger"]
-        feed = pd.concat([df_sg[['datum','Modus','Teilnehmer','Ergebnis']],
-                          df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
-                          df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
-        feed = feed.sort_values("datum", ascending=False).head(5).reset_index(drop=True)
-        st.subheader("Letzte Spiele")
-        # Tabelle ohne Datum und Index
-        feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
-        styler_feed = (
-            feed_disp.style
-            .set_properties(
-                subset=["Modus", "Ergebnis"],
-                **{"white-space": "nowrap", "min-width": "100px"}
+            st.divider()
+            # Allgemeine letzten 5 Matches (Update-Feed)
+            df_sg = matches.copy()
+            df_sg["Modus"] = "Einzel"
+            df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['a']} vs {r['b']}", axis=1)
+            df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
+            df_dg = doubles.copy()
+            df_dg["Modus"] = "Doppel"
+            df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['a1']}/{r['a2']} vs {r['b1']}/{r['b2']}", axis=1)
+            df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
+            df_rg = rounds.copy()
+            df_rg["Modus"] = "Rundlauf"
+            df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
+            df_rg["Ergebnis"] = df_rg["sieger"]
+            feed = pd.concat([df_sg[['datum','Modus','Teilnehmer','Ergebnis']],
+                            df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
+                            df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
+            feed = feed.sort_values("datum", ascending=False).head(5).reset_index(drop=True)
+            st.subheader("Letzte Spiele")
+            # Tabelle ohne Datum und Index
+            feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
+            styler_feed = (
+                feed_disp.style
+                .set_properties(
+                    subset=["Modus", "Ergebnis"],
+                    **{"white-space": "nowrap", "min-width": "100px"}
+                )
+                .set_properties(
+                    subset=["Teilnehmer"],
+                    **{"white-space": "normal", "word-wrap": "break-word", "overflow-wrap": "anywhere"}
+                )
+                .set_table_styles([
+                    {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
+                    {"selector": "th.blank.level0", "props": [("display", "none")]}
+                ])
             )
-            .set_properties(
-                subset=["Teilnehmer"],
-                **{"white-space": "normal", "word-wrap": "break-word", "overflow-wrap": "anywhere"}
-            )
-            .set_table_styles([
-                {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
-                {"selector": "th.blank.level0", "props": [("display", "none")]}
-            ])
-        )
-        st.table(styler_feed)
+            st.table(styler_feed)
 
     # Tab 2: Match-Eintrag per Sub-Tabs und Bestätigung
     with tab2:
