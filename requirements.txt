@@ -6,3 +6,4 @@ qrcode
 gspread
 gspread_dataframe
 numpy
+supabase
