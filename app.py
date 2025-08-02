@@ -162,6 +162,9 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
 
 # ---------- Daten laden ----------
 players   = load_table("players")
+# Ensure consistent lowercase column for player name
+if "Name" in players.columns:
+    players.rename(columns={"Name": "name"}, inplace=True)
 matches   = load_table("matches")
 pending   = load_table("pending_matches")
 pending_d = load_table("pending_doubles")
@@ -1007,8 +1010,8 @@ if st.session_state.view_mode == "home":
         for idx, metric in enumerate(["G_ELO", "ELO", "D_ELO", "R_ELO"]):
             with sub_tabs[idx]:
                 # Tabelle nur mit Name und ausgewählter Elo-Spalte
-                df_tab = players[["Name", metric]].copy()
-                df_tab = df_tab.rename(columns={metric: "ELO"})
+                df_tab = players[["name", metric]].copy()
+                df_tab = df_tab.rename(columns={"name": "Name", metric: "ELO"})
                 df_tab["ELO"] = df_tab["ELO"].astype(int)
                 # Absteigend sortieren
                 df_tab = df_tab.sort_values("ELO", ascending=False).reset_index(drop=True)
