@@ -462,6 +462,11 @@ if st.session_state.view_mode == "home":
 
     # Offene Matches für Bestätigung (auch vom Ersteller angezeigt)
     user = players.loc[players["name"] == current_player].iloc[0]
+    # --- Debug pending DataFrame ---
+    st.write("Pending columns:", pending.columns.tolist())
+    st.write("Pending sample rows:", pending.head())
+    st.stop()
+    # --- End debug ---
     # Einfache Bestätigung: pending solange confB False, für beide Teilnehmer
     sp = pending[
         ((pending["a"] == current_player) | (pending["b"] == current_player))
