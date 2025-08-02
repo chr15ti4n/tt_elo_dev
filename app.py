@@ -621,9 +621,9 @@ if st.session_state.view_mode == "home":
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                 if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                    # Insert into Supabase matches with lowercase keys
+                    # Insert into Supabase matches with lowercase keys, serialize datum
                     supabase.table("matches").insert([{
-                        "datum": row["datum"], "a": row["a"], "b": row["b"],
+                        "datum": row["datum"].isoformat(), "a": row["a"], "b": row["b"],
                         "punktea": row["punktea"], "punkteb": row["punkteb"]
                     }]).execute()
                     load_table.clear()
@@ -646,7 +646,7 @@ if st.session_state.view_mode == "home":
                 cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                 if cols[1].button("✅", key=f"confirm_d_{idx}"):
                     supabase.table("doubles").insert([{
-                        "datum": row["datum"], "a1": row["a1"], "a2": row["a2"], "b1": row["b1"], "b2": row["b2"],
+                        "datum": row["datum"].isoformat(), "a1": row["a1"], "a2": row["a2"], "b1": row["b1"], "b2": row["b2"],
                         "punktea": row["punktea"], "punkteb": row["punkteb"]
                     }]).execute()
                     load_table.clear()
@@ -669,7 +669,7 @@ if st.session_state.view_mode == "home":
                 cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                 if cols[1].button("✅", key=f"confirm_r_{idx}"):
                     supabase.table("rounds").insert({
-                        "datum": row["datum"],
+                        "datum": row["datum"].isoformat(),
                         "teilnehmer": row["teilnehmer"],
                         "finalisten": row["finalisten"],
                         "sieger": row["sieger"]
@@ -812,7 +812,7 @@ if st.session_state.view_mode == "home":
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_s_{idx}"):
                         supabase.table("matches").insert([{
-                            "datum": row["datum"], "a": row["a"], "b": row["b"],
+                            "datum": row["datum"].isoformat(), "a": row["a"], "b": row["b"],
                             "punktea": row["punktea"], "punkteb": row["punkteb"]
                         }]).execute()
                         load_table.clear()
@@ -835,7 +835,7 @@ if st.session_state.view_mode == "home":
                     cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
                         supabase.table("doubles").insert([{
-                            "datum": row["datum"], "a1": row["a1"], "a2": row["a2"], "b1": row["b1"], "b2": row["b2"],
+                            "datum": row["datum"].isoformat(), "a1": row["a1"], "a2": row["a2"], "b1": row["b1"], "b2": row["b2"],
                             "punktea": row["punktea"], "punkteb": row["punkteb"]
                         }]).execute()
                         load_table.clear()
@@ -857,7 +857,7 @@ if st.session_state.view_mode == "home":
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
                     if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
                         supabase.table("rounds").insert({
-                            "datum": row["datum"],
+                            "datum": row["datum"].isoformat(),
                             "teilnehmer": row["teilnehmer"],
                             "finalisten": row["finalisten"],
                             "sieger": row["sieger"]
