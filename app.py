@@ -621,17 +621,26 @@ if st.session_state.view_mode == "home":
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                 if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                    # Insert into Supabase matches with lowercase keys, serialize datum
-                    supabase.table("matches").insert([{
-                        "datum": row["datum"].isoformat(), "a": row["a"], "b": row["b"],
-                        "punktea": row["punktea"], "punkteb": row["punkteb"]
-                    }]).execute()
-                    load_table.clear()
-                    _rebuild_all()
-                    supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
-                    load_table.clear()
-                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
+                    payload = {
+                        "datum": row["datum"].isoformat(),
+                        "a": row["a"],
+                        "b": row["b"],
+                        "punktea": row["punktea"],
+                        "punkteb": row["punkteb"]
+                    }
+                    try:
+                        res = supabase.table("matches").insert([payload]).execute()
+                        load_table.clear()
+                        _rebuild_all()
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        load_table.clear()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"DEBUG Insert Error: {e}")
+                        st.write("Payload:", payload)
+                        st.write("Supabase URL:", st.secrets['supabase']['url'])
+                        st.stop()
                 if cols[2].button("❌", key=f"reject_s_{idx}"):
                     supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                     load_table.clear()
