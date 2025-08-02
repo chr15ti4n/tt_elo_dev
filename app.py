@@ -870,7 +870,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Einzel**")
                 for idx, row in sp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("❌", key=f"reject_own_s_{idx}"):
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -880,7 +880,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Doppel**")
                 for idx, row in dp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("❌", key=f"reject_own_d_{idx}"):
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -890,7 +890,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Rundlauf**")
                 for idx, row in rp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                     if cols[1].button("❌", key=f"reject_own_r_{idx}"):
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
