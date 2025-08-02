@@ -1581,4 +1581,3 @@ if st.session_state.view_mode == "turniermodus":
                         st.rerun()
     st.stop()
 # endregion
-
