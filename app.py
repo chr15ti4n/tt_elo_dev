@@ -31,6 +31,17 @@ def get_supabase_client():
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
 supabase = get_supabase_client()
+# --- Debug Supabase-Verbindung ---
+try:
+    test = supabase.table("players").select("*").limit(1).execute()
+    st.write("Supabase-Abfrage erfolgreich:", test)
+    st.write("Daten-Teil:", test.data)
+except Exception as e:
+    st.error(f"Supabase-Fehler: {e}")
+    st.stop()
+# --- Debug Supabase-Secrets ---
+st.write("Supabase URL:", st.secrets["supabase"]["url"])
+st.write("Supabase Key (Anfang):", st.secrets["supabase"]["key"][:8] + "…")
 
 @st.cache_data
 def load_table(table_name: str) -> pd.DataFrame:
@@ -162,7 +173,11 @@ def calc_doppel_elo(r1, r2, opp_avg, s, k=24):
 
 # ---------- Daten laden ----------
 players   = load_table("players")
-# Ensure consistent lowercase column for player name
+# --- Debug Loaded Players ---
+st.write("Columns in players:", players.columns.tolist())
+st.write("First rows of players:", players.head())
+st.stop()
+# Ensure we have a lowercase name column for lookups
 if "Name" in players.columns:
     players.rename(columns={"Name": "name"}, inplace=True)
 matches   = load_table("matches")
