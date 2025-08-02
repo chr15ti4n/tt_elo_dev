@@ -932,6 +932,11 @@ if st.session_state.view_mode == "home":
             .stTable table tr td:first-child {
                 display: none;
             }
+            /* Center Streamlit tables */
+            .stTable, .stTable table {
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
             </style>
             """,
             unsafe_allow_html=True
@@ -941,7 +946,7 @@ if st.session_state.view_mode == "home":
             f"""
             <div style="text-align:center; margin:1rem 0;">
               <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
-              <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
+              <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user["g_elo"])}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -968,7 +973,7 @@ if st.session_state.view_mode == "home":
                 f"""
                 <div style="text-align:center;">
                   <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
-                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["elo"])}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -978,7 +983,7 @@ if st.session_state.view_mode == "home":
                 f"""
                 <div style="text-align:center;">
                   <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
-                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["d_elo"])}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -988,7 +993,7 @@ if st.session_state.view_mode == "home":
                 f"""
                 <div style="text-align:center;">
                   <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
-                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
+                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user["r_elo"])}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -1000,7 +1005,7 @@ if st.session_state.view_mode == "home":
                 streak += 1
             else:
                 break
-        # Win-Streak zentral als Einzeiler mit einheitlicher Schriftgröße
+        # Win-Streak zentral als Einzeiler mit einheitlicher Schriftgröße, outside columns for centering
         st.markdown(
             f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
             unsafe_allow_html=True
@@ -1050,16 +1055,16 @@ if st.session_state.view_mode == "home":
         stats = pd.DataFrame({
             "Kategorie": ["Einzel", "Doppel", "Rundlauf", "Gesamt"],
             "Spiele": [
-                int(user.Spiele),
-                int(user.D_Spiele),
-                int(user.R_Spiele),
-                int(user.Spiele + user.D_Spiele + user.R_Spiele)
+                int(user["spiele"]),
+                int(user["d_spiele"]),
+                int(user["r_spiele"]),
+                int(user["spiele"] + user["d_spiele"] + user["r_spiele"])
             ],
             "Siege": [
-                int(user.Siege),
-                int(user.D_Siege),
-                int(user.R_Siege),
-                int(user.Siege + user.D_Siege + user.R_Siege)
+                int(user["siege"]),
+                int(user["d_siege"]),
+                int(user["r_siege"]),
+                int(user["siege"] + user["d_siege"] + user["r_siege"])
             ]
         })
         # Winrate (%) in Prozent berechnen (ganzzahlig)
@@ -1069,7 +1074,7 @@ if st.session_state.view_mode == "home":
             axis=1
         )
 
-        # Statische Tabelle ohne Index
+        # Statische Tabelle ohne Index, centered
         st.table(stats)
 
         # Darstellung der letzten 5 Matches modusunabhängig
