@@ -25,14 +25,14 @@ from pathlib import Path
 
 from supabase import create_client
 
-@st.experimental_singleton
+@st.cache(allow_output_mutation=True)
 def get_supabase_client():
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
 supabase = get_supabase_client()
 
-@st.experimental_memo
+@st.cache(allow_output_mutation=True)
 def load_table(table_name: str) -> pd.DataFrame:
     res = supabase.table(table_name).select("*").execute().data
     df = pd.DataFrame(res)
