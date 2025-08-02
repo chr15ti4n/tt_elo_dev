@@ -190,20 +190,20 @@ rounds    = load_table("rounds")
 # ---------- Doppel-Stats & ELO komplett neu berechnen ----------
 def rebuild_players_d(players_df, doubles_df, k=48):
     players_df = players_df.copy()
-    players_df[["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = 0
-    players_df["D_ELO"] = 1200
+    players_df[["d_elo", "d_siege", "d_niederlagen", "d_spiele"]] = 0
+    players_df["d_elo"] = 1200
     for _, row in doubles_df.sort_values("datum").iterrows():
-        a1,a2,b1,b2 = row[["a1","a2","b1","b2"]]
-        pa,pb = int(row["punktea"]), int(row["punkteb"])
-        ra1 = players_df.loc[players_df.Name==a1,"D_ELO"].iat[0]
-        ra2 = players_df.loc[players_df.Name==a2,"D_ELO"].iat[0]
-        rb1 = players_df.loc[players_df.Name==b1,"D_ELO"].iat[0]
-        rb2 = players_df.loc[players_df.Name==b2,"D_ELO"].iat[0]
-        a_avg,b_avg = (ra1+ra2)/2, (rb1+rb2)/2
+        a1, a2, b1, b2 = row[["a1", "a2", "b1", "b2"]]
+        pa, pb = int(row["punktea"]), int(row["punkteb"])
+        ra1 = players_df.loc[players_df["name"] == a1, "d_elo"].iat[0]
+        ra2 = players_df.loc[players_df["name"] == a2, "d_elo"].iat[0]
+        rb1 = players_df.loc[players_df["name"] == b1, "d_elo"].iat[0]
+        rb2 = players_df.loc[players_df["name"] == b2, "d_elo"].iat[0]
+        a_avg, b_avg = (ra1 + ra2) / 2, (rb1 + rb2) / 2
         if pa == pb:
             continue  # kein Unentschieden
-        margin  = abs(pa - pb)
-        k_eff   = k * (1 + margin / 11)
+        margin = abs(pa - pb)
+        k_eff = k * (1 + margin / 11)
         team_a_win = 1 if pa > pb else 0
 
         nr1, nr2 = calc_doppel_elo(ra1, ra2, b_avg, team_a_win, k_eff)
@@ -214,12 +214,12 @@ def rebuild_players_d(players_df, doubles_df, k=48):
             (b1, nr3, 1 - team_a_win),
             (b2, nr4, 1 - team_a_win),
         ]
-        for p,new,s in updates:
-            players_df.loc[players_df.Name==p, ["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = [
+        for p, new, s in updates:
+            players_df.loc[players_df["name"] == p, ["d_elo", "d_siege", "d_niederlagen", "d_spiele"]] = [
                 new,
-                players_df.loc[players_df.Name==p,"D_Siege"].iat[0] + s,
-                players_df.loc[players_df.Name==p,"D_Niederlagen"].iat[0] + (1 - s),
-                players_df.loc[players_df.Name==p,"D_Spiele"].iat[0] + 1,
+                players_df.loc[players_df["name"] == p, "d_siege"].iat[0] + s,
+                players_df.loc[players_df["name"] == p, "d_niederlagen"].iat[0] + (1 - s),
+                players_df.loc[players_df["name"] == p, "d_spiele"].iat[0] + 1,
             ]
     players_df = compute_gelo(players_df)
     return players_df
@@ -239,35 +239,35 @@ def calc_round_elo(r, avg, s, k=48):
 # ---------- Rundlauf-Stats & ELO komplett neu berechnen ----------
 def rebuild_players_r(players_df, rounds_df, k=48):
     players_df = players_df.copy()
-    players_df[["R_ELO","R_Siege","R_Zweite","R_Niederlagen","R_Spiele"]] = 0
-    players_df["R_ELO"] = 1200
+    players_df[["r_elo", "r_siege", "r_zweite", "r_niederlagen", "r_spiele"]] = 0
+    players_df["r_elo"] = 1200
     if rounds_df.empty:
         return players_df
     for _, row in rounds_df.sort_values("datum").iterrows():
         teilnehmer = row["teilnehmer"].split(";")
         fin1, fin2, winner = row["finalisten"].split(";")[0], row["finalisten"].split(";")[1], row["sieger"]
-        avg = players_df.loc[players_df.Name.isin(teilnehmer), "R_ELO"].mean()
+        avg = players_df.loc[players_df["name"].isin(teilnehmer), "r_elo"].mean()
         deltas = {}
         for p in teilnehmer:
-            old = players_df.loc[players_df.Name==p,"R_ELO"].iat[0]
+            old = players_df.loc[players_df["name"] == p, "r_elo"].iat[0]
             if p == winner:
                 s = 1
-                players_df.loc[players_df.Name==p,"R_Siege"] += 1
+                players_df.loc[players_df["name"] == p, "r_siege"] += 1
             elif p in (fin1, fin2):
                 s = 0.5
-                players_df.loc[players_df.Name==p,"R_Zweite"] += 1
+                players_df.loc[players_df["name"] == p, "r_zweite"] += 1
             else:
                 s = 0
-                players_df.loc[players_df.Name==p,"R_Niederlagen"] += 1
+                players_df.loc[players_df["name"] == p, "r_niederlagen"] += 1
             exp = 1 / (1 + 10 ** ((avg - old) / 400))
             delta = k * (s - exp)
             deltas[p] = delta
         # Null‑Summe: Offset so dass Summe(delta_adj) = 0
         offset = sum(deltas.values()) / len(deltas)
         for p, delta in deltas.items():
-            new = round(players_df.loc[players_df.Name==p,"R_ELO"].iat[0] + (delta - offset))
-            players_df.loc[players_df.Name==p,"R_ELO"] = new
-            players_df.loc[players_df.Name==p,"R_Spiele"] += 1
+            new = round(players_df.loc[players_df["name"] == p, "r_elo"].iat[0] + (delta - offset))
+            players_df.loc[players_df["name"] == p, "r_elo"] = new
+            players_df.loc[players_df["name"] == p, "r_spiele"] += 1
     players_df = compute_gelo(players_df)
     return players_df
 # endregion
