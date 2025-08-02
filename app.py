@@ -619,7 +619,7 @@ if st.session_state.view_mode == "home":
             st.markdown("**Einzel**")
             for idx, row in sp_inv.iterrows():
                 cols = st.columns([3,1,1])
-                cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                 if cols[1].button("✅", key=f"confirm_s_{idx}"):
                     # Insert into Supabase matches
                     supabase.table("matches").insert([{
@@ -640,7 +640,7 @@ if st.session_state.view_mode == "home":
             st.markdown("**Doppel**")
             for idx, row in dp_inv.iterrows():
                 cols = st.columns([3,1,1])
-                cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                 if cols[1].button("✅", key=f"confirm_d_{idx}"):
                     supabase.table("doubles").insert([{
                         "Datum": row["Datum"], "A1": row["A1"], "A2": row["A2"], "B1": row["B1"], "B2": row["B2"],
@@ -660,7 +660,7 @@ if st.session_state.view_mode == "home":
             st.markdown("**Rundlauf**")
             for idx, row in rp_inv.iterrows():
                 cols = st.columns([3,1,1])
-                cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                 if cols[1].button("✅", key=f"confirm_r_{idx}"):
                     supabase.table("rounds").insert({
                         "Datum": row["Datum"],
