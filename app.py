@@ -293,7 +293,28 @@ def _rebuild_all():
     players = rebuild_players(players, matches)
     players = rebuild_players_d(players, doubles)
     players = rebuild_players_r(players, rounds)
-    supabase.table("players").upsert(players.to_dict(orient="records"), on_conflict="id").execute()
+    # Prepare DataFrame for upsert: map lowercase columns to uppercase DB schema
+    upsert_df = players.rename(columns={
+        "name": "Name",
+        "elo": "ELO",
+        "siege": "Siege",
+        "niederlagen": "Niederlagen",
+        "spiele": "Spiele",
+        "d_elo": "D_ELO",
+        "d_siege": "D_Siege",
+        "d_niederlagen": "D_Niederlagen",
+        "d_spiele": "D_Spiele",
+        "r_elo": "R_ELO",
+        "r_siege": "R_Siege",
+        "r_zweite": "R_Zweite",
+        "r_niederlagen": "R_Niederlagen",
+        "r_spiele": "R_Spiele",
+        "g_elo": "G_ELO"
+    })
+    supabase.table("players").upsert(
+        upsert_df.to_dict(orient="records"),
+        on_conflict="id"
+    ).execute()
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "current_player" not in st.session_state:
