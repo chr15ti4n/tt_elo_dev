@@ -115,25 +115,25 @@ def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int =
     """
     players_df = players_df.copy()
     # Basiswerte zurücksetzen
-    players_df[["ELO", "Siege", "Niederlagen", "Spiele"]] = 0
-    players_df["ELO"] = 1200
+    players_df[["elo", "siege", "niederlagen", "spiele"]] = 0
+    players_df["elo"] = 1200
 
     if matches_df.empty:
         return players_df
 
     # Matches nach Datum aufsteigend sortieren
-    matches_sorted = matches_df.sort_values("Datum")
+    matches_sorted = matches_df.sort_values("datum")
 
     for _, row in matches_sorted.iterrows():
         a, b = row["a"], row["b"]
         pa, pb = int(row["punktea"]), int(row["punkteb"])
 
         # Falls Spieler inzwischen gelöscht wurden, Match überspringen
-        if a not in players_df["Name"].values or b not in players_df["Name"].values:
+        if a not in players_df["name"].values or b not in players_df["name"].values:
             continue
 
-        r_a = players_df.loc[players_df["Name"] == a, "ELO"].iat[0]
-        r_b = players_df.loc[players_df["Name"] == b, "ELO"].iat[0]
+        r_a = players_df.loc[players_df["name"] == a, "elo"].iat[0]
+        r_b = players_df.loc[players_df["name"] == b, "elo"].iat[0]
 
         if pa == pb:
             continue  # Unentschieden ignorieren
@@ -151,17 +151,17 @@ def rebuild_players(players_df: pd.DataFrame, matches_df: pd.DataFrame, k: int =
         else:
             win_a, win_b = 0, 1
 
-        players_df.loc[players_df["Name"] == a, ["ELO", "Siege", "Niederlagen", "Spiele"]] = [
+        players_df.loc[players_df["name"] == a, ["elo", "siege", "niederlagen", "spiele"]] = [
             new_r_a,
-            players_df.loc[players_df["Name"] == a, "Siege"].iat[0] + win_a,
-            players_df.loc[players_df["Name"] == a, "Niederlagen"].iat[0] + win_b,
-            players_df.loc[players_df["Name"] == a, "Spiele"].iat[0] + 1,
+            players_df.loc[players_df["name"] == a, "siege"].iat[0] + win_a,
+            players_df.loc[players_df["name"] == a, "niederlagen"].iat[0] + win_b,
+            players_df.loc[players_df["name"] == a, "spiele"].iat[0] + 1,
         ]
-        players_df.loc[players_df["Name"] == b, ["ELO", "Siege", "Niederlagen", "Spiele"]] = [
+        players_df.loc[players_df["name"] == b, ["elo", "siege", "niederlagen", "spiele"]] = [
             new_r_b,
-            players_df.loc[players_df["Name"] == b, "Siege"].iat[0] + win_b,
-            players_df.loc[players_df["Name"] == b, "Niederlagen"].iat[0] + win_a,
-            players_df.loc[players_df["Name"] == b, "Spiele"].iat[0] + 1,
+            players_df.loc[players_df["name"] == b, "siege"].iat[0] + win_b,
+            players_df.loc[players_df["name"] == b, "niederlagen"].iat[0] + win_a,
+            players_df.loc[players_df["name"] == b, "spiele"].iat[0] + 1,
         ]
     players_df = compute_gelo(players_df)
     return players_df
