@@ -587,27 +587,29 @@ if st.session_state.view_mode == "home":
                 """,
                 unsafe_allow_html=True
             )
-            # Win-Streak zentral als Einzeiler
-            streak = 0
-            for _, row in comb_df.iterrows():
-                if row["Win"]:
-                    streak += 1
-                else:
-                    break
-            st.markdown(
-                f"<div style='text-align:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
-                unsafe_allow_html=True
-            )
 
+        # Centered Win-Streak
+        streak = 0
+        for _, row in comb_df.iterrows():
+            if row["Win"]:
+                streak += 1
+            else:
+                break
+        st.markdown(
+            f"<div style='display:flex; justify-content:center; font-size:1.5rem; margin:1rem 0;'>Aktuelle Win-Streak: <strong>{streak}</strong> 🏆</div>",
+            unsafe_allow_html=True
+        )
+
+        # Center Match-Bestätigungen section
+        cols_center = st.columns([1, 2, 1])
+        with cols_center[1]:
+            # Match-Bestätigungen code (formerly inside cols_refresh1/with block)
             st.divider()
-            cols_refresh1 = st.columns([4,1])
-            with cols_refresh1[0]:
-                st.subheader("Match-Bestätigungen")
-            with cols_refresh1[1]:
-                if st.button("🔄", key="refresh_tab1"):
-                    if "dfs" in st.session_state:
-                        st.session_state["dfs"].clear()
-                    st.rerun()
+            st.subheader("Match-Bestätigungen")
+            if st.button("🔄", key="refresh_tab1"):
+                if "dfs" in st.session_state:
+                    st.session_state["dfs"].clear()
+                st.rerun()
             # Eingeladene Matches (nur diese können bestätigt werden)
             sp_inv = sp[sp["a"] != current_player]
             dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
@@ -617,24 +619,24 @@ if st.session_state.view_mode == "home":
                 st.info("Keine offenen Matches.")
             # Einzel-Einladungen
             if not sp_inv.empty:
-                    st.markdown("**Einzel**")
-                    for idx, row in sp_inv.iterrows():
-                        cols = st.columns([3,1,1])
-                        cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
-                        if cols[1].button("✅", key=f"confirm_s_{idx}"):
-                            # Insert into Supabase matches
-                            supabase.table("matches").insert([{
-                                "Datum": row["Datum"], "A": row["A"], "B": row["B"],
-                                "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
-                            }]).execute()
-                            _rebuild_all()
-                            supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
-                            st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                            st.rerun()
-                        if cols[2].button("❌", key=f"reject_s_{idx}"):
-                            supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
-                            st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                            st.rerun()
+                st.markdown("**Einzel**")
+                for idx, row in sp_inv.iterrows():
+                    cols = st.columns([3,1,1])
+                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    if cols[1].button("✅", key=f"confirm_s_{idx}"):
+                        # Insert into Supabase matches
+                        supabase.table("matches").insert([{
+                            "Datum": row["Datum"], "A": row["A"], "B": row["B"],
+                            "PunkteA": row["PunkteA"], "PunkteB": row["PunkteB"]
+                        }]).execute()
+                        _rebuild_all()
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.rerun()
+                    if cols[2].button("❌", key=f"reject_s_{idx}"):
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        st.rerun()
 
             # Doppel-Einladungen
             if not dp_inv.empty:
@@ -678,6 +680,9 @@ if st.session_state.view_mode == "home":
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
+        # Center Letzte Spiele table
+        cols_center2 = st.columns([1, 2, 1])
+        with cols_center2[1]:
             st.divider()
             # Allgemeine letzten 5 Matches (Update-Feed)
             df_sg = matches.copy()
@@ -693,8 +698,8 @@ if st.session_state.view_mode == "home":
             df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
             df_rg["Ergebnis"] = df_rg["sieger"]
             feed = pd.concat([df_sg[['datum','Modus','Teilnehmer','Ergebnis']],
-                            df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
-                            df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
+                              df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
+                              df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
             feed = feed.sort_values("datum", ascending=False).head(5).reset_index(drop=True)
             st.subheader("Letzte Spiele")
             # Tabelle ohne Datum und Index
