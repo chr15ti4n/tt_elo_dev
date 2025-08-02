@@ -1053,7 +1053,9 @@ if st.session_state.view_mode == "home":
                     if cols[1].button("❌", key=f"reject_own_s_{idx}"):
                         pending.drop(idx, inplace=True)
                         save_csv(pending, PENDING)
-                        st.rerun()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    time.sleep(3)
+                    st.rerun()
 
             if not dp_cre.empty:
                 st.markdown("**Doppel**")
@@ -1063,6 +1065,8 @@ if st.session_state.view_mode == "home":
                     if cols[1].button("❌", key=f"reject_own_d_{idx}"):
                         pending_d.drop(idx, inplace=True)
                         save_csv(pending_d, PENDING_D)
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        time.sleep(3)
                         st.rerun()
 
             if not rp_cre.empty:
@@ -1073,6 +1077,8 @@ if st.session_state.view_mode == "home":
                     if cols[1].button("❌", key=f"reject_own_r_{idx}"):
                         pending_r.drop(row.name, inplace=True)
                         save_csv(pending_r, PENDING_R)
+                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                        time.sleep(3)
                         st.rerun()
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
