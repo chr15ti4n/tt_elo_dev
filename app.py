@@ -320,7 +320,7 @@ if not st.session_state.logged_in:
                         # Falls PIN noch im Klartext war: sofort hash speichern
                         if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
                             players.loc[players["Name"] == login_name, "Pin"] = hash_pin(login_pin)
-                            supabase.table("players").update({"Pin": players.loc[players["Name"] == login_name, "Pin"].iat[0]}).eq("Name", login_name).execute()
+                            supabase.table("players").update({"Pin": players.loc[players["Name"] == login_name, "Pin"].iat[0]}).eq("name", login_name).execute()
                         st.session_state.logged_in = True
                         st.session_state.current_player = login_name
                         # Save login in URL so refresh preserves session
@@ -345,7 +345,7 @@ if not st.session_state.logged_in:
                 st.warning("Spieler existiert bereits.")
             else:
                 new_player = {
-                    "Name": reg_name,
+                    "name": reg_name,
                     "ELO": 1200,
                     "Siege": 0,
                     "Niederlagen": 0,
@@ -398,7 +398,7 @@ else:
             if st.button("Account unwiderruflich löschen") and confirm:
                 # Spieler aus players entfernen
                 # Remove player from Supabase
-                supabase.table("players").delete().eq("Name", current_player).execute()
+                supabase.table("players").delete().eq("name", current_player).execute()
                 # Remove matches, pending, doubles, pending_d, rounds, pending_r involving player
                 supabase.table("matches").delete().or_(f"A.eq.{current_player},B.eq.{current_player}").execute()
                 supabase.table("pending_matches").delete().or_(f"A.eq.{current_player},B.eq.{current_player}").execute()
@@ -458,7 +458,7 @@ if st.session_state.view_mode == "home":
     tab1, tab2, tab3 = st.tabs(["Willkommen", "Spielen", "Statistiken"])
 
     # Offene Matches für Bestätigung (auch vom Ersteller angezeigt)
-    user = players.loc[players.Name == current_player].iloc[0]
+    user = players.loc[players["name"] == current_player].iloc[0]
     # Einfache Bestätigung: pending solange confB False, für beide Teilnehmer
     sp = pending[
         ((pending["A"] == current_player) | (pending["B"] == current_player))
@@ -709,7 +709,7 @@ if st.session_state.view_mode == "home":
             st.subheader("Eintrag Einzelmatch")
             date = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date())
             dt = datetime.combine(date, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
-            opponent = st.selectbox("Gegner", [p for p in players["Name"] if p != current_player])
+            opponent = st.selectbox("Gegner", [p for p in players["name"] if p != current_player])
             pts_a = st.number_input(f"Punkte {current_player}", min_value=0, max_value=100, value=11)
             pts_b = st.number_input(f"Punkte {opponent}", min_value=0, max_value=100, value=9)
             if st.button("Eintragen", key="einzel_submit"):
@@ -723,10 +723,10 @@ if st.session_state.view_mode == "home":
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
             date2 = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date(), key="date_d")
-            partner = st.selectbox("Partner", [p for p in players["Name"] if p != current_player])
+            partner = st.selectbox("Partner", [p for p in players["name"] if p != current_player])
             dt2 = datetime.combine(date2, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
-            opp1 = st.selectbox("Gegner 1", [p for p in players["Name"] if p not in [current_player, partner]])
-            opp2 = st.selectbox("Gegner 2", [p for p in players["Name"] if p not in [current_player, partner, opp1]])
+            opp1 = st.selectbox("Gegner 1", [p for p in players["name"] if p not in [current_player, partner]])
+            opp2 = st.selectbox("Gegner 2", [p for p in players["name"] if p not in [current_player, partner, opp1]])
             pts_ad = st.number_input("Punkte Team A", min_value=0, max_value=100, value=11)
             pts_bd = st.number_input("Punkte Team B", min_value=0, max_value=100, value=9)
             if st.button("Eintragen", key="doppel_submit"):
