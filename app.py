@@ -918,18 +918,7 @@ if st.session_state.view_mode == "home":
             date3 = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date(), key="date_r")
             dt3 = datetime.combine(date3, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
             participants = st.multiselect("Teilnehmer", players["Name"].tolist())
-            # Maximal 2 Finalisten auswählbar
-            if "rund_finalists" not in st.session_state:
-                st.session_state["rund_finalists"] = []
-            disabled = len(st.session_state["rund_finalists"]) >= 2
-            finalists = st.multiselect(
-                "Finalisten (2)", participants,
-                key="rund_finalists",
-                disabled=disabled
-            )
-            # Auf maximal 2 begrenzen, falls überschritten
-            st.session_state["rund_finalists"] = st.session_state["rund_finalists"][:2]
-            finalists = st.session_state["rund_finalists"]
+            finalists = st.multiselect("Finalisten (2)", participants, max_selections=2)
             winner = st.selectbox("Sieger", participants, key="winner_r")
             if st.button("Eintragen", key="rund_submit"):
                 part_str = ";".join(participants)
