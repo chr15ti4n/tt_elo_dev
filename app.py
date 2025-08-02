@@ -517,65 +517,65 @@ if st.session_state.view_mode == "home":
     df_r = rounds[rounds["teilnehmer"].str.contains(current_player, na=False)].copy()
     df_r["Win"] = df_r["sieger"] == current_player
     combined.append(df_r[["Datum", "Win"]])
-        # Chronologisch sortieren
-        comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
+    # Chronologisch sortieren
+    comb_df = pd.concat(combined).sort_values("Datum", ascending=False)
 
-        # ELO-Übersicht optisch wie im Statistik-Tab
+    # ELO-Übersicht optisch wie im Statistik-Tab
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin:1rem 0;">
+            <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
+            <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        """
+        <style>
+        [data-testid="stColumns"] {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+        }
+        [data-testid="stColumn"] {
+            min-width: 0 !important;
+            flex: 1 1 auto !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    cols_e = st.columns(3)
+    with cols_e[0]:
         st.markdown(
             f"""
-            <div style="text-align:center; margin:1rem 0;">
-              <div style="font-size:1.5rem; color:var(--text-secondary);">ELO</div>
-              <div style="font-size:3rem; font-weight:bold; color:var(--text-primary);">{int(user.G_ELO)}</div>
+            <div style="text-align:center;">
+                <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
+                <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
             </div>
             """,
             unsafe_allow_html=True
         )
+    with cols_e[1]:
         st.markdown(
-            """
-            <style>
-            [data-testid="stColumns"] {
-                flex-wrap: nowrap !important;
-                overflow-x: auto !important;
-            }
-            [data-testid="stColumn"] {
-                min-width: 0 !important;
-                flex: 1 1 auto !important;
-            }
-            </style>
+            f"""
+            <div style="text-align:center;">
+                <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
+                <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
+            </div>
             """,
             unsafe_allow_html=True
         )
-        cols_e = st.columns(3)
-        with cols_e[0]:
-            st.markdown(
-                f"""
-                <div style="text-align:center;">
-                  <div style="font-size:1.5rem; color:var(--text-secondary);">Einzel</div>
-                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.ELO)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        with cols_e[1]:
-            st.markdown(
-                f"""
-                <div style="text-align:center;">
-                  <div style="font-size:1.5rem; color:var(--text-secondary);">Doppel</div>
-                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.D_ELO)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        with cols_e[2]:
-            st.markdown(
-                f"""
-                <div style="text-align:center;">
-                  <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
-                  <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+    with cols_e[2]:
+        st.markdown(
+            f"""
+            <div style="text-align:center;">
+                <div style="font-size:1.5rem; color:var(--text-secondary);">Rundlauf</div>
+                <div style="font-size:2.2rem; font-weight:bold; color:var(--text-primary);">{int(user.R_ELO)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         # Win-Streak zentral als Einzeiler
         streak = 0
         for _, row in comb_df.iterrows():
