@@ -919,7 +919,7 @@ if st.session_state.view_mode == "home":
             dt3 = datetime.combine(date3, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
             participants = st.multiselect("Teilnehmer", players["Name"].tolist())
             finalists = st.multiselect("Finalisten (2)", participants, max_selections=2)
-            winner = st.selectbox("Sieger", participants, key="winner_r")
+            winner = st.selectbox("Sieger", finalists, key="winner_r")
             if st.button("Eintragen", key="rund_submit"):
                 part_str = ";".join(participants)
                 f1, f2 = (finalists + ["", ""])[:2]
