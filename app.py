@@ -192,7 +192,7 @@ def rebuild_players_d(players_df, doubles_df, k=48):
     players_df = players_df.copy()
     players_df[["D_ELO","D_Siege","D_Niederlagen","D_Spiele"]] = 0
     players_df["D_ELO"] = 1200
-    for _, row in doubles_df.sort_values("Datum").iterrows():
+    for _, row in doubles_df.sort_values("datum").iterrows():
         a1,a2,b1,b2 = row[["a1","a2","b1","b2"]]
         pa,pb = int(row["punktea"]), int(row["punkteb"])
         ra1 = players_df.loc[players_df.Name==a1,"D_ELO"].iat[0]
@@ -243,7 +243,7 @@ def rebuild_players_r(players_df, rounds_df, k=48):
     players_df["R_ELO"] = 1200
     if rounds_df.empty:
         return players_df
-    for _, row in rounds_df.sort_values("Datum").iterrows():
+    for _, row in rounds_df.sort_values("datum").iterrows():
         teilnehmer = row["teilnehmer"].split(";")
         fin1, fin2, winner = row["finalisten"].split(";")[0], row["finalisten"].split(";")[1], row["sieger"]
         avg = players_df.loc[players_df.Name.isin(teilnehmer), "R_ELO"].mean()
