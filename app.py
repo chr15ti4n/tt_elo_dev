@@ -601,7 +601,7 @@ if st.session_state.view_mode == "home":
         )
 
         # Center Match-Bestätigungen section
-        cols_center = st.columns([1, 2, 1])
+        cols_center = st.columns([1, 10, 1])
         with cols_center[1]:
             # Match-Bestätigungen code (formerly inside cols_refresh1/with block)
             st.divider()
@@ -681,7 +681,7 @@ if st.session_state.view_mode == "home":
                         st.rerun()
 
         # Center Letzte Spiele table
-        cols_center2 = st.columns([1, 2, 1])
+        cols_center2 = st.columns([1, 10, 1])
         with cols_center2[1]:
             st.divider()
             # Allgemeine letzten 5 Matches (Update-Feed)
