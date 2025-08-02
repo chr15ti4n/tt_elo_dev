@@ -733,6 +733,7 @@ if st.session_state.view_mode == "home":
                     "Datum": dt.isoformat(), "A": current_player, "B": opponent,
                     "PunkteA": pts_a, "PunkteB": pts_b, "confA": True, "confB": False
                 }]).execute()
+                load_table.clear()
                 st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
                 st.rerun()
         # Doppelmatch eintragen
@@ -750,6 +751,7 @@ if st.session_state.view_mode == "home":
                     "Datum": dt2.isoformat(), "A1": current_player, "A2": partner,
                     "B1": opp1, "B2": opp2, "PunkteA": pts_ad, "PunkteB": pts_bd, "confA": True, "confB": False
                 }]).execute()
+                load_table.clear()
                 st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
                 st.rerun()
         # Rundlauf eintragen
@@ -771,6 +773,7 @@ if st.session_state.view_mode == "home":
                     "confA": True,
                     "confB": False
                 }).execute()
+                load_table.clear()
                 st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
                 st.rerun()
 
