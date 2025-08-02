@@ -25,14 +25,14 @@ from pathlib import Path
 
 from supabase import create_client
 
-@st.cache(allow_output_mutation=True)
+@st.cache_resource
 def get_supabase_client():
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
 supabase = get_supabase_client()
 
-@st.cache(allow_output_mutation=True)
+@st.cache_data
 def load_table(table_name: str) -> pd.DataFrame:
     res = supabase.table(table_name).select("*").execute().data
     df = pd.DataFrame(res)
@@ -288,8 +288,8 @@ if not st.session_state.logged_in:
     if "user" in q and "token" in q:
         auto_user  = q["user"][0]
         auto_token = q["token"][0]
-        if auto_user in players["Name"].values:
-            stored_pin = players.loc[players["Name"] == auto_user, "Pin"].iat[0]
+        if auto_user in players["name"].values:
+            stored_pin = players.loc[players["name"] == auto_user, "Pin"].iat[0]
             if stored_pin == auto_token:
                 st.session_state.logged_in = True
                 st.session_state.current_player = auto_user
@@ -312,21 +312,21 @@ if not st.session_state.logged_in:
             login_name = st.text_input("Spielername")
             login_pin = st.text_input("PIN", type="password")
             if st.button("Einloggen"):
-                if login_name not in players["Name"].values:
+                if login_name not in players["name"].values:
                     st.error("Spielername nicht gefunden.")
                 else:
-                    stored_pin = players.loc[players["Name"] == login_name, "Pin"].iat[0]
+                    stored_pin = players.loc[players["name"] == login_name, "Pin"].iat[0]
                     if check_pin(login_pin, stored_pin):
                         # Falls PIN noch im Klartext war: sofort hash speichern
                         if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
-                            players.loc[players["Name"] == login_name, "Pin"] = hash_pin(login_pin)
-                            supabase.table("players").update({"Pin": players.loc[players["Name"] == login_name, "Pin"].iat[0]}).eq("name", login_name).execute()
+                            players.loc[players["name"] == login_name, "Pin"] = hash_pin(login_pin)
+                            supabase.table("players").update({"Pin": players.loc[players["name"] == login_name, "Pin"].iat[0]}).eq("name", login_name).execute()
                         st.session_state.logged_in = True
                         st.session_state.current_player = login_name
                         # Save login in URL so refresh preserves session
                         st.query_params.update({
                             "user": login_name,
-                            "token": players.loc[players["Name"] == login_name, "Pin"].iat[0],
+                            "token": players.loc[players["name"] == login_name, "Pin"].iat[0],
                         })
                         st.rerun()
                     else:
@@ -341,7 +341,7 @@ if not st.session_state.logged_in:
                 st.warning("Name und PIN eingeben.")
             elif reg_pin1 != reg_pin2:
                 st.warning("PINs stimmen nicht überein.")
-            elif reg_name in players["Name"].values:
+            elif reg_name in players["name"].values:
                 st.warning("Spieler existiert bereits.")
             else:
                 new_player = {
@@ -741,7 +741,7 @@ if st.session_state.view_mode == "home":
             st.subheader("Eintrag Rundlauf")
             date3 = st.date_input("Datum", value=datetime.now(ZoneInfo("Europe/Berlin")).date(), key="date_r")
             dt3 = datetime.combine(date3, datetime.min.time()).astimezone(ZoneInfo("Europe/Berlin"))
-            participants = st.multiselect("Teilnehmer", players["Name"].tolist())
+            participants = st.multiselect("Teilnehmer", players["name"].tolist())
             finalists = st.multiselect("Finalisten (2)", participants, max_selections=2)
             winner = st.selectbox("Sieger", finalists, key="winner_r")
             if st.button("Eintragen", key="rund_submit"):
