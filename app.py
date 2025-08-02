@@ -677,46 +677,44 @@ if st.session_state.view_mode == "home":
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
 
-        # Center Letzte Spiele table
-        cols_center2 = st.columns([1, 10, 1])
-        with cols_center2[1]:
-            st.divider()
-            # Allgemeine letzten 5 Matches (Update-Feed)
-            df_sg = matches.copy()
-            df_sg["Modus"] = "Einzel"
-            df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['a']} vs {r['b']}", axis=1)
-            df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
-            df_dg = doubles.copy()
-            df_dg["Modus"] = "Doppel"
-            df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['a1']}/{r['a2']} vs {r['b1']}/{r['b2']}", axis=1)
-            df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
-            df_rg = rounds.copy()
-            df_rg["Modus"] = "Rundlauf"
-            df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
-            df_rg["Ergebnis"] = df_rg["sieger"]
-            feed = pd.concat([df_sg[['datum','Modus','Teilnehmer','Ergebnis']],
-                              df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
-                              df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
-            feed = feed.sort_values("datum", ascending=False).head(5).reset_index(drop=True)
-            st.subheader("Letzte Spiele")
-            # Tabelle ohne Datum und Index
-            feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
-            styler_feed = (
-                feed_disp.style
-                .set_properties(
-                    subset=["Modus", "Ergebnis"],
-                    **{"white-space": "nowrap", "min-width": "100px"}
-                )
-                .set_properties(
-                    subset=["Teilnehmer"],
-                    **{"white-space": "normal", "word-wrap": "break-word", "overflow-wrap": "anywhere"}
-                )
-                .set_table_styles([
-                    {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
-                    {"selector": "th.blank.level0", "props": [("display", "none")]}
-                ])
+    
+        st.divider()
+        # Allgemeine letzten 5 Matches (Update-Feed)
+        df_sg = matches.copy()
+        df_sg["Modus"] = "Einzel"
+        df_sg["Teilnehmer"] = df_sg.apply(lambda r: f"{r['a']} vs {r['b']}", axis=1)
+        df_sg["Ergebnis"] = df_sg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
+        df_dg = doubles.copy()
+        df_dg["Modus"] = "Doppel"
+        df_dg["Teilnehmer"] = df_dg.apply(lambda r: f"{r['a1']}/{r['a2']} vs {r['b1']}/{r['b2']}", axis=1)
+        df_dg["Ergebnis"] = df_dg.apply(lambda r: f"{int(r['punktea'])}:{int(r['punkteb'])}", axis=1)
+        df_rg = rounds.copy()
+        df_rg["Modus"] = "Rundlauf"
+        df_rg["Teilnehmer"] = df_rg["teilnehmer"].str.replace(";", " / ")
+        df_rg["Ergebnis"] = df_rg["sieger"]
+        feed = pd.concat([df_sg[['datum','Modus','Teilnehmer','Ergebnis']],
+                            df_dg[['datum','Modus','Teilnehmer','Ergebnis']],
+                            df_rg[['datum','Modus','Teilnehmer','Ergebnis']]])
+        feed = feed.sort_values("datum", ascending=False).head(5).reset_index(drop=True)
+        st.subheader("Letzte Spiele")
+        # Tabelle ohne Datum und Index
+        feed_disp = feed[["Modus","Teilnehmer","Ergebnis"]]
+        styler_feed = (
+            feed_disp.style
+            .set_properties(
+                subset=["Modus", "Ergebnis"],
+                **{"white-space": "nowrap", "min-width": "100px"}
             )
-            st.table(styler_feed)
+            .set_properties(
+                subset=["Teilnehmer"],
+                **{"white-space": "normal", "word-wrap": "break-word", "overflow-wrap": "anywhere"}
+            )
+            .set_table_styles([
+                {"selector": "th.row_heading, td.row_heading", "props": [("display", "none")]},
+                {"selector": "th.blank.level0", "props": [("display", "none")]}
+            ])
+        )
+        st.table(styler_feed)
 
     # Tab 2: Match-Eintrag per Sub-Tabs und Bestätigung
     with tab2:
