@@ -292,7 +292,7 @@ if not st.session_state.logged_in:
         auto_user  = q["user"][0]
         auto_token = q["token"][0]
         if auto_user in players["name"].values:
-            stored_pin = players.loc[players["name"] == auto_user, "Pin"].iat[0]
+            stored_pin = players.loc[players["name"] == auto_user, "pin"].iat[0]
             if stored_pin == auto_token:
                 st.session_state.logged_in = True
                 st.session_state.current_player = auto_user
@@ -318,18 +318,18 @@ if not st.session_state.logged_in:
                 if login_name not in players["name"].values:
                     st.error("Spielername nicht gefunden.")
                 else:
-                    stored_pin = players.loc[players["name"] == login_name, "Pin"].iat[0]
+                    stored_pin = players.loc[players["name"] == login_name, "pin"].iat[0]
                     if check_pin(login_pin, stored_pin):
                         # Falls PIN noch im Klartext war: sofort hash speichern
                         if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
-                            players.loc[players["name"] == login_name, "Pin"] = hash_pin(login_pin)
-                            supabase.table("players").update({"Pin": players.loc[players["name"] == login_name, "Pin"].iat[0]}).eq("name", login_name).execute()
+                            players.loc[players["name"] == login_name, "pin"] = hash_pin(login_pin)
+                            supabase.table("players").update({"Pin": players.loc[players["name"] == login_name, "pin"].iat[0]}).eq("name", login_name).execute()
                         st.session_state.logged_in = True
                         st.session_state.current_player = login_name
                         # Save login in URL so refresh preserves session
                         st.query_params.update({
                             "user": login_name,
-                            "token": players.loc[players["name"] == login_name, "Pin"].iat[0],
+                            "token": players.loc[players["name"] == login_name, "pin"].iat[0],
                         })
                         st.rerun()
                     else:
