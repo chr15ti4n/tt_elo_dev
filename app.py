@@ -38,6 +38,19 @@ def load_table(table_name: str) -> pd.DataFrame:
     df = pd.DataFrame(res)
     # Normalize column names to lowercase for consistent access
     df.columns = [col.lower() for col in df.columns]
+    # If table is empty, initialize with known schema columns for filtering
+    if df.empty:
+        schemas = {
+            "matches":         ["id","datum","a","b","punktea","punkteb"],
+            "pending_matches": ["id","datum","a","b","punktea","punkteb","confa","confb"],
+            "doubles":         ["id","datum","a1","a2","b1","b2","punktea","punkteb"],
+            "pending_doubles": ["id","datum","a1","a2","b1","b2","punktea","punkteb","confa","confb"],
+            "rounds":          ["id","datum","teilnehmer","finalisten","sieger"],
+            "pending_rounds":  ["id","datum","teilnehmer","finalisten","sieger","confa","confb"],
+            "players":         ["id","name","elo","d_elo","r_elo","siege","niederlagen","spiele","pin","d_siege","d_niederlagen","d_spiele","r_siege","r_niederlagen","r_spiele","g_elo","r_zweite"]
+        }
+        cols = schemas.get(table_name, [])
+        df = pd.DataFrame(columns=cols)
     if "datum" in df.columns:
         df["datum"] = pd.to_datetime(df["datum"], utc=True).dt.tz_convert("Europe/Berlin")
     return df
