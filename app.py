@@ -275,8 +275,6 @@ def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base:
 # region Pending helpers (Einzel / Doppel / Rundlauf)
 
 @st.cache_data(ttl=5)
-
-@st.cache_data(ttl=5)
 def load_last_matches(limit: int = 5):
     return supabase.table("matches").select("*").order("datum", desc=True).limit(limit).execute().data or []
 
@@ -301,26 +299,26 @@ def submit_single_pending(creator: str, a: str, b: str, punktea: int, punkteb: i
     return True, "Einzelmatch eingereicht. Warte auf Bestätigung."
 
 
+@st.cache_data(ttl=5)
 def fetch_pending_for_user(user: str):
-    # pending where user participates
-    res = supabase.table("pending_rounds").select("*").order("datum", desc=True).execute()
+    # Einzel: pending matches where user participates
+    res = supabase.table("pending_matches").select("*").order("datum", desc=True).execute()
     rows = res.data or []
     to_confirm, waiting = [], []
     for r in rows:
-        teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
-        if user not in teilnehmer:
+        a, b = r.get("a"), r.get("b")
+        if user not in (a, b):
             continue
-        creator = r.get("creator")
         confa = bool(r.get("confa", False))
         confb = bool(r.get("confb", False))
-        if creator == user:
-            # Ersteller wartet auf Bestätigung durch jemand anderen
-            if confa and not confb:
-                waiting.append(r)
-        else:
-            # Alle anderen Teilnehmer müssen bestätigen, solange etwas offen ist
-            if not (confa and confb):
-                to_confirm.append(r)
+        if a == user and not confa:
+            to_confirm.append(r)
+        elif b == user and not confb:
+            to_confirm.append(r)
+        elif a == user and confa and not confb:
+            waiting.append(r)
+        elif b == user and confb and not confa:
+            waiting.append(r)
     return to_confirm, waiting
 
 
@@ -475,13 +473,17 @@ def fetch_pending_rounds_for_user(user: str):
         teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
         if user not in teilnehmer:
             continue
-        # if user hasn't confirmed yet
-        needs_a = not r.get("confa", False)
-        needs_b = not r.get("confb", False)
-        if needs_a or needs_b:
-            to_confirm.append(r)
-        elif r.get("confa", False) and not r.get("confb", False):
-            waiting.append(r)
+        creator = r.get("creator")
+        confa = bool(r.get("confa", False))
+        confb = bool(r.get("confb", False))
+        if creator == user:
+            # Ersteller: nur warten, wenn die eigene (erste) Bestätigung erfolgt ist und die zweite fehlt
+            if confa and not confb:
+                waiting.append(r)
+        else:
+            # Andere Teilnehmer: bestätigen solange nicht vollständig bestätigt
+            if not (confa and confb):
+                to_confirm.append(r)
     return to_confirm, waiting
 
 
