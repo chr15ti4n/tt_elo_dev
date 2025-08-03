@@ -669,7 +669,6 @@ if st.session_state.view_mode == "home":
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_s_{idx}"):
-                    st.write(f"DEBUG Reject Willkommen: deleting pending_matches id={row['id']}")
                     supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                     load_table.clear()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -712,7 +711,6 @@ if st.session_state.view_mode == "home":
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
-                    st.write(f"DEBUG Reject Willkommen: deleting pending_doubles id={row['id']}")
                     supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                     load_table.clear()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -755,7 +753,6 @@ if st.session_state.view_mode == "home":
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
-                    st.write(f"DEBUG Reject Willkommen: deleting pending_rounds id={row['id']}")
                     supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                     load_table.clear()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -923,7 +920,6 @@ if st.session_state.view_mode == "home":
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
-                        st.write(f"DEBUG Reject Spielen Einzel: id={row['id']}")
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         load_table.clear()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -966,7 +962,6 @@ if st.session_state.view_mode == "home":
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
-                        st.write(f"DEBUG Reject Spielen Doppel: id={row['id']}")
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         load_table.clear()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -1008,7 +1003,6 @@ if st.session_state.view_mode == "home":
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
-                        st.write(f"DEBUG Reject Spielen Rundlauf: id={row['id']}")
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         load_table.clear()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
@@ -1039,7 +1033,9 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("❌", key=f"reject_own_s_{idx}"):
+                        st.write(f"DEBUG Reject Creator Einzel: pending_matches id={row['id']}")
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        load_table.clear()  # clear cache so pending will refresh
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -1049,7 +1045,9 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("❌", key=f"reject_own_d_{idx}"):
+                        st.write(f"DEBUG Reject Creator Doppel: pending_doubles id={row['id']}")
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                        load_table.clear()  # clear cache so pending_d will refresh
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
@@ -1059,7 +1057,9 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1])
                     cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                     if cols[1].button("❌", key=f"reject_own_r_{idx}"):
+                        st.write(f"DEBUG Reject Creator Rundlauf: pending_rounds id={row['id']}")
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                        load_table.clear()  # clear cache so pending_r will refresh
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
 
