@@ -4,7 +4,15 @@ from supabase import create_client, Client
 import pandas as pd
 import bcrypt
 from datetime import datetime
+
 import time
+
+# region UI Helpers (editing state)
+def _set_editing_true():
+    st.session_state["editing"] = True
+def _set_editing_false():
+    st.session_state["editing"] = False
+# endregion
 
 # region PIN Hashing
 def hash_pin(pin: str) -> str:
@@ -238,6 +246,28 @@ def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base:
 
 # region Pending helpers (Einzel)
 
+@st.cache_data(ttl=5)
+def fetch_pending_for_user(user: str):
+    # pending where user participates
+    res = supabase.table("pending_matches").select("*").or_(f"a.eq.{user},b.eq.{user}").order("datum", desc=True).execute()
+    rows = res.data or []
+    to_confirm = []
+    waiting_opponent = []
+    for r in rows:
+        if r["a"] == user and not r.get("confa", False):
+            to_confirm.append(r)
+        elif r["b"] == user and not r.get("confb", False):
+            to_confirm.append(r)
+        elif (r["a"] == user and r.get("confa", False) and not r.get("confb", False)) or \
+             (r["b"] == user and r.get("confb", False) and not r.get("confa", False)):
+            waiting_opponent.append(r)
+    return to_confirm, waiting_opponent
+
+@st.cache_data(ttl=5)
+def load_last_matches(limit: int = 5):
+    return supabase.table("matches").select("*").order("datum", desc=True).limit(limit).execute().data or []
+
+
 def submit_single_pending(creator: str, a: str, b: str, punktea: int, punkteb: int):
     if a == b:
         return False, "Spieler A und B müssen unterschiedlich sein."
@@ -375,6 +405,8 @@ else:
             del st.query_params["token"]
         st.rerun()
 
+    st.session_state.setdefault("editing", False)
+
     st.write("")
     st.session_state.setdefault("auto_refresh", True)
     st.session_state.auto_refresh = st.checkbox(
@@ -412,7 +444,7 @@ else:
             st.info("Keine Bestätigungen offen.")
 
         st.subheader("Letzte Spiele")
-        last = supabase.table("matches").select("*").order("datum", desc=True).limit(5).execute().data
+        last = load_last_matches(5)
         if last:
             st.dataframe(pd.DataFrame(last))
         else:
@@ -429,14 +461,15 @@ else:
             if len(names) >= 2:
                 c1, c2 = st.columns(2)
                 with c1:
-                    a = st.selectbox("Spieler A", names, key="ein_a")
-                    pa = st.number_input("Punkte A", min_value=0, step=1, key="ein_pa")
+                    a = st.selectbox("Spieler A", names, key="ein_a", on_change=_set_editing_true)
+                    pa = st.number_input("Punkte A", min_value=0, step=1, key="ein_pa", on_change=_set_editing_true)
                 with c2:
-                    b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b")
-                    pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb")
+                    b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b", on_change=_set_editing_true)
+                    pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb", on_change=_set_editing_true)
                 if st.button("✅ Bestätigen"):
                     ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
                     st.success(msg) if ok else st.error(msg)
+                    _set_editing_false()
                     st.rerun()
             else:
                 st.info("Mindestens zwei Spieler erforderlich.")
@@ -471,7 +504,7 @@ else:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
 
     # Auto-refresh loop (only when logged in)
-    if st.session_state.get("auto_refresh", False):
+    if st.session_state.get("auto_refresh", False) and not st.session_state.get("editing", False):
         time.sleep(5)
         st.rerun()
 # endregion
