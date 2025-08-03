@@ -3,15 +3,33 @@ import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 import bcrypt
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import time
 
+# region UI Helpers (editing state)
 # region UI Helpers (editing state)
 def _set_editing_true():
     st.session_state["editing"] = True
 def _set_editing_false():
     st.session_state["editing"] = False
+# endregion
+
+# region Time Helpers (TZ)
+BERLIN = ZoneInfo("Europe/Berlin")
+def now_utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def fmt_dt_local(val) -> str:
+    try:
+        dt = pd.to_datetime(val, utc=True)
+        if pd.isna(dt):
+            return ""
+        return dt.tz_convert(BERLIN).strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return str(val)
+# endregion
 # endregion
 
 # region PIN Hashing
@@ -131,7 +149,7 @@ def apply_single_result(a: str, b: str, punktea: int, punkteb: int,
 
     # Match speichern
     supabase.table("matches").insert({
-        "datum": datum or datetime.utcnow().isoformat(),
+        "datum": datum or now_utc_iso(),
         "a": a, "b": b, "punktea": int(punktea), "punkteb": int(punkteb)
     }).execute()
 
@@ -183,7 +201,7 @@ def apply_double_result(a1: str, a2: str, b1: str, b2: str, punktea: int, punkte
     _apply_one(b2, nr_b2, 1 - team_a_win)
 
     supabase.table("doubles").insert({
-        "datum": datetime.utcnow().isoformat(),
+        "datum": now_utc_iso(),
         "a1": a1, "a2": a2, "b1": b1, "b2": b2,
         "punktea": int(punktea), "punkteb": int(punkteb)
     }).execute()
@@ -235,7 +253,7 @@ def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base:
         })
 
     supabase.table("rounds").insert({
-        "datum": datetime.utcnow().isoformat(),
+        "datum": now_utc_iso(),
         "teilnehmer": ";".join(teilnehmer),
         "finalisten": ";".join([f for f in (f1, f2) if f]),
         "sieger": sieger,
@@ -265,7 +283,7 @@ def submit_single_pending(creator: str, a: str, b: str, punktea: int, punkteb: i
         # if creator is neither A nor B, auto-confirm A side
         confa = True
     supabase.table("pending_matches").insert({
-        "datum": datetime.utcnow().isoformat(),
+        "datum": now_utc_iso(),
         "a": a, "b": b,
         "punktea": int(punktea), "punkteb": int(punkteb),
         "confa": confa, "confb": confb,
@@ -431,7 +449,7 @@ else:
             for r in to_confirm:
                 c1, c2, c3, c4 = st.columns([3,2,2,2])
                 c1.write(f"{r['a']} vs {r['b']} — {r['punktea']} : {r['punkteb']}")
-                c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
+                c2.write(fmt_dt_local(r['datum']))
                 if c3.button("Bestätigen", key=f"confirm_{r['id']}"):
                     ok, msg = confirm_pending_match(r["id"], st.session_state.user)
                     st.toast(msg)
@@ -446,7 +464,10 @@ else:
         st.subheader("Letzte Spiele")
         last = load_last_matches(5)
         if last:
-            st.dataframe(pd.DataFrame(last))
+            df_last = pd.DataFrame(last)
+            if not df_last.empty and "datum" in df_last.columns:
+                df_last["datum"] = pd.to_datetime(df_last["datum"], utc=True).dt.tz_convert(BERLIN).dt.strftime("%d.%m.%Y %H:%M")
+            st.dataframe(df_last)
         else:
             st.info("Noch keine Spiele vorhanden.")
 
@@ -474,41 +495,41 @@ else:
             else:
                 st.info("Mindestens zwei Spieler erforderlich.")
 
-            st.markdown("### Offene Bestätigungen")
-            to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
-            if to_confirm:
-                for r in to_confirm:
-                    c1, c2, c3, c4 = st.columns([3,2,2,2])
-                    c1.write(f"{r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
-                    c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
-                    if c3.button("✅", key=f"sub_confirm_{r['id']}"):
-                        ok, msg = confirm_pending_match(r["id"], st.session_state.user)
-                        st.toast(msg)
-                        st.rerun()
-                    if c4.button("❌", key=f"sub_reject_{r['id']}"):
-                        ok, msg = reject_pending_match(r["id"], st.session_state.user)
-                        st.toast(msg)
-                        st.rerun()
-            else:
-                st.info("Keine offenen Bestätigungen.")
-
-            st.markdown("### Vom Gegner ausstehend")
-            if waiting_opponent:
-                for r in waiting_opponent:
-                    c1, c2, c3 = st.columns([3,2,2])
-                    c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
-                    c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
-                    if c3.button("❌", key=f"sub_reject_wait_{r['id']}"):
-                        ok, msg = reject_pending_match(r["id"], st.session_state.user)
-                        st.toast(msg)
-                        st.rerun()
-            else:
-                st.info("Keine offenen Anfragen beim Gegner.")
-
         with sub2:
             st.info("Doppel folgt – UI analog zu Einzel.")
         with sub3:
             st.info("Rundlauf folgt – UI analog zu Einzel.")
+        
+        st.markdown("### ✅ Offene Bestätigungen")
+        to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
+        if to_confirm:
+            for r in to_confirm:
+                c1, c2, c3, c4 = st.columns([3,2,2,2])
+                c1.write(f"{r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+                c2.write(fmt_dt_local(r['datum']))
+                if c3.button("✅", key=f"sub_confirm_{r['id']}"):
+                    ok, msg = confirm_pending_match(r["id"], st.session_state.user)
+                    st.toast(msg)
+                    st.rerun()
+                if c4.button("❌", key=f"sub_reject_{r['id']}"):
+                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                    st.toast(msg)
+                    st.rerun()
+        else:
+            st.info("Keine offenen Bestätigungen.")
+
+        st.markdown("### 🕔 Vom Gegner ausstehend")
+        if waiting_opponent:
+            for r in waiting_opponent:
+                c1, c2, c3 = st.columns([3,2,2])
+                c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+                c2.write(fmt_dt_local(r['datum']))
+                if c3.button("❌", key=f"sub_reject_wait_{r['id']}"):
+                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                    st.toast(msg)
+                    st.rerun()
+        else:
+            st.info("Keine offenen Anfragen beim Gegner.")
 
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
