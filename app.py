@@ -157,11 +157,14 @@ st.session_state["_rt_debug"].update({
 # region Supabase Realtime (event-driven refresh)
 
 def _ensure_realtime_started():
-    """Start a background task that subscribes to DB changes and flips a flag in session_state.
+    """Start a background task that subscribes to DB changes and flips a flag using a background thread.
     Requires: Realtime enabled for the tables in Supabase (Database → Replication → supabase_realtime).
     """
-    if st.session_state.get("_rt_started"):
+    # If a previous worker thread exists and is alive, keep it
+    t = st.session_state.get("_rt_thread")
+    if t and getattr(t, "is_alive", lambda: False)():
         return
+
     if acreate_client is None:
         # record why realtime did not start
         st.session_state.setdefault("_rt_debug", {})
@@ -170,7 +173,17 @@ def _ensure_realtime_started():
             "Please upgrade 'supabase' package to >=2.6.0."
         )
         return
+
+    # mark (re)start and reset flags
     st.session_state["_rt_started"] = True
+    _RT_FLAGS.update({
+        "client_created": False,
+        "channel_subscribed": False,
+        "connect_ok": False,
+        "last_error": None,
+        "phase": "starting",
+    })
+
     st.session_state.setdefault("_rt_debug", {})
     st.session_state["_rt_debug"].update({
         "acreate_client_available": acreate_client is not None,
@@ -241,6 +254,7 @@ def _ensure_realtime_started():
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
+    st.session_state["_rt_thread"] = t
 
 # Kick off realtime subscriber once per session
 _ensure_realtime_started()
@@ -1138,6 +1152,20 @@ else:
                 "last_event_human": dbg.get("last_event_human"),
                 "last_error": dbg.get("last_error"),
             })
+            if st.button("🔁 Realtime neu starten"):
+                # Stop & restart worker
+                st.session_state["_rt_started"] = False
+                st.session_state.pop("_rt_thread", None)
+                _RT_FLAGS.update({
+                    "client_created": False,
+                    "channel_subscribed": False,
+                    "connect_ok": False,
+                    "last_error": None,
+                    "phase": "starting",
+                })
+                _ensure_realtime_started()
+                st.success("Realtime neu gestartet")
+                st.rerun()
             st.caption("Falls `channel_subscribed` oder `connect_ok` False sind, prüfe die Publication `supabase_realtime` im Supabase-Dashboard und die Paketversion.")
 
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
