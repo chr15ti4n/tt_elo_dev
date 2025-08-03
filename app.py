@@ -407,13 +407,7 @@ else:
 
     st.session_state.setdefault("editing", False)
 
-    st.write("")
     st.session_state.setdefault("auto_refresh", True)
-    st.session_state.auto_refresh = st.checkbox(
-        "🔄 Live-Update alle 5 Sekunden",
-        value=st.session_state.auto_refresh,
-        help="Aktualisiert automatisch Pending-Listen und News. Beim Eintragen kannst du es ausschalten."
-    )
 
     main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Account"])
 
@@ -504,7 +498,7 @@ else:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
 
     # Auto-refresh loop (only when logged in)
-    if st.session_state.get("auto_refresh", False) and not st.session_state.get("editing", False):
-        time.sleep(5)
+    if st.session_state.get("auto_refresh", True) and not st.session_state.get("editing", False):
+        time.sleep(30)
         st.rerun()
 # endregion
