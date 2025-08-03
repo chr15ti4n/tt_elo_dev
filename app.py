@@ -3,6 +3,8 @@ import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 import bcrypt
+from datetime import datetime
+
 # region PIN Hashing
 def hash_pin(pin: str) -> str:
     """Generates a bcrypt hash for the provided PIN."""
@@ -18,7 +20,6 @@ def check_pin(pin: str, stored: str) -> bool:
     else:
         return pin == stored
 # endregion
-# endregion
 
 # region Supabase Setup
 try:
@@ -29,6 +30,273 @@ except KeyError:
     st.stop()
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# endregion
+
+# region ELO Core (Math + Apply)
+# --- Core math identical to old system ---
+def _expected(r_a: float, r_b: float) -> float:
+    return 1 / (1 + 10 ** ((r_b - r_a) / 400))
+
+def _calc_elo(r_a: float, r_b: float, score_a: float, k: float) -> int:
+    return int(round(r_a + k * (score_a - _expected(r_a, r_b))))
+
+def _compute_gelo(single: float, d_elo: float, r_elo: float,
+                  w_e: float = 0.6, w_d: float = 0.25, w_r: float = 0.15) -> int:
+    return int(round(w_e * single + w_d * d_elo + w_r * r_elo))
+
+# --- Weighted by games per mode ---
+def _compute_gelo_weighted_by_games(row: dict, new_single=None, new_d=None, new_r=None,
+                                    inc_single: int = 0, inc_double: int = 0, inc_round: int = 0) -> int:
+    """Compute overall g_elo weighted strictly by number of games per mode.
+    Weights: wE = (spiele+inc_single) / N, wD = (d_spiele+inc_double) / N, wR = (r_spiele+inc_round) / N.
+    If N == 0 -> 1200.
+    new_single/new_d/new_r allow passing freshly updated ratings for the current event.
+    """
+    rE = float(new_single if new_single is not None else row.get("elo", 1200))
+    rD = float(new_d      if new_d      is not None else row.get("d_elo", 1200))
+    rR = float(new_r      if new_r      is not None else row.get("r_elo", 1200))
+
+    nE = int(row.get("spiele", 0))   + int(inc_single)
+    nD = int(row.get("d_spiele", 0)) + int(inc_double)
+    nR = int(row.get("r_spiele", 0)) + int(inc_round)
+    N = nE + nD + nR
+    if N <= 0:
+        return 1200
+
+    g = (nE * rE + nD * rD + nR * rR) / N
+    return int(round(g))
+
+def _get_player_row(name: str) -> dict:
+    res = supabase.table("players").select("*").eq("name", name).single().execute()
+    return res.data or {}
+
+def _update_player_fields(name: str, fields: dict):
+    supabase.table("players").update(fields).eq("name", name).execute()
+
+ # --- Incremental apply: Einzel ---
+def apply_single_result(a: str, b: str, punktea: int, punkteb: int,
+                        k_base: int = 64, datum: str | None = None):
+    if a == b:
+        return False, "Spieler A und B müssen unterschiedlich sein."
+    if punktea == punkteb:
+        return False, "Unentschieden ist nicht erlaubt."
+    if min(punktea, punkteb) < 0:
+        return False, "Punktzahlen müssen >= 0 sein."
+
+    row_a = _get_player_row(a)
+    row_b = _get_player_row(b)
+    if not row_a or not row_b:
+        return False, "Spieler nicht gefunden."
+
+    r_a = float(row_a.get("elo", 1200))
+    r_b = float(row_b.get("elo", 1200))
+    d_a = float(row_a.get("d_elo", 1200))
+    d_b = float(row_b.get("d_elo", 1200))
+    rra = float(row_a.get("r_elo", 1200))
+    rrb = float(row_b.get("r_elo", 1200))
+
+    margin = abs(int(punktea) - int(punkteb))
+    k_eff = k_base * (1 + margin / 11)
+    a_wins = punktea > punkteb
+
+    new_r_a = _calc_elo(r_a, r_b, 1 if a_wins else 0, k_eff)
+    new_r_b = _calc_elo(r_b, r_a, 0 if a_wins else 1, k_eff)
+
+    # Stats-Updates
+    a_siege = int(row_a.get("siege", 0)) + (1 if a_wins else 0)
+    a_nied  = int(row_a.get("niederlagen", 0)) + (0 if a_wins else 1)
+    a_games = int(row_a.get("spiele", 0)) + 1
+    b_siege = int(row_b.get("siege", 0)) + (0 if a_wins else 1)
+    b_nied  = int(row_b.get("niederlagen", 0)) + (1 if a_wins else 0)
+    b_games = int(row_b.get("spiele", 0)) + 1
+
+    new_g_a = _compute_gelo_weighted_by_games(row_a, new_single=new_r_a, inc_single=1)
+    new_g_b = _compute_gelo_weighted_by_games(row_b, new_single=new_r_b, inc_single=1)
+
+    _update_player_fields(a, {
+        "elo": new_r_a, "siege": a_siege, "niederlagen": a_nied, "spiele": a_games, "g_elo": new_g_a
+    })
+    _update_player_fields(b, {
+        "elo": new_r_b, "siege": b_siege, "niederlagen": b_nied, "spiele": b_games, "g_elo": new_g_b
+    })
+
+    # Match speichern
+    supabase.table("matches").insert({
+        "datum": datum or datetime.utcnow().isoformat(),
+        "a": a, "b": b, "punktea": int(punktea), "punkteb": int(punkteb)
+    }).execute()
+
+    return True, "Einzelmatch gespeichert und ELO aktualisiert."
+
+# --- Incremental apply: Doppel ---
+def apply_double_result(a1: str, a2: str, b1: str, b2: str, punktea: int, punkteb: int,
+                        k_base: int = 48):
+    for n in (a1, a2, b1, b2):
+        if not _get_player_row(n):
+            return False, f"Spieler {n} nicht gefunden."
+    if punktea == punkteb:
+        return False, "Unentschieden ist nicht erlaubt."
+
+    ra1 = float(_get_player_row(a1).get("d_elo", 1200))
+    ra2 = float(_get_player_row(a2).get("d_elo", 1200))
+    rb1 = float(_get_player_row(b1).get("d_elo", 1200))
+    rb2 = float(_get_player_row(b2).get("d_elo", 1200))
+    a_avg, b_avg = (ra1 + ra2) / 2, (rb1 + rb2) / 2
+
+    margin = abs(int(punktea) - int(punkteb))
+    k_eff = k_base * (1 + margin / 11)
+    team_a_win = 1 if punktea > punkteb else 0
+
+    def _team_update(name: str, old_d: float, opp_avg: float, s: int):
+        exp = 1 / (1 + 10 ** ((opp_avg - old_d) / 400))
+        delta = k_eff * (s - exp)
+        return int(round(old_d + delta))
+
+    nr_a1 = _team_update(a1, ra1, b_avg, team_a_win)
+    nr_a2 = _team_update(a2, ra2, b_avg, team_a_win)
+    nr_b1 = _team_update(b1, rb1, a_avg, 1 - team_a_win)
+    nr_b2 = _team_update(b2, rb2, a_avg, 1 - team_a_win)
+
+    def _apply_one(name: str, new_d: int, s: int):
+        row = _get_player_row(name)
+        g = _compute_gelo_weighted_by_games(row, new_d=new_d, inc_double=1)
+        _update_player_fields(name, {
+            "d_elo": new_d,
+            "d_siege": int(row.get("d_siege", 0)) + s,
+            "d_niederlagen": int(row.get("d_niederlagen", 0)) + (1 - s),
+            "d_spiele": int(row.get("d_spiele", 0)) + 1,
+            "g_elo": g,
+        })
+
+    _apply_one(a1, nr_a1, team_a_win)
+    _apply_one(a2, nr_a2, team_a_win)
+    _apply_one(b1, nr_b1, 1 - team_a_win)
+    _apply_one(b2, nr_b2, 1 - team_a_win)
+
+    supabase.table("doubles").insert({
+        "datum": datetime.utcnow().isoformat(),
+        "a1": a1, "a2": a2, "b1": b1, "b2": b2,
+        "punktea": int(punktea), "punkteb": int(punkteb)
+    }).execute()
+
+    return True, "Doppel gespeichert und ELO aktualisiert."
+
+# --- Incremental apply: Rundlauf ---
+def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base: int = 48):
+    if not teilnehmer or sieger not in teilnehmer:
+        return False, "Teilnehmer/Sieger ungültig."
+    f1, f2 = (finalisten + (None, None))[:2] if isinstance(finalisten, tuple) else (None, None)
+    # Durchschnitts-Rating zum Zeitpunkt
+    r_values = []
+    for p in teilnehmer:
+        row = _get_player_row(p)
+        if not row:
+            return False, f"Spieler {p} nicht gefunden."
+        r_values.append(float(row.get("r_elo", 1200)))
+    avg = sum(r_values) / len(r_values)
+
+    deltas = {}
+    for p in teilnehmer:
+        row = _get_player_row(p)
+        old = float(row.get("r_elo", 1200))
+        if p == sieger:
+            s = 1
+            r_siege = int(row.get("r_siege", 0)) + 1
+            _update_player_fields(p, {"r_siege": r_siege})
+        elif p in (f1, f2):
+            s = 0.5
+            r_zweite = int(row.get("r_zweite", 0)) + 1
+            _update_player_fields(p, {"r_zweite": r_zweite})
+        else:
+            s = 0
+            r_n = int(row.get("r_niederlagen", 0)) + 1
+            _update_player_fields(p, {"r_niederlagen": r_n})
+        exp = _expected(old, avg)
+        deltas[p] = k_base * (s - exp)
+
+    offset = sum(deltas.values()) / len(deltas) if deltas else 0
+    for p, delta in deltas.items():
+        row = _get_player_row(p)
+        new_r = int(round(float(row.get("r_elo", 1200)) + (delta - offset)))
+        g = _compute_gelo_weighted_by_games(row, new_r=new_r, inc_round=1)
+        _update_player_fields(p, {
+            "r_elo": new_r,
+            "r_spiele": int(row.get("r_spiele", 0)) + 1,
+            "g_elo": g,
+        })
+
+    supabase.table("rounds").insert({
+        "datum": datetime.utcnow().isoformat(),
+        "teilnehmer": ";".join(teilnehmer),
+        "finalisten": ";".join([f for f in (f1, f2) if f]),
+        "sieger": sieger,
+    }).execute()
+
+    return True, "Rundlauf gespeichert und ELO aktualisiert."
+# endregion
+
+# region Pending helpers (Einzel)
+
+def submit_single_pending(creator: str, a: str, b: str, punktea: int, punkteb: int):
+    if a == b:
+        return False, "Spieler A und B müssen unterschiedlich sein."
+    if min(punktea, punkteb) < 0:
+        return False, "Punktzahlen müssen >= 0 sein."
+    # determine which side the creator is on
+    confa = creator == a
+    confb = creator == b
+    if not (confa or confb):
+        # if creator is neither A nor B, auto-confirm A side
+        confa = True
+    supabase.table("pending_matches").insert({
+        "datum": datetime.utcnow().isoformat(),
+        "a": a, "b": b,
+        "punktea": int(punktea), "punkteb": int(punkteb),
+        "confa": confa, "confb": confb,
+    }).execute()
+    return True, "Einzelmatch eingereicht. Warte auf Bestätigung."
+
+
+def fetch_pending_for_user(user: str):
+    # pending where user participates
+    res = supabase.table("pending_matches").select("*").or_(f"a.eq.{user},b.eq.{user}").order("datum", desc=True).execute()
+    rows = res.data or []
+    to_confirm = []
+    waiting_opponent = []
+    for r in rows:
+        if r["a"] == user and not r.get("confa", False):
+            to_confirm.append(r)
+        elif r["b"] == user and not r.get("confb", False):
+            to_confirm.append(r)
+        elif (r["a"] == user and r.get("confa", False) and not r.get("confb", False)) or \
+             (r["b"] == user and r.get("confb", False) and not r.get("confa", False)):
+            waiting_opponent.append(r)
+    return to_confirm, waiting_opponent
+
+
+def confirm_pending_match(row_id: str, user: str):
+    # fetch row
+    r = supabase.table("pending_matches").select("*").eq("id", row_id).single().execute().data
+    if not r:
+        return False, "Eintrag nicht gefunden."
+    fields = {}
+    if r["a"] == user:
+        fields["confa"] = True
+    if r["b"] == user:
+        fields["confb"] = True
+    if not fields:
+        return False, "Du bist an diesem Match nicht beteiligt."
+    supabase.table("pending_matches").update(fields).eq("id", row_id).execute()
+
+    # Reload row to check completion
+    r = supabase.table("pending_matches").select("*").eq("id", row_id).single().execute().data
+    if r and r.get("confa") and r.get("confb"):
+        # finalize: apply elo & move to matches
+        ok, msg = apply_single_result(r["a"], r["b"], int(r["punktea"]), int(r["punkteb"]), datum=r.get("datum"))
+        # delete pending
+        supabase.table("pending_matches").delete().eq("id", row_id).execute()
+        return ok, "Match bestätigt und gewertet."
+    return True, "Bestätigung gespeichert. Warte auf Gegner."
 # endregion
 
 # region Persistent Login via Query Params
@@ -95,6 +363,7 @@ if 'user' not in st.session_state:
                     supabase.table("players").insert({"name": name, "pin": hashed}).execute()
                     st.success("Registrierung erfolgreich. Bitte einloggen.")
     st.stop()
+# region UI: Tabs (Willkommen, Spielen, Statistik/Account)
 else:
     st.header(f"👋 Willkommen, {st.session_state.user}!")
     if st.button("🚪 Logout"):
@@ -104,8 +373,99 @@ else:
         if "token" in st.query_params:
             del st.query_params["token"]
         st.rerun()
-    # Show the full players CSV from Supabase
-    data = supabase.table("players").select("*").execute()
-    df = pd.DataFrame(data.data)
-    st.dataframe(df)
+
+    main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Statistik / Account"])
+
+    with main_tab1:
+        # Willkommen: ELO Anzeige, Matches bestätigen, letzte 5 Spiele
+        st.subheader("Deine Ratings")
+        me = supabase.table("players").select("*").eq("name", st.session_state.user).single().execute().data
+        if me:
+            cols = st.columns(4)
+            cols[0].metric("Gesamt-ELO", int(me.get("g_elo", 1200)))
+            cols[1].metric("Einzel", int(me.get("elo", 1200)))
+            cols[2].metric("Doppel", int(me.get("d_elo", 1200)))
+            cols[3].metric("Rundlauf", int(me.get("r_elo", 1200)))
+        st.divider()
+
+        st.subheader("🚥 Offene Bestätigungen")
+        to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
+        if to_confirm:
+            for r in to_confirm:
+                c1, c2, c3, c4 = st.columns([3,2,2,2])
+                c1.write(f"{r['a']} vs {r['b']} — {r['punktea']} : {r['punkteb']}")
+                c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
+                if c3.button("Bestätigen", key=f"confirm_{r['id']}"):
+                    ok, msg = confirm_pending_match(r["id"], st.session_state.user)
+                    st.toast(msg)
+                    st.rerun()
+        else:
+            st.info("Keine Bestätigungen offen.")
+
+        st.subheader("🕒 Wartet auf Gegner")
+        if waiting_opponent:
+            for r in waiting_opponent:
+                st.caption(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+        else:
+            st.info("Keine offenen Anfragen beim Gegner.")
+
+        st.subheader("📰 Letzte 5 Spiele")
+        last = supabase.table("matches").select("*").order("datum", desc=True).limit(5).execute().data
+        if last:
+            st.dataframe(pd.DataFrame(last))
+        else:
+            st.info("Noch keine Spiele vorhanden.")
+
+    with main_tab2:
+        # Spielen: Match eintragen (Subtabs) + Bestätigen + Ausstehend
+        sub1, sub2, sub3 = st.tabs(["Einzel", "Doppel", "Rundlauf"])
+
+        with sub1:
+            st.markdown("### Einzel eintragen")
+            data_players = supabase.table("players").select("name").order("name").execute().data
+            names = [p["name"] for p in data_players] if data_players else []
+            if len(names) >= 2:
+                c1, c2 = st.columns(2)
+                with c1:
+                    a = st.selectbox("Spieler A", names, key="ein_a")
+                    pa = st.number_input("Punkte A", min_value=0, step=1, key="ein_pa")
+                with c2:
+                    b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b")
+                    pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb")
+                if st.button("Einreichen (Bestätigung erforderlich)"):
+                    ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
+                    st.success(msg) if ok else st.error(msg)
+                    st.rerun()
+            else:
+                st.info("Mindestens zwei Spieler erforderlich.")
+
+            st.markdown("### Offene Bestätigungen")
+            to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
+            if to_confirm:
+                for r in to_confirm:
+                    c1, c2, c3, c4 = st.columns([3,2,2,2])
+                    c1.write(f"{r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+                    c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
+                    if c3.button("Bestätigen", key=f"sub_confirm_{r['id']}"):
+                        ok, msg = confirm_pending_match(r["id"], st.session_state.user)
+                        st.toast(msg)
+                        st.rerun()
+            else:
+                st.caption("Nichts zu bestätigen.")
+
+            st.markdown("### Vom Gegner ausstehend")
+            if waiting_opponent:
+                for r in waiting_opponent:
+                    st.caption(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+            else:
+                st.caption("Keine offenen Anfragen beim Gegner.")
+
+        with sub2:
+            st.info("Doppel folgt – UI analog zu Einzel.")
+        with sub3:
+            st.info("Rundlauf folgt – UI analog zu Einzel.")
+
+    with main_tab3:
+        st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
+# endregion
 # endregion
