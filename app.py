@@ -13,6 +13,7 @@ import threading
 import importlib
 
 from queue import SimpleQueue
+import traceback
 
 # Async Realtime import (must be early so availability shows correctly)
 try:
@@ -146,6 +147,7 @@ st.session_state["_rt_debug"].update({
     "supabase_py_version": SUPABASE_PY_VERSION,
     "acreate_client_available": bool(acreate_client is not None),
     "async_client_available": bool(AsyncClient is not None),
+    "phase": "init",
 })
 # endregion
 
@@ -179,6 +181,7 @@ def _ensure_realtime_started():
         "last_event_human": None,
         "last_error": None,
         "supabase_py_version": SUPABASE_PY_VERSION,
+        "phase": "starting",
     })
 
     def _worker():
@@ -187,8 +190,19 @@ def _ensure_realtime_started():
 
         async def run():
             try:
-                acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+                # Phase: create async client (with timeout)
+                st.session_state["_rt_debug"]["phase"] = "create_client"
+                acli = await asyncio.wait_for(acreate_client(SUPABASE_URL, SUPABASE_KEY), timeout=8)
                 _RT_FLAGS["client_created"] = True
+
+                # Optional: sanity REST probe (non-fatal)
+                try:
+                    st.session_state["_rt_debug"]["phase"] = "probe_rest"
+                    # Try a lightweight list of players to ensure the async client works
+                    _ = await asyncio.wait_for(acli.table("players").select("name").limit(1).execute(), timeout=6)
+                except Exception as e_probe:
+                    # Record but continue
+                    _RT_FLAGS["last_error"] = f"probe_rest: {type(e_probe).__name__}: {e_probe}"
 
                 # Define a plain (sync) callback as per docs
                 def on_change(payload):
@@ -197,26 +211,31 @@ def _ensure_realtime_started():
                     except Exception:
                         pass
 
-                # Create a channel from the client (not via .realtime.channel)
+                # Phase: subscribe to channel
+                st.session_state["_rt_debug"]["phase"] = "subscribe"
                 channel = acli.channel("tt_elo_changes")
-
-                # Subscribe to Postgres changes for the relevant tables
                 channel.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
-                await channel.subscribe()
+                await asyncio.wait_for(channel.subscribe(), timeout=8)
                 _RT_FLAGS["channel_subscribed"] = True
 
-                # Ensure realtime is connected and keep listening
-                await acli.realtime.connect()
+                # Phase: connect + listen
+                st.session_state["_rt_debug"]["phase"] = "connect"
+                await asyncio.wait_for(acli.realtime.connect(), timeout=8)
                 _RT_FLAGS["connect_ok"] = True
+
+                st.session_state["_rt_debug"]["phase"] = "listen"
                 await acli.realtime.listen()
+            except asyncio.TimeoutError as te:
+                _RT_FLAGS["last_error"] = f"timeout at phase={st.session_state['_rt_debug'].get('phase')}: {te}"
+                st.session_state["_rt_started"] = False
             except Exception as e:
-                # If realtime fails (e.g., old client), do not crash the app; allow retry on next run
-                _RT_FLAGS["last_error"] = str(e)
+                # Include traceback for deeper diagnostics
+                _RT_FLAGS["last_error"] = f"error at phase={st.session_state['_rt_debug'].get('phase')}: {type(e).__name__}: {e}\n{traceback.format_exc()}"
                 st.session_state["_rt_started"] = False
 
         loop.run_until_complete(run())
@@ -1114,6 +1133,7 @@ else:
                 "client_created": dbg.get("client_created"),
                 "channel_subscribed": dbg.get("channel_subscribed"),
                 "connect_ok": dbg.get("connect_ok"),
+                "phase": dbg.get("phase"),
                 "last_event_human": dbg.get("last_event_human"),
                 "last_error": dbg.get("last_error"),
             })
