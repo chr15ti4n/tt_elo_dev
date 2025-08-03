@@ -1,5 +1,5 @@
 # app_dev.py
-import asyncio, threading, datetime
+import os, asyncio, threading, datetime
 import streamlit as st
 from supabase import create_client
 
@@ -7,7 +7,24 @@ st.set_page_config(page_title="TT-ELO Realtime", layout="wide")
 
 @st.cache_resource
 def get_supabase():
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
+    # Prefer Streamlit secrets; fall back to env vars; finally try .env if python-dotenv is installed
+    url = st.secrets["SUPABASE_URL"] if "SUPABASE_URL" in st.secrets else os.getenv("SUPABASE_URL")
+    key = st.secrets["SUPABASE_ANON_KEY"] if "SUPABASE_ANON_KEY" in st.secrets else os.getenv("SUPABASE_ANON_KEY")
+
+    if not url or not key:
+        try:
+            from dotenv import load_dotenv  # optional dependency
+            load_dotenv()
+            url = url or os.getenv("SUPABASE_URL")
+            key = key or os.getenv("SUPABASE_ANON_KEY")
+        except Exception:
+            pass
+
+    if not url or not key:
+        st.error("Fehlende SUPABASE_URL / SUPABASE_ANON_KEY. Lege sie in .streamlit/secrets.toml oder als Umgebungsvariablen an.")
+        st.stop()
+
+    return create_client(url, key)
 
 # --- Auto-Login via Query-Params (user & token) ---
 
