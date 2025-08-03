@@ -361,24 +361,22 @@ if not st.session_state.logged_in:
             else:
                 new_player = {
                     "name": reg_name,
-                    "ELO": 1200,
-                    "Siege": 0,
-                    "Niederlagen": 0,
-                    "Spiele": 0,
-                    "Pin": hash_pin(reg_pin1),
-
+                    "elo": 1200,
+                    "siege": 0,
+                    "niederlagen": 0,
+                    "spiele": 0,
+                    "pin": hash_pin(reg_pin1),
                     # Doppel‑Defaults
-                    "D_ELO": 1200,
-                    "D_Siege": 0,
-                    "D_Niederlagen": 0,
-                    "D_Spiele": 0,
-
+                    "d_elo": 1200,
+                    "d_siege": 0,
+                    "d_niederlagen": 0,
+                    "d_spiele": 0,
                     # Rundlauf‑Defaults
-                    "R_ELO": 1200,
-                    "R_Siege": 0,
-                    "R_Zweite": 0,
-                    "R_Niederlagen": 0,
-                    "R_Spiele": 0,
+                    "r_elo": 1200,
+                    "r_siege": 0,
+                    "r_zweite": 0,
+                    "r_niederlagen": 0,
+                    "r_spiele": 0,
                 }
                 players = pd.concat([players, pd.DataFrame([new_player])], ignore_index=True)
                 players = compute_gelo(players)  # Gesamt-ELO für neuen Spieler
