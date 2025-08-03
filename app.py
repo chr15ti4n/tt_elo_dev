@@ -187,82 +187,85 @@ def _ensure_realtime_started():
     })
 
     def _worker():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        try:
+            _RT_FLAGS["phase"] = "worker_start"
+            loop = asyncio.new_event_loop()
+            _RT_FLAGS["phase"] = "loop_created"
+            asyncio.set_event_loop(loop)
 
-        async def run():
-            try:
-                # Phase: create async client (with timeout)
-                _RT_FLAGS["phase"] = "create_client"
-                acli = None
-                try_methods = []
-                if acreate_client is not None and inspect.iscoroutinefunction(acreate_client):
-                    try_methods.append(("acreate_client(url,key)", lambda: acreate_client(SUPABASE_URL, SUPABASE_KEY), True))
-                if AsyncClient is not None and hasattr(AsyncClient, "create"):
-                    try_methods.append(("AsyncClient.create(url,key)", lambda: AsyncClient.create(SUPABASE_URL, SUPABASE_KEY), True))
-                if AsyncClient is not None:
-                    try_methods.append(("AsyncClient(url,key) [sync ctor]", lambda: AsyncClient(SUPABASE_URL, SUPABASE_KEY), False))
-
-                last_err = None
-                for label, factory, needs_await in try_methods:
-                    try:
-                        if needs_await:
-                            acli = await asyncio.wait_for(factory(), timeout=12)
-                        else:
-                            acli = factory()
-                        _RT_FLAGS["client_created"] = True
-                        break
-                    except Exception as e_cf:
-                        last_err = f"{label} -> {type(e_cf).__name__}: {e_cf}"
-                        _RT_FLAGS["last_error"] = last_err
-
-                if acli is None:
-                    raise RuntimeError(f"Could not create Async Supabase client. Tried: {[m[0] for m in try_methods]}; last_error={last_err}")
-
-                # Optional: sanity REST probe (non-fatal)
+            async def run():
                 try:
-                    _RT_FLAGS["phase"] = "probe_rest"
-                    # Try a lightweight list of players to ensure the async client works
-                    _ = await asyncio.wait_for(acli.table("players").select("name").limit(1).execute(), timeout=6)
-                except Exception as e_probe:
-                    # Record but continue
-                    _RT_FLAGS["last_error"] = f"probe_rest: {type(e_probe).__name__}: {e_probe}"
+                    # Phase: create async client (with timeout)
+                    _RT_FLAGS["phase"] = "create_client"
+                    acli = None
+                    try_methods = []
+                    if acreate_client is not None and inspect.iscoroutinefunction(acreate_client):
+                        try_methods.append(("acreate_client(url,key)", lambda: acreate_client(SUPABASE_URL, SUPABASE_KEY), True))
+                    if AsyncClient is not None and hasattr(AsyncClient, "create"):
+                        try_methods.append(("AsyncClient.create(url,key)", lambda: AsyncClient.create(SUPABASE_URL, SUPABASE_KEY), True))
+                    if AsyncClient is not None:
+                        try_methods.append(("AsyncClient(url,key) [sync ctor]", lambda: AsyncClient(SUPABASE_URL, SUPABASE_KEY), False))
 
-                # Define a plain (sync) callback as per docs
-                def on_change(payload):
+                    last_err = None
+                    for label, factory, needs_await in try_methods:
+                        try:
+                            if needs_await:
+                                acli = await asyncio.wait_for(factory(), timeout=12)
+                            else:
+                                acli = factory()
+                            _RT_FLAGS["client_created"] = True
+                            break
+                        except Exception as e_cf:
+                            last_err = f"{label} -> {type(e_cf).__name__}: {e_cf}"
+                            _RT_FLAGS["last_error"] = last_err
+
+                    if acli is None:
+                        raise RuntimeError(f"Could not create Async Supabase client. Tried: {[m[0] for m in try_methods]}; last_error={last_err}")
+
+                    # Optional: sanity REST probe (non-fatal)
                     try:
-                        _RT_QUEUE.put(time.time())
-                    except Exception:
-                        pass
+                        _RT_FLAGS["phase"] = "probe_rest"
+                        _ = await asyncio.wait_for(acli.table("players").select("name").limit(1).execute(), timeout=6)
+                    except Exception as e_probe:
+                        _RT_FLAGS["last_error"] = f"probe_rest: {type(e_probe).__name__}: {e_probe}"
 
-                # Phase: connect, subscribe, then listen (correct order)
-                channel = acli.channel("tt_elo_changes")
-                channel.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
-                channel.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
-                channel.on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
-                channel.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
-                channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
-                channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
+                    # Define a plain (sync) callback as per docs
+                    def on_change(payload):
+                        try:
+                            _RT_QUEUE.put(time.time())
+                        except Exception:
+                            pass
 
-                _RT_FLAGS["phase"] = "connect"
-                await asyncio.wait_for(acli.realtime.connect(), timeout=8)
-                _RT_FLAGS["connect_ok"] = True
+                    # Phase: connect, subscribe, then listen (correct order)
+                    channel = acli.channel("tt_elo_changes")
+                    channel.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
+                    channel.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
+                    channel.on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
+                    channel.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
+                    channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
+                    channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
 
-                _RT_FLAGS["phase"] = "subscribe"
-                await asyncio.wait_for(channel.subscribe(), timeout=8)
-                _RT_FLAGS["channel_subscribed"] = True
+                    _RT_FLAGS["phase"] = "connect"
+                    await asyncio.wait_for(acli.realtime.connect(), timeout=8)
+                    _RT_FLAGS["connect_ok"] = True
 
-                _RT_FLAGS["phase"] = "listen"
-                await acli.realtime.listen()
-            except asyncio.TimeoutError as te:
-                _RT_FLAGS["last_error"] = f"timeout at phase={_RT_FLAGS.get('phase')}: {te}"
-                st.session_state["_rt_started"] = False
-            except Exception as e:
-                # Include traceback for deeper diagnostics
-                _RT_FLAGS["last_error"] = f"error at phase={_RT_FLAGS.get('phase')}: {type(e).__name__}: {e}\n{traceback.format_exc()}"
-                st.session_state["_rt_started"] = False
+                    _RT_FLAGS["phase"] = "subscribe"
+                    await asyncio.wait_for(channel.subscribe(), timeout=8)
+                    _RT_FLAGS["channel_subscribed"] = True
 
-        loop.run_until_complete(run())
+                    _RT_FLAGS["phase"] = "listen"
+                    await acli.realtime.listen()
+                except asyncio.TimeoutError as te:
+                    _RT_FLAGS["last_error"] = f"timeout at phase={_RT_FLAGS.get('phase')}: {te}"
+                    st.session_state["_rt_started"] = False
+                except Exception as e:
+                    _RT_FLAGS["last_error"] = f"error at phase={_RT_FLAGS.get('phase')}: {type(e).__name__}: {e}\n{traceback.format_exc()}"
+                    st.session_state["_rt_started"] = False
+
+            loop.run_until_complete(run())
+        except Exception as e_outer:
+            _RT_FLAGS["last_error"] = f"worker_error: {type(e_outer).__name__}: {e_outer}\n{traceback.format_exc()}"
+            st.session_state["_rt_started"] = False
 
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
