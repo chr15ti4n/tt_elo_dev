@@ -4,6 +4,7 @@ from supabase import create_client, Client
 import pandas as pd
 import bcrypt
 from datetime import datetime
+import time
 
 # region PIN Hashing
 def hash_pin(pin: str) -> str:
@@ -374,6 +375,14 @@ else:
             del st.query_params["token"]
         st.rerun()
 
+    st.write("")
+    st.session_state.setdefault("auto_refresh", True)
+    st.session_state.auto_refresh = st.checkbox(
+        "🔄 Live-Update alle 5 Sekunden",
+        value=st.session_state.auto_refresh,
+        help="Aktualisiert automatisch Pending-Listen und News. Beim Eintragen kannst du es ausschalten."
+    )
+
     main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Account"])
 
     with main_tab1:
@@ -425,7 +434,7 @@ else:
                 with c2:
                     b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b")
                     pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb")
-                if st.button("✅ Bestätigen)"):
+                if st.button("✅ Bestätigen"):
                     ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
                     st.success(msg) if ok else st.error(msg)
                     st.rerun()
@@ -460,4 +469,9 @@ else:
 
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
+
+    # Auto-refresh loop (only when logged in)
+    if st.session_state.get("auto_refresh", False):
+        time.sleep(5)
+        st.rerun()
 # endregion
