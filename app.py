@@ -819,10 +819,7 @@ else:
         st.divider()
 
         st.subheader("✅ Offene Bestätigungen")
-        col_ref1, _ = st.columns([1, 9])
-        if col_ref1.button("🔄 Aktualisieren", key="w_refresh_pending"):
-            st.cache_data.clear()
-            st.rerun()
+
         to_conf_all, wait_all = pending_combined_for_user(st.session_state.user)
         if to_conf_all:
             for it in to_conf_all:
@@ -857,10 +854,7 @@ else:
             st.caption("Nichts zu bestätigen.")
 
         st.subheader("Letzte Spiele")
-        col_ref2, _ = st.columns([1, 9])
-        if col_ref2.button("🔄 Aktualisieren", key="w_refresh_last"):
-            st.cache_data.clear()
-            st.rerun()
+
         df_last = load_last_events_table(5)
         if not df_last.empty:
             # allow multiline cells (render \n as line breaks) and hide index
@@ -976,9 +970,7 @@ else:
                 st.info("Mindestens drei Spieler erforderlich.")
 
         col_ref3, _ = st.columns([1, 9])
-        if col_ref3.button("🔄 Aktualisieren", key="s_refresh_pending"):
-            st.cache_data.clear()
-            st.rerun()
+
         st.markdown("### ✅ Offene Bestätigungen")
         to_conf_all, wait_all = pending_combined_for_user(st.session_state.user)
         if to_conf_all:
