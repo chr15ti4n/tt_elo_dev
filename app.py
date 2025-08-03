@@ -17,7 +17,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # endregion
 
 # region Persistent Login via Query Params
-params = st.experimental_get_query_params()
+params = st.get_query_params()
 if "user" in params and "user" not in st.session_state:
     st.session_state.user = params["user"][0]
 # endregion
@@ -37,9 +37,9 @@ if 'user' not in st.session_state:
                 stored_hash = resp.data.get("pin") if resp.data else None
                 if stored_hash and bcrypt.checkpw(pin.encode(), stored_hash.encode()):
                     st.session_state.user = name
-                    st.experimental_set_query_params(user=name)
+                    st.set_query_params(user=name)
                     st.success(f"Eingeloggt als {name}")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Ungültiger Name oder PIN")
 
