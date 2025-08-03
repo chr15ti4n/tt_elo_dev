@@ -869,9 +869,17 @@ if st.session_state.view_mode == "home":
                 st.rerun()
 
         # Eingeladene Matches (Invitations)
-        sp_inv = sp[sp["a"] != current_player]
-        dp_inv = dp[~dp["a1"].eq(current_player) & ~dp["a2"].eq(current_player)]
-        rp_inv = rp.copy()
+        sp_inv = pending[
+            (pending["b"] == current_player) & (~pending["confb"])
+        ].copy()
+        dp_inv = pending_d[
+            (((pending_d["b1"] == current_player) | (pending_d["b2"] == current_player))
+             & (~pending_d["confb"]))
+        ].copy()
+        rp_inv = pending_r[
+            (pending_r["teilnehmer"].str.contains(current_player, na=False))
+            & (~pending_r["confb"])
+        ].copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
             st.info("Keine ausstehenden Bestätigungen.")
