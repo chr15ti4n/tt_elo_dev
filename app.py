@@ -1,28 +1,12 @@
 # region Imports
 import streamlit as st
- # Admin user(s) for manual full rebuild
+# Admin user(s) for manual full rebuild
 ADMINS = ["Chris"]
-from contextlib import contextmanager
 import numpy as np
-
-@contextmanager
-def ui_container(title: str):
-    """Use st.modal if available, else st.expander fallback."""
-    if hasattr(st, "modal"):
-        with st.modal(title):
-            yield
-    else:
-        with st.expander(title, expanded=True):
-            yield
-            
 import pandas as pd
 from datetime import datetime
-from zoneinfo import ZoneInfo 
+from zoneinfo import ZoneInfo
 import bcrypt
-# QR-Code generation
-import qrcode
-from pathlib import Path
-
 from supabase import create_client
 
 @st.cache_resource
@@ -57,19 +41,6 @@ def load_table(table_name: str) -> pd.DataFrame:
 
 
 
-# ---------- QR-Code für Schnellzugriff ----------
-QR_FILE = Path("form_qr.png")
-APP_URL  = "https://tt-elo.streamlit.app"
-if not QR_FILE.exists():
-    qr_img = qrcode.make(APP_URL)
-    qr_img.save(QR_FILE)
-
-
-
-# region Helper Functions
-# ---------- Hilfsfunktionen ----------
-
-# --------- Session‑Cache für DataFrames (verhindert unnötige Sheets‑Reads) ---------
 
 def calc_elo(r_a, r_b, score_a, k=32):
     """ELO‑Formel mit Punktdifferenz.
@@ -423,10 +394,6 @@ else:
             st.query_params.clear()  # clear
             st.rerun()
 
-        # QR-Code für Match-Eintrag
-        with st.expander("📱 QR-Code"):
-            st.image(str(QR_FILE), width=180)
-            st.caption("Scanne, um zu spielen 🏓.")
 
         # Account löschen (Selbstlöschung)
         with st.expander("🗑️ Account löschen"):
@@ -636,14 +603,14 @@ if st.session_state.view_mode == "home":
             st.markdown("**Einzel**")
             for idx, row in sp_inv.iterrows():
                 cols = st.columns([3,1,1])
-                cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                cols[0].write(f"{row['a']} vs {row['b']}  {row['punktea']}:{row['punkteb']}")
                 if cols[1].button("✅", key=f"confirm_s_{idx}"):
                     payload = {
-                        "Datum": row["datum"].isoformat(),
-                        "A": row["a"],
-                        "B": row["b"],
-                        "PunkteA": row["punktea"],
-                        "PunkteB": row["punkteb"]
+                        "datum": row["datum"].isoformat(),
+                        "a": row["a"],
+                        "b": row["b"],
+                        "punktea": row["punktea"],
+                        "punkteb": row["punkteb"]
                     }
                     # 1) Insert match
                     try:
@@ -677,13 +644,13 @@ if st.session_state.view_mode == "home":
             st.markdown("**Doppel**")
             for idx, row in dp_inv.iterrows():
                 cols = st.columns([3,1,1])
-                cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {row['punktea']}:{row['punkteb']}")
                 if cols[1].button("✅", key=f"confirm_d_{idx}"):
                     payload = {
-                        "Datum": row["datum"].isoformat(),
-                        "A1": row["a1"], "A2": row["a2"],
-                        "B1": row["b1"], "B2": row["b2"],
-                        "PunkteA": row["punktea"], "PunkteB": row["punkteb"]
+                        "datum": row["datum"].isoformat(),
+                        "a1": row["a1"], "a2": row["a2"],
+                        "b1": row["b1"], "b2": row["b2"],
+                        "punktea": row["punktea"], "punkteb": row["punkteb"]
                     }
                     # 1) Insert match
                     try:
@@ -720,10 +687,10 @@ if st.session_state.view_mode == "home":
                 cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                 if cols[1].button("✅", key=f"confirm_r_{idx}"):
                     payload = {
-                        "Datum": row["datum"].isoformat(),
-                        "Teilnehmer": row["teilnehmer"],
-                        "Finalisten": row["finalisten"],
-                        "Sieger": row["sieger"]
+                        "datum": row["datum"].isoformat(),
+                        "teilnehmer": row["teilnehmer"],
+                        "finalisten": row["finalisten"],
+                        "sieger": row["sieger"]
                     }
                     # 1) Insert round
                     try:
@@ -805,8 +772,13 @@ if st.session_state.view_mode == "home":
             pts_b = st.number_input(f"Punkte {opponent}", min_value=0, max_value=100, value=9)
             if st.button("Eintragen", key="einzel_submit"):
                 supabase.table("pending_matches").insert([{
-                    "Datum": dt.isoformat(), "A": current_player, "B": opponent,
-                    "PunkteA": pts_a, "PunkteB": pts_b, "confA": True, "confB": False
+                    "datum": dt.isoformat(),
+                    "a": current_player,
+                    "b": opponent,
+                    "punktea": pts_a,
+                    "punkteb": pts_b,
+                    "confa": True,
+                    "confb": False
                 }]).execute()
                 load_table.clear()
                 st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
@@ -822,8 +794,15 @@ if st.session_state.view_mode == "home":
             pts_bd = st.number_input("Punkte Team B", min_value=0, max_value=100, value=9)
             if st.button("Eintragen", key="doppel_submit"):
                 supabase.table("pending_doubles").insert([{
-                    "Datum": dt2.isoformat(), "A1": current_player, "A2": partner,
-                    "B1": opp1, "B2": opp2, "PunkteA": pts_ad, "PunkteB": pts_bd, "confA": True, "confB": False
+                    "datum": dt2.isoformat(),
+                    "a1": current_player,
+                    "a2": partner,
+                    "b1": opp1,
+                    "b2": opp2,
+                    "punktea": pts_ad,
+                    "punkteb": pts_bd,
+                    "confa": True,
+                    "confb": False
                 }]).execute()
                 load_table.clear()
                 st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
@@ -838,14 +817,14 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="rund_submit"):
                 part_str = ";".join(participants)
                 f1, f2 = (finalists + ["", ""])[:2]
-                supabase.table("pending_rounds").insert({
-                    "Datum": dt3.isoformat(),
-                    "Teilnehmer": part_str,
-                    "Finalisten": f"{f1};{f2}",
-                    "Sieger": winner,
-                    "confA": True,
-                    "confB": False
-                }).execute()
+                supabase.table("pending_rounds").insert([{
+                    "datum": dt3.isoformat(),
+                    "teilnehmer": part_str,
+                    "finalisten": f"{f1};{f2}",
+                    "sieger": winner,
+                    "confa": True,
+                    "confb": False
+                }]).execute()
                 load_table.clear()
                 st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
 
@@ -880,12 +859,12 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Einzel**")
                 for idx, row in sp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                    cols[0].write(f"{row['a']} vs {row['b']}  {row['punktea']}:{row['punkteb']}")
                     if cols[1].button("✅", key=f"tab2_confirm_s_{idx}"):
                         payload = {
-                            "Datum": row["datum"].isoformat(),
-                            "A": row["a"], "B": row["b"],
-                            "PunkteA": row["punktea"], "PunkteB": row["punkteb"]
+                            "datum": row["datum"].isoformat(),
+                            "a": row["a"], "b": row["b"],
+                            "punktea": row["punktea"], "punkteb": row["punkteb"]
                         }
                         # 1) Insert match
                         try:
@@ -919,13 +898,13 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Doppel**")
                 for idx, row in dp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {row['punktea']}:{row['punkteb']}")
                     if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
                         payload = {
-                            "Datum": row["datum"].isoformat(),
-                            "A1": row["a1"], "A2": row["a2"],
-                            "B1": row["b1"], "B2": row["b2"],
-                            "PunkteA": row["punktea"], "PunkteB": row["punkteb"]
+                            "datum": row["datum"].isoformat(),
+                            "a1": row["a1"], "a2": row["a2"],
+                            "b1": row["b1"], "b2": row["b2"],
+                            "punktea": row["punktea"], "punkteb": row["punkteb"]
                         }
                         # 1) Insert double match
                         try:
@@ -961,10 +940,10 @@ if st.session_state.view_mode == "home":
                     cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                     if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
                         payload = {
-                            "Datum": row["datum"].isoformat(),
-                            "Teilnehmer": row["teilnehmer"],
-                            "Finalisten": row["finalisten"],
-                            "Sieger": row["sieger"]
+                            "datum": row["datum"].isoformat(),
+                            "teilnehmer": row["teilnehmer"],
+                            "finalisten": row["finalisten"],
+                            "sieger": row["sieger"]
                         }
                         # 1) Insert round
                         try:
@@ -1016,7 +995,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Einzel**")
                 for idx, row in sp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                    cols[0].write(f"{row['a']} vs {row['b']}  {row['punktea']}:{row['punkteb']}")
                     if cols[1].button("❌", key=f"reject_own_s_{idx}"):
                         st.write(f"DEBUG Reject Creator Einzel: pending_matches id={row['id']}")
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
@@ -1027,7 +1006,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Doppel**")
                 for idx, row in dp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {row['punktea']}:{row['punkteb']}")
                     if cols[1].button("❌", key=f"reject_own_d_{idx}"):
                         st.write(f"DEBUG Reject Creator Doppel: pending_doubles id={row['id']}")
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
