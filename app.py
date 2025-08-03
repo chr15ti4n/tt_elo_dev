@@ -17,7 +17,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # endregion
 
 # region Persistent Login via Query Params
-params = st.experimental_get_query_params()
+params = st.query_params
 if "user" in params and "user" not in st.session_state:
     st.session_state.user = params["user"][0]
 # endregion
@@ -49,7 +49,7 @@ if 'user' not in st.session_state:
                             supabase.table("players").update({"pin": new_hash}).eq("name", name).execute()
                 if login_success:
                     st.session_state.user = name
-                    st.query_params(user=name)
+                    st.set_query_params(user=name)
                     st.success(f"Eingeloggt als {name}")
                     st.rerun()
                 else:
