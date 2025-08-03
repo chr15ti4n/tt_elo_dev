@@ -213,6 +213,16 @@ def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base:
     if not teilnehmer or sieger not in teilnehmer:
         return False, "Teilnehmer/Sieger ungültig."
     f1, f2 = (finalisten + (None, None))[:2] if isinstance(finalisten, tuple) else (None, None)
+    # Require two distinct finalists that are part of the participants,
+    # and ensure the winner is one of the finalists.
+    if not f1 or not f2:
+        return False, "Bitte beide Finalisten angeben."
+    if f1 == f2:
+        return False, "Finalisten müssen unterschiedlich sein."
+    if f1 not in teilnehmer or f2 not in teilnehmer:
+        return False, "Finalisten müssen Teilnehmer sein."
+    if sieger not in (f1, f2):
+        return False, "Sieger muss einer der Finalisten sein."
     # Durchschnitts-Rating zum Zeitpunkt
     r_values = []
     for p in teilnehmer:
@@ -804,12 +814,13 @@ else:
             names = [p["name"] for p in data_players] if data_players else []
             if len(names) >= 3:
                 participants = st.multiselect("Teilnehmer", names, key="r_parts", on_change=_set_editing_true)
-                winner = st.selectbox("Sieger", participants if participants else [""], key="r_win", on_change=_set_editing_true)
                 fin_cols = st.columns(2)
                 with fin_cols[0]:
                     fin1 = st.selectbox("Finalist 1", [""] + participants, key="r_f1", on_change=_set_editing_true)
                 with fin_cols[1]:
                     fin2 = st.selectbox("Finalist 2", [""] + participants, key="r_f2", on_change=_set_editing_true)
+                winner = st.selectbox("Sieger", participants if participants else [""], key="r_win", on_change=_set_editing_true)
+
                 if st.button("✅ Rundlauf einreichen"):
                     if len(participants) < 3:
                         st.error("Mindestens drei Teilnehmer erforderlich.")
@@ -903,6 +914,6 @@ else:
 
     # Auto-refresh loop (only when logged in)
     if not st.session_state.get("editing", False):
-        time.sleep(20)
+        time.sleep(30)
         st.rerun()
 # endregion
