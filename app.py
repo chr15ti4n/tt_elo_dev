@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import time
 import asyncio
 import threading
+import importlib
 
 # region UI Helpers (editing state)
 # region UI Helpers (editing state)
@@ -85,6 +86,14 @@ def fmt_dt_local(val) -> str:
     except Exception:
         return str(val)
 # endregion
+
+# region Supabase client version
+try:
+    supa_mod = importlib.import_module("supabase")
+    SUPABASE_PY_VERSION = getattr(supa_mod, "__version__", "unknown")
+except Exception:
+    SUPABASE_PY_VERSION = "unknown"
+# endregion
 # endregion
 
 # region PIN Hashing
@@ -122,6 +131,13 @@ except Exception:
     acreate_client = None
     AsyncClient = None
 
+# region Supabase Realtime (event-driven refresh)
+try:
+    from supabase import acreate_client, AsyncClient  # async client for realtime
+except Exception:
+    acreate_client = None
+    AsyncClient = None
+
 def _ensure_realtime_started():
     """Start a background task that subscribes to DB changes and flips a flag in session_state.
     Requires: Realtime enabled for the tables in Supabase (Database → Replication → supabase_realtime).
@@ -129,6 +145,19 @@ def _ensure_realtime_started():
     if st.session_state.get("_rt_started") or acreate_client is None:
         return
     st.session_state["_rt_started"] = True
+    st.session_state.setdefault("_rt_debug", {})
+    st.session_state["_rt_debug"].update({
+        "acreate_client_available": acreate_client is not None,
+        "async_client_available": AsyncClient is not None,
+        "started": True,
+        "client_created": False,
+        "channel_subscribed": False,
+        "connect_ok": False,
+        "last_event_ts": None,
+        "last_event_human": None,
+        "last_error": None,
+        "supabase_py_version": SUPABASE_PY_VERSION,
+    })
 
     def _worker():
         loop = asyncio.new_event_loop()
@@ -137,32 +166,42 @@ def _ensure_realtime_started():
         async def run():
             try:
                 acli: AsyncClient = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+                st.session_state["_rt_debug"]["client_created"] = True
 
                 # Define a plain (sync) callback as per docs
                 def on_change(payload):
-                    # mark time of change; UI thread will detect and rerun
-                    st.session_state["_rt_changed_at"] = time.time()
+                    ts = time.time()
+                    st.session_state["_rt_changed_at"] = ts
+                    try:
+                        st.cache_data.clear()
+                    except Exception:
+                        pass
+                    try:
+                        st.session_state["_rt_debug"]["last_event_ts"] = ts
+                        st.session_state["_rt_debug"]["last_event_human"] = datetime.now(BERLIN).strftime("%d.%m.%Y %H:%M:%S")
+                    except Exception:
+                        st.session_state["_rt_debug"]["last_event_ts"] = ts
 
                 # Create a channel from the client (not via .realtime.channel)
                 channel = acli.channel("tt_elo_changes")
 
                 # Subscribe to Postgres changes for the relevant tables
-                await (
-                    channel
-                    .on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
-                    .on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
-                    .on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
-                    .on_postgres_changes("*", schema="public", table="matches", callback=on_change)
-                    .on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
-                    .on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
-                    .subscribe()
-                )
+                channel.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
+                channel.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
+                channel.on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
+                channel.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
+                channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
+                channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
+                await channel.subscribe()
+                st.session_state["_rt_debug"]["channel_subscribed"] = True
 
                 # Ensure realtime is connected and keep listening
                 await acli.realtime.connect()
+                st.session_state["_rt_debug"]["connect_ok"] = True
                 await acli.realtime.listen()
-            except Exception:
+            except Exception as e:
                 # If realtime fails (e.g., old client), do not crash the app; allow retry on next run
+                st.session_state["_rt_debug"]["last_error"] = str(e)
                 st.session_state["_rt_started"] = False
 
         loop.run_until_complete(run())
@@ -183,6 +222,7 @@ if _rt_changed_at > st.session_state["_rt_last_seen"]:
     except Exception:
         pass
     st.rerun()
+# endregion
 # endregion
 
 # region ELO Core (Math + Apply)
@@ -1033,6 +1073,21 @@ else:
             st.caption("Keine offenen Anfragen beim Gegner.")
 
     with main_tab3:
+        with st.expander("⚡ Realtime-Debug", expanded=False):
+            dbg = st.session_state.get("_rt_debug", {})
+            st.write({
+                "supabase_py_version": dbg.get("supabase_py_version"),
+                "acreate_client_available": dbg.get("acreate_client_available"),
+                "async_client_available": dbg.get("async_client_available"),
+                "started": dbg.get("started"),
+                "client_created": dbg.get("client_created"),
+                "channel_subscribed": dbg.get("channel_subscribed"),
+                "connect_ok": dbg.get("connect_ok"),
+                "last_event_human": dbg.get("last_event_human"),
+                "last_error": dbg.get("last_error"),
+            })
+            st.caption("Falls `channel_subscribed` oder `connect_ok` False sind, prüfe die Publication `supabase_realtime` im Supabase-Dashboard und die Paketversion.")
+
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
         
         if st.button("🚪 Logout"):
