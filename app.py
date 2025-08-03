@@ -39,6 +39,15 @@ if "df" not in st.session_state:
         st.session_state.df = pd.DataFrame([])
         st.warning(f"Konnte Startdaten nicht laden: {e}")
 
+# --- Gesehene IDs für Deduplizierung ---
+if "seen_ids" not in st.session_state:
+    try:
+        st.session_state.seen_ids = set(
+            st.session_state.df.get("id", pd.Series(dtype=str)).dropna().astype(str).tolist()
+        )
+    except Exception:
+        st.session_state.seen_ids = set()
+
 # --- Formular zum Einfügen ---
 with st.form("add_row", clear_on_submit=True):
     d = st.date_input("Datum (Spalte a)", value=date.today(), format="DD.MM.YYYY")
@@ -54,8 +63,11 @@ with st.form("add_row", clear_on_submit=True):
             )
             new_row = (res.data or [{"a": str(d)}])[0]
 
-            # Lokal sofort anzeigen (vorne anfügen → neueste oben)
-            st.session_state.df = pd.concat([pd.DataFrame([new_row]), st.session_state.df], ignore_index=True)
+            # Lokal sofort anzeigen (nur wenn ID noch nicht vorhanden)
+            row_id = str(new_row.get("id")) if isinstance(new_row, dict) else None
+            if row_id and row_id not in st.session_state.seen_ids:
+                st.session_state.df = pd.concat([pd.DataFrame([new_row]), st.session_state.df], ignore_index=True)
+                st.session_state.seen_ids.add(row_id)
             st.success("Eintrag gespeichert.")
         except Exception as e:
             st.error(f"Konnte Eintrag nicht speichern: {e}")
@@ -128,7 +140,10 @@ while True:
                 or payload  # Fallback
             )
             if isinstance(row, dict):
-                new_rows.append(row)
+                row_id = str(row.get("id") or row.get("uuid") or "")
+                if row_id and row_id not in st.session_state.seen_ids:
+                    new_rows.append(row)
+                    st.session_state.seen_ids.add(row_id)
         else:
             # unbekanntes Format einfach überspringen
             pass
@@ -140,6 +155,13 @@ if new_rows:
         new_df = pd.DataFrame(new_rows)
         # vorne anhängen, damit neueste oben stehen
         st.session_state.df = pd.concat([new_df, st.session_state.df], ignore_index=True)
+        # nach inserted_at (falls vorhanden) absteigend sortieren
+        if "inserted_at" in st.session_state.df.columns:
+            try:
+                st.session_state.df["inserted_at"] = pd.to_datetime(st.session_state.df["inserted_at"], errors="coerce")
+                st.session_state.df = st.session_state.df.sort_values("inserted_at", ascending=False, na_position="last").reset_index(drop=True)
+            except Exception:
+                pass
         try:
             # sanfte Aktualisierung – falls add_rows nicht unterstützt ist, fallback auf komplettes Zeichnen
             table_elem.add_rows(new_df)
@@ -151,7 +173,7 @@ if new_rows:
 # Auto-Refresh: bevorzugt das Community-Paket, sonst Fallback mit rerun()
 try:
     from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=4000, key="refetch")
+    _tick = st_autorefresh(interval=4000, key="refetch")
 except Exception:
     # Fallback ohne zusätzliches Paket (alle 4s neu rendern)
     time.sleep(4)
@@ -160,3 +182,39 @@ except Exception:
     except Exception:
         # ältere Streamlit-Versionen
         st.experimental_rerun()
+
+# Periodische Resynchronisierung, falls ein Realtime-Event verpasst wurde
+try:
+    if isinstance(_tick, int) and _tick % 15 == 0:
+        resync = (
+            supabase_sync
+            .table(TABLE)
+            .select("*")
+            .order("inserted_at", desc=True)
+            .execute()
+        )
+        fresh_df = pd.DataFrame(resync.data or [])
+        if not fresh_df.empty:
+            # Merge nach id
+            if "id" in fresh_df.columns and "id" in st.session_state.df.columns:
+                merged = (
+                    pd.concat([fresh_df, st.session_state.df], ignore_index=True)
+                    .drop_duplicates(subset=["id"], keep="first")
+                )
+            else:
+                merged = pd.concat([fresh_df, st.session_state.df], ignore_index=True).drop_duplicates()
+            if "inserted_at" in merged.columns:
+                try:
+                    merged["inserted_at"] = pd.to_datetime(merged["inserted_at"], errors="coerce")
+                    merged = merged.sort_values("inserted_at", ascending=False, na_position="last").reset_index(drop=True)
+                except Exception:
+                    pass
+            st.session_state.df = merged
+            # Seen-IDs neu aufbauen
+            try:
+                st.session_state.seen_ids = set(merged.get("id", pd.Series(dtype=str)).dropna().astype(str).tolist())
+            except Exception:
+                pass
+            container.dataframe(st.session_state.df, use_container_width=True, height=480)
+except Exception:
+    pass
