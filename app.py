@@ -155,6 +155,9 @@ pending_d = load_table("pending_doubles")
 doubles   = load_table("doubles")
 pending_r = load_table("pending_rounds")
 rounds    = load_table("rounds")
+# Build helper maps for ID ↔ Name
+id_to_name = dict(zip(players["id"], players["name"]))
+name_to_id = dict(zip(players["name"], players["id"]))
 # endregion
 
 # region Doppel ELO Rebuild
@@ -299,8 +302,10 @@ if not st.session_state.logged_in:
         if auto_user in players["name"].values:
             stored_pin = players.loc[players["name"] == auto_user, "pin"].iat[0]
             if stored_pin == auto_token:
+                user_row = players.loc[players["name"] == auto_user].iloc[0]
                 st.session_state.logged_in = True
                 st.session_state.current_player = auto_user
+                st.session_state.current_player_id = user_row["id"]
 # View mode: "spiel" (default) or "regeln"
 if "view_mode" not in st.session_state:
     st.session_state.view_mode = "home"
@@ -329,8 +334,10 @@ if not st.session_state.logged_in:
                         if not stored_pin.startswith("$2b$") and not stored_pin.startswith("$2a$"):
                             players.loc[players["name"] == login_name, "pin"] = hash_pin(login_pin)
                             supabase.table("players").update({"Pin": players.loc[players["name"] == login_name, "pin"].iat[0]}).eq("name", login_name).execute()
+                        user_row = players.loc[players["name"] == login_name].iloc[0]
                         st.session_state.logged_in = True
                         st.session_state.current_player = login_name
+                        st.session_state.current_player_id = user_row["id"]
                         # Save login in URL so refresh preserves session
                         st.query_params.update({
                             "user": login_name,
@@ -375,7 +382,11 @@ if not st.session_state.logged_in:
                 }
                 players = pd.concat([players, pd.DataFrame([new_player])], ignore_index=True)
                 players = compute_gelo(players)  # Gesamt-ELO für neuen Spieler
-                supabase.table("players").insert([new_player]).execute()
+                res = supabase.table("players").insert([new_player]).execute().data
+                new_id = res[0]["id"]
+                st.session_state.logged_in = True
+                st.session_state.current_player = reg_name
+                st.session_state.current_player_id = new_id
                 st.rerun()
 # Eingeloggt: Sidebar zeigt Menü und Logout
 else:
@@ -773,8 +784,8 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="einzel_submit"):
                 supabase.table("pending_matches").insert([{
                     "datum": dt.isoformat(),
-                    "a": current_player,
-                    "b": opponent,
+                    "a": st.session_state.current_player_id,
+                    "b": name_to_id[opponent],
                     "punktea": pts_a,
                     "punkteb": pts_b,
                     "confa": True,
@@ -795,10 +806,10 @@ if st.session_state.view_mode == "home":
             if st.button("Eintragen", key="doppel_submit"):
                 supabase.table("pending_doubles").insert([{
                     "datum": dt2.isoformat(),
-                    "a1": current_player,
-                    "a2": partner,
-                    "b1": opp1,
-                    "b2": opp2,
+                    "a1": st.session_state.current_player_id,
+                    "a2": name_to_id[partner],
+                    "b1": name_to_id[opp1],
+                    "b2": name_to_id[opp2],
                     "punktea": pts_ad,
                     "punkteb": pts_bd,
                     "confa": True,
@@ -815,13 +826,14 @@ if st.session_state.view_mode == "home":
             finalists = st.multiselect("Finalisten (2)", participants, max_selections=2)
             winner = st.selectbox("Sieger", finalists, key="winner_r")
             if st.button("Eintragen", key="rund_submit"):
-                part_str = ";".join(participants)
-                f1, f2 = (finalists + ["", ""])[:2]
+                part_ids = [name_to_id[n] for n in participants]
+                part_str = ";".join(part_ids)
+                f1, f2 = ([name_to_id[f] for f in finalists] + ["",""])[:2]
                 supabase.table("pending_rounds").insert([{
                     "datum": dt3.isoformat(),
                     "teilnehmer": part_str,
                     "finalisten": f"{f1};{f2}",
-                    "sieger": winner,
+                    "sieger": name_to_id[winner],
                     "confa": True,
                     "confb": False
                 }]).execute()
@@ -859,7 +871,9 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Einzel**")
                 for idx, row in sp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['a']} vs {row['b']}  {row['punktea']}:{row['punkteb']}")
+                    a_name = id_to_name[row["a"]]
+                    b_name = id_to_name[row["b"]]
+                    cols[0].write(f"{a_name} vs {b_name}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_s_{idx}"):
                         payload = {
                             "datum": row["datum"].isoformat(),
@@ -894,79 +908,85 @@ if st.session_state.view_mode == "home":
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
 
             # Doppel-Einladungen
-            if not dp_inv.empty:
-                st.markdown("**Doppel**")
-                for idx, row in dp_inv.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {row['punktea']}:{row['punkteb']}")
-                    if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
-                        payload = {
-                            "datum": row["datum"].isoformat(),
-                            "a1": row["a1"], "a2": row["a2"],
-                            "b1": row["b1"], "b2": row["b2"],
-                            "punktea": row["punktea"], "punkteb": row["punkteb"]
-                        }
-                        # 1) Insert double match
-                        try:
-                            supabase.table("doubles").insert([payload]).execute()
-                        except Exception as e:
-                            st.error(f"ERROR inserting double match: {e}")
-                            st.write("Payload:", payload)
-                            st.stop()
-                        # 2) Delete pending entry
-                        try:
-                            supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
-                        except Exception as e:
-                            st.error(f"ERROR deleting pending double match: {e}")
-                        # 3) Clear cache before rebuild
-                        load_table.clear()
-                        # 4) Recalculate ELOs (non-blocking)
-                        try:
-                            _rebuild_all()
-                        except Exception as e:
-                            st.warning(f"ELO-Rebuild failed: {e}")
-                        # 5) Final cache clear and notify
-                        load_table.clear()
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
+        if not dp_inv.empty:
+            st.markdown("**Doppel**")
+            for idx, row in dp_inv.iterrows():
+                cols = st.columns([3,1,1])
+                a1_name = id_to_name[row["a1"]]
+                a2_name = id_to_name[row["a2"]]
+                b1_name = id_to_name[row["b1"]]
+                b2_name = id_to_name[row["b2"]]
+                cols[0].write(f"{a1_name}/{a2_name} vs {b1_name}/{b2_name}  {int(row['punktea'])}:{int(row['punkteb'])}")
+                if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
+                    payload = {
+                        "datum": row["datum"].isoformat(),
+                        "a1": row["a1"], "a2": row["a2"],
+                        "b1": row["b1"], "b2": row["b2"],
+                        "punktea": row["punktea"], "punkteb": row["punkteb"]
+                    }
+                    # 1) Insert double match
+                    try:
+                        supabase.table("doubles").insert([payload]).execute()
+                    except Exception as e:
+                        st.error(f"ERROR inserting double match: {e}")
+                        st.write("Payload:", payload)
+                        st.stop()
+                    # 2) Delete pending entry
+                    try:
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
-                        load_table.clear()
-                        st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    except Exception as e:
+                        st.error(f"ERROR deleting pending double match: {e}")
+                    # 3) Clear cache before rebuild
+                    load_table.clear()
+                    # 4) Recalculate ELOs (non-blocking)
+                    try:
+                        _rebuild_all()
+                    except Exception as e:
+                        st.warning(f"ELO-Rebuild failed: {e}")
+                    # 5) Final cache clear and notify
+                    load_table.clear()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
+                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                    load_table.clear()
+                    st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
             # Rundlauf-Einladungen
-            if not rp_inv.empty:
-                st.markdown("**Rundlauf**")
-                for idx, row in rp_inv.iterrows():
-                    cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
-                    if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
-                        payload = {
-                            "datum": row["datum"].isoformat(),
-                            "teilnehmer": row["teilnehmer"],
-                            "finalisten": row["finalisten"],
-                            "sieger": row["sieger"]
-                        }
-                        # 1) Insert round
-                        try:
-                            supabase.table("rounds").insert(payload).execute()
-                        except Exception as e:
-                            st.error(f"ERROR inserting round: {e}")
-                            st.write("Payload:", payload)
-                            st.stop()
-                        # 2) Delete pending entry
-                        try:
-                            supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
-                        except Exception as e:
-                            st.error(f"ERROR deleting pending round: {e}")
-                        # 3) Clear cache before rebuild
-                        load_table.clear()
-                        # 4) Recalculate ELOs (non-blocking)
-                        try:
-                            _rebuild_all()
-                        except Exception as e:
-                            st.warning(f"ELO-Rebuild failed: {e}")
-                        # 5) Final cache clear and notify
-                        load_table.clear()
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+        if not rp_inv.empty:
+            st.markdown("**Rundlauf**")
+            for idx, row in rp_inv.iterrows():
+                cols = st.columns([3,1,1])
+                teilnehmer_names = " / ".join([id_to_name.get(pid, pid) for pid in str(row['teilnehmer']).split(";") if pid])
+                sieger_name = id_to_name.get(row["sieger"], row["sieger"])
+                cols[0].write(f"{teilnehmer_names}  Sieger: {sieger_name}")
+                if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
+                    payload = {
+                        "datum": row["datum"].isoformat(),
+                        "teilnehmer": row["teilnehmer"],
+                        "finalisten": row["finalisten"],
+                        "sieger": row["sieger"]
+                    }
+                    # 1) Insert round
+                    try:
+                        supabase.table("rounds").insert(payload).execute()
+                    except Exception as e:
+                        st.error(f"ERROR inserting round: {e}")
+                        st.write("Payload:", payload)
+                        st.stop()
+                    # 2) Delete pending entry
+                    try:
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                    except Exception as e:
+                        st.error(f"ERROR deleting pending round: {e}")
+                    # 3) Clear cache before rebuild
+                    load_table.clear()
+                    # 4) Recalculate ELOs (non-blocking)
+                    try:
+                        _rebuild_all()
+                    except Exception as e:
+                        st.warning(f"ELO-Rebuild failed: {e}")
+                    # 5) Final cache clear and notify
+                    load_table.clear()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         load_table.clear()
@@ -995,7 +1015,9 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Einzel**")
                 for idx, row in sp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['a']} vs {row['b']}  {row['punktea']}:{row['punkteb']}")
+                    a_name = id_to_name[row["a"]]
+                    b_name = id_to_name[row["b"]]
+                    cols[0].write(f"{a_name} vs {b_name}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("❌", key=f"reject_own_s_{idx}"):
                         st.write(f"DEBUG Reject Creator Einzel: pending_matches id={row['id']}")
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
@@ -1006,7 +1028,11 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Doppel**")
                 for idx, row in dp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {row['punktea']}:{row['punkteb']}")
+                    a1_name = id_to_name[row["a1"]]
+                    a2_name = id_to_name[row["a2"]]
+                    b1_name = id_to_name[row["b1"]]
+                    b2_name = id_to_name[row["b2"]]
+                    cols[0].write(f"{a1_name}/{a2_name} vs {b1_name}/{b2_name}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("❌", key=f"reject_own_d_{idx}"):
                         st.write(f"DEBUG Reject Creator Doppel: pending_doubles id={row['id']}")
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
@@ -1017,7 +1043,9 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Rundlauf**")
                 for idx, row in rp_cre.iterrows():
                     cols = st.columns([3,1])
-                    cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
+                    teilnehmer_names = " / ".join([id_to_name.get(pid, pid) for pid in str(row['teilnehmer']).split(";") if pid])
+                    sieger_name = id_to_name.get(row["sieger"], row["sieger"])
+                    cols[0].write(f"{teilnehmer_names}  Sieger: {sieger_name}")
                     if cols[1].button("❌", key=f"reject_own_r_{idx}"):
                         st.write(f"DEBUG Reject Creator Rundlauf: pending_rounds id={row['id']}")
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
@@ -1285,7 +1313,7 @@ if st.session_state.view_mode == "home":
 
         # Modal: Offene Matches bestätigen
         if st.session_state.show_confirm_modal:
-            with ui_container("Offene Matches bestätigen"):
+            with st.container():
                 if total_pending == 0:
                     st.info("Keine offenen Matches.")
                 else:
