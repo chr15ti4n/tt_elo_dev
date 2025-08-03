@@ -4,6 +4,7 @@ import asyncio
 import threading
 import queue
 from datetime import date
+import time
 import pandas as pd
 import streamlit as st
 from supabase import create_client, acreate_client
@@ -112,5 +113,15 @@ if new_events:
     except Exception as e:
         st.error(f"Fehler beim Nachladen der Daten: {e}")
 
-# sanfter Auto-Refresh (2s), damit ein zweiter Tab "quasi in Echtzeit" aktualisiert
-st.autorefresh(interval=2000, key="refetch")
+# Auto-Refresh: bevorzugt das Community-Paket, sonst Fallback mit rerun()
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=2000, key="refetch")
+except Exception:
+    # Fallback ohne zusätzliches Paket (alle 2s neu rendern)
+    time.sleep(2)
+    try:
+        st.rerun()
+    except Exception:
+        # ältere Streamlit-Versionen
+        st.experimental_rerun()
