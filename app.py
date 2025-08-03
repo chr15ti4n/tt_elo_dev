@@ -704,7 +704,7 @@ else:
                 c1, c2, c3, c4 = st.columns([5,2,2,2])
                 c1.write(f"[{it['mode']}] {it['text']}")
                 c2.write(fmt_dt_local(it['datum']))
-                if c3.button("Bestätigen", key=f"w_conf_{it['mode']}_{it['id']}"):
+                if c3.button("✅", key=f"w_conf_{it['mode']}_{it['id']}"):
                     if it['mode'] == 'Einzel':
                         ok, msg = confirm_pending_match(it['id'], st.session_state.user)
                     elif it['mode'] == 'Doppel':
@@ -716,7 +716,7 @@ else:
                     else:
                         st.error(msg)
                     st.rerun()
-                if c4.button("Ablehnen", key=f"w_rej_{it['mode']}_{it['id']}"):
+                if c4.button("❌", key=f"w_rej_{it['mode']}_{it['id']}"):
                     if it['mode'] == 'Einzel':
                         ok, msg = reject_pending_match(it['id'], st.session_state.user)
                     elif it['mode'] == 'Doppel':
@@ -730,27 +730,6 @@ else:
                     st.rerun()
         else:
             st.caption("Nichts zu bestätigen.")
-
-        st.subheader("🕔 Vom Gegner ausstehend")
-        if wait_all:
-            for it in wait_all:
-                c1, c2, c3 = st.columns([5,2,2])
-                c1.write(f"[{it['mode']}] {it['text']}")
-                c2.write(fmt_dt_local(it['datum']))
-                if c3.button("Ablehnen", key=f"w_rej_wait_{it['mode']}_{it['id']}"):
-                    if it['mode'] == 'Einzel':
-                        ok, msg = reject_pending_match(it['id'], st.session_state.user)
-                    elif it['mode'] == 'Doppel':
-                        ok, msg = reject_pending_double(it['id'], st.session_state.user)
-                    else:
-                        ok, msg = reject_pending_round(it['id'], st.session_state.user)
-                    if ok:
-                        st.success(f"{it['mode']} abgelehnt")
-                    else:
-                        st.error(msg)
-                    st.rerun()
-        else:
-            st.caption("Keine offenen Anfragen beim Gegner.")
 
         st.subheader("Letzte Spiele")
         last = load_last_matches(5)
