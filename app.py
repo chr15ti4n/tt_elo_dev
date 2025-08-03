@@ -7,13 +7,34 @@ st.set_page_config(page_title="TT-ELO Realtime", layout="wide")
 
 @st.cache_resource
 def get_supabase():
-    # Prefer Streamlit secrets; fall back to env vars; finally try .env if python-dotenv is installed
-    url = st.secrets["SUPABASE_URL"] if "SUPABASE_URL" in st.secrets else os.getenv("SUPABASE_URL")
-    key = st.secrets["SUPABASE_ANON_KEY"] if "SUPABASE_ANON_KEY" in st.secrets else os.getenv("SUPABASE_ANON_KEY")
+    # 1) Streamlit secrets (Top-Level oder Abschnitt [supabase])
+    url = None
+    key = None
 
+    if "SUPABASE_URL" in st.secrets:
+        url = st.secrets["SUPABASE_URL"]
+    elif "supabase" in st.secrets and "url" in st.secrets["supabase"]:
+        url = st.secrets["supabase"]["url"]
+
+    if "SUPABASE_ANON_KEY" in st.secrets:
+        key = st.secrets["SUPABASE_ANON_KEY"]
+    elif "supabase" in st.secrets:
+        sub = st.secrets["supabase"]
+        if "anon_key" in sub:
+            key = sub["anon_key"]
+        elif "key" in sub:
+            key = sub["key"]
+
+    # 2) Umgebungsvariablen als Fallback
+    if not url:
+        url = os.getenv("SUPABASE_URL")
+    if not key:
+        key = os.getenv("SUPABASE_ANON_KEY")
+
+    # 3) .env als letzter Versuch (optional)
     if not url or not key:
         try:
-            from dotenv import load_dotenv  # optional dependency
+            from dotenv import load_dotenv
             load_dotenv()
             url = url or os.getenv("SUPABASE_URL")
             key = key or os.getenv("SUPABASE_ANON_KEY")
@@ -21,7 +42,13 @@ def get_supabase():
             pass
 
     if not url or not key:
-        st.error("Fehlende SUPABASE_URL / SUPABASE_ANON_KEY. Lege sie in .streamlit/secrets.toml oder als Umgebungsvariablen an.")
+        st.error(
+            "Fehlende Supabase-Konfiguration. Lege entweder z. B. in .streamlit/secrets.toml\n"
+            "A) Top-Level:\n  SUPABASE_URL=\"...\"\n  SUPABASE_ANON_KEY=\"...\"\n"
+            "oder\n"
+            "B) Abschnitt [supabase]:\n  [supabase]\n  url=\"...\"\n  key=\"...\"  # oder anon_key=\"...\"\n"
+            "oder als Umgebungsvariablen SUPABASE_URL / SUPABASE_ANON_KEY an."
+        )
         st.stop()
 
     return create_client(url, key)
