@@ -57,13 +57,26 @@ def get_supabase():
 
 def init_user_from_query():
     q = st.query_params
-    auto_user = q.get("user")
-    auto_token = q.get("token")
+
+    def _first(v):
+        if isinstance(v, (list, tuple)):
+            return v[0] if v else None
+        return v
+
+    auto_user = _first(q.get("user"))
+    auto_token = _first(q.get("token"))
+
     if auto_user and auto_token:
         client = get_supabase()
         resp = client.table("players").select("pin").eq("name", auto_user).maybe_single().execute()
-        stored_hash = resp.data["pin"] if resp.data else None
-        if stored_hash and auto_token == stored_hash:
+        data = resp.data
+        row = None
+        if isinstance(data, dict):
+            row = data
+        elif isinstance(data, list) and data:
+            row = data[0]
+        stored_hash = row.get("pin") if row else None
+        if stored_hash and str(auto_token) == str(stored_hash):
             st.session_state["user"] = auto_user
 
 # Initialisiere einmalig aus URL, falls noch kein User gesetzt ist
