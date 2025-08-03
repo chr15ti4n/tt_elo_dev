@@ -1,5 +1,3 @@
-
-
 import asyncio
 import threading
 import queue
@@ -26,32 +24,31 @@ supabase_sync = create_client(url, key)
 
 st.title("TT-ELO – Datumseinträge (Realtime)")
 
-# --- Formular zum Einfügen ---
-with st.form("add_row", clear_on_submit=True):
-    d = st.date_input("Datum (Spalte a)", value=date.today(), format="DD.MM.YYYY")
-    submitted = st.form_submit_button("Eintrag speichern")
-    if submitted:
-        # Datum als ISO-String an Postgres schicken
-        supabase_sync.table(TABLE).insert({"a": str(d)}).execute()
-        st.success("Eintrag gespeichert.")
+# --- Initialdaten einmalig laden und im State halten ---
+if "df" not in st.session_state:
+    try:
+        res = (
+            supabase_sync
+            .table(TABLE)
+            .select("*")
+            .order("inserted_at", desc=True)
+            .execute()
+        )
+        st.session_state.df = pd.DataFrame(res.data or [])
+    except Exception as e:
+        st.session_state.df = pd.DataFrame([])
+        st.warning(f"Konnte Startdaten nicht laden: {e}")
 
-# --- Daten laden & anzeigen ---
-
-def fetch_df():
-    res = (
-        supabase_sync
-        .table(TABLE)
-        .select("*")
-        .order("inserted_at", desc=True)
-        .execute()
-    )
-    return pd.DataFrame(res.data or [])
-
-data_placeholder = st.empty()
+# --- Tabelle rendern (stabil) ---
+container = st.container()
 try:
-    data_placeholder.dataframe(fetch_df(), use_container_width=True)
+    table_elem = container.dataframe(
+        st.session_state.df,
+        use_container_width=True,
+        height=480,
+    )
 except Exception as e:
-    st.error(f"Fehler beim Laden der Daten: {e}")
+    st.error(f"Fehler beim Rendern der Tabelle: {e}")
 
 # --- Realtime-Listener (Async) ---
 # Hinweis: Realtime ist im Python-Client nur im ASYNC-Client verfügbar.
@@ -97,29 +94,46 @@ if not st.session_state.rt_started:
     t.start()
     st.session_state.rt_started = True
 
-# neue Events abholen und bei Bedarf neu laden
-new_events = 0
+# neue Events abholen und inkrementell einfügen (kein kompletter Reload)
+new_rows = []
 while True:
     try:
-        _ = st.session_state.event_queue.get_nowait()
-        new_events += 1
+        payload = st.session_state.event_queue.get_nowait()
+        # Supabase-Postgres-Changes liefern i.d.R. payload["new"]
+        if isinstance(payload, dict):
+            row = (
+                payload.get("new")
+                or payload.get("record")
+                or payload  # Fallback
+            )
+            if isinstance(row, dict):
+                new_rows.append(row)
+        else:
+            # unbekanntes Format einfach überspringen
+            pass
     except queue.Empty:
         break
 
-if new_events:
-    st.toast(f"{new_events} neuer Eintrag angekommen")
+if new_rows:
     try:
-        data_placeholder.dataframe(fetch_df(), use_container_width=True)
+        new_df = pd.DataFrame(new_rows)
+        # vorne anhängen, damit neueste oben stehen
+        st.session_state.df = pd.concat([new_df, st.session_state.df], ignore_index=True)
+        try:
+            # sanfte Aktualisierung – falls add_rows nicht unterstützt ist, fallback auf komplettes Zeichnen
+            table_elem.add_rows(new_df)
+        except Exception:
+            container.dataframe(st.session_state.df, use_container_width=True, height=480)
     except Exception as e:
-        st.error(f"Fehler beim Nachladen der Daten: {e}")
+        st.warning(f"Konnte neue Zeilen nicht einfügen: {e}")
 
 # Auto-Refresh: bevorzugt das Community-Paket, sonst Fallback mit rerun()
 try:
     from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=2000, key="refetch")
+    st_autorefresh(interval=4000, key="refetch")
 except Exception:
-    # Fallback ohne zusätzliches Paket (alle 2s neu rendern)
-    time.sleep(2)
+    # Fallback ohne zusätzliches Paket (alle 4s neu rendern)
+    time.sleep(4)
     try:
         st.rerun()
     except Exception:
