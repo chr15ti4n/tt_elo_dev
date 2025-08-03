@@ -494,22 +494,18 @@ if st.session_state.view_mode == "home":
     )
     tab1, tab2, tab3 = st.tabs(["Willkommen", "Spielen", "Statistiken"])
 
-    # Offene Matches für Bestätigung (auch vom Ersteller angezeigt)
+    # Offene Matches für Bestätigung (nur Einladungen, nicht eigene)
     user = players.loc[players["name"] == current_player].iloc[0]
-    # Einfache Bestätigung: pending solange confB False, für beide Teilnehmer
+    # Nur Einladungen für Einzel: B ist current_player, noch nicht bestätigt
     sp = pending[
-        ((pending["a"] == current_player) | (pending["b"] == current_player))
-        & (~pending["confb"])
+        (pending["b"] == current_player) & (~pending["confb"])
     ].copy()
-    # Einfache Bestätigung: pending_d solange confB False, für beide Teams
+    # Nur Einladungen für Doppel: current_player ist B1 oder B2, noch nicht bestätigt
     dp = pending_d[
-        (
-            (pending_d["a1"] == current_player) | (pending_d["a2"] == current_player)
-            | (pending_d["b1"] == current_player) | (pending_d["b2"] == current_player)
-        )
+        ((pending_d["b1"] == current_player) | (pending_d["b2"] == current_player))
         & (~pending_d["confb"])
     ].copy()
-    # Rundlauf: nur eine Bestätigung benötigt, Zeilen für Teilnehmer ohne Bestätigung
+    # Rundlauf: Teilnehmer ist current_player, noch nicht bestätigt (nur Einladungen)
     rp = pending_r[
         pending_r["teilnehmer"].str.contains(current_player, na=False)
         & (~pending_r["confb"])
