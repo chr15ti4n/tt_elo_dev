@@ -405,17 +405,10 @@ if 'user' not in st.session_state:
                     supabase.table("players").insert({"name": name, "pin": hashed}).execute()
                     st.success("Registrierung erfolgreich. Bitte einloggen.")
     st.stop()
-# region UI: Tabs (Willkommen, Spielen, Statistik/Account)
+# region UI: Tabs (Willkommen, Spielen, Account)
 else:
     st.header(f"👋 Willkommen, {st.session_state.user}!")
-    if st.button("🚪 Logout"):
-        st.session_state.pop("user", None)
-        if "user" in st.query_params:
-            del st.query_params["user"]
-        if "token" in st.query_params:
-            del st.query_params["token"]
-        st.rerun()
-
+    
     st.session_state.setdefault("editing", False)
 
     main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Account"])
@@ -449,19 +442,6 @@ else:
                     st.rerun()
         else:
             st.info("Keine Bestätigungen offen.")
-
-        # Replace waiting_opponent caption block with actionable rows
-        if waiting_opponent:
-            for r in waiting_opponent:
-                c1, c2, c3 = st.columns([3,2,2])
-                c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
-                c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
-                if c3.button("Ablehnen", key=f"reject_wait_{r['id']}"):
-                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
-                    st.toast(msg)
-                    st.rerun()
-        else:
-            st.info("Keine offenen Anfragen beim Gegner.")
 
         st.subheader("Letzte Spiele")
         last = load_last_matches(5)
@@ -523,7 +503,7 @@ else:
                         st.toast(msg)
                         st.rerun()
             else:
-                st.caption("Keine offenen Anfragen beim Gegner.")
+                st.info("Keine offenen Anfragen beim Gegner.")
 
         with sub2:
             st.info("Doppel folgt – UI analog zu Einzel.")
@@ -535,6 +515,6 @@ else:
 
     # Auto-refresh loop (only when logged in)
     if not st.session_state.get("editing", False):
-        time.sleep(30)
+        time.sleep(20)
         st.rerun()
 # endregion
