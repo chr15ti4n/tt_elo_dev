@@ -751,6 +751,10 @@ else:
         st.divider()
 
         st.subheader("✅ Offene Bestätigungen")
+        col_ref1, _ = st.columns([1, 9])
+        if col_ref1.button("🔄 Aktualisieren", key="w_refresh_pending"):
+            st.cache_data.clear()
+            st.rerun()
         to_conf_all, wait_all = pending_combined_for_user(st.session_state.user)
         if to_conf_all:
             for it in to_conf_all:
@@ -785,9 +789,13 @@ else:
             st.caption("Nichts zu bestätigen.")
 
         st.subheader("Letzte Spiele")
+        col_ref2, _ = st.columns([1, 9])
+        if col_ref2.button("🔄 Aktualisieren", key="w_refresh_last"):
+            st.cache_data.clear()
+            st.rerun()
         df_last = load_last_events_table(5)
         if not df_last.empty:
-            # allow multiline cells (render \n as line breaks)
+            # allow multiline cells (render \n as line breaks) and hide index
             st.markdown(
                 "<style>[data-testid='stDataFrame'] div[role='gridcell']{white-space:pre-wrap;}</style>",
                 unsafe_allow_html=True
@@ -805,26 +813,27 @@ else:
             data_players = supabase.table("players").select("name").order("name").execute().data
             names = [p["name"] for p in data_players] if data_players else []
             if len(names) >= 2:
-                c1, c2 = st.columns(2)
-                with c1:
-                    a = st.selectbox("Spieler A", names, key="ein_a", on_change=_set_editing_true)
-                    pa = st.number_input("Punkte A", min_value=0, step=1, key="ein_pa", on_change=_set_editing_true)
-                with c2:
-                    b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b", on_change=_set_editing_true)
-                    pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb", on_change=_set_editing_true)
-                if st.button("✅ Bestätigen"):
-                    if not a or not b:
-                        st.error("Bitte beide Spieler auswählen.")
-                    elif a == b:
-                        st.error("Spieler A und B müssen unterschiedlich sein.")
-                    else:
-                        ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
-                        if ok:
-                            st.success("Match angelegt")
+                with st.form("single_form", clear_on_submit=False):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        a = st.selectbox("Spieler A", names, key="ein_a")
+                        pa = st.number_input("Punkte A", min_value=0, step=1, key="ein_pa")
+                    with c2:
+                        b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b")
+                        pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb")
+                    submit_single = st.form_submit_button("✅ Bestätigen")
+                    if submit_single:
+                        if not a or not b:
+                            st.error("Bitte beide Spieler auswählen.")
+                        elif a == b:
+                            st.error("Spieler A und B müssen unterschiedlich sein.")
                         else:
-                            st.error(msg)
-                        _set_editing_false()
-                        st.rerun()
+                            ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
+                            if ok:
+                                st.success("Match angelegt")
+                            else:
+                                st.error(msg)
+                            st.rerun()
             else:
                 st.info("Mindestens zwei Spieler erforderlich.")
 
@@ -833,28 +842,29 @@ else:
             data_players = supabase.table("players").select("name").order("name").execute().data
             names = [p["name"] for p in data_players] if data_players else []
             if len(names) >= 4:
-                c1, c2 = st.columns(2)
-                with c1:
-                    a1 = st.selectbox("Team A – Spieler 1", names, key="d_a1", on_change=_set_editing_true)
-                    opts_a2 = [n for n in names if n != a1]
-                    a2 = st.selectbox("Team A – Spieler 2", opts_a2, key="d_a2", on_change=_set_editing_true)
-                    pa = st.number_input("Punkte Team A", min_value=0, step=1, key="d_pa", on_change=_set_editing_true)
-                with c2:
-                    opts_b1 = [n for n in names if n not in {a1, a2}]
-                    b1 = st.selectbox("Team B – Spieler 1", opts_b1, key="d_b1", on_change=_set_editing_true)
-                    opts_b2 = [n for n in names if n not in {a1, a2, b1}]
-                    b2 = st.selectbox("Team B – Spieler 2", opts_b2, key="d_b2", on_change=_set_editing_true)
-                    pb = st.number_input("Punkte Team B", min_value=0, step=1, key="d_pb", on_change=_set_editing_true)
+                with st.form("double_form", clear_on_submit=False):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        a1 = st.selectbox("Team A – Spieler 1", names, key="d_a1")
+                        opts_a2 = [n for n in names if n != a1]
+                        a2 = st.selectbox("Team A – Spieler 2", opts_a2, key="d_a2")
+                        pa = st.number_input("Punkte Team A", min_value=0, step=1, key="d_pa")
+                    with c2:
+                        opts_b1 = [n for n in names if n not in {a1, a2}]
+                        b1 = st.selectbox("Team B – Spieler 1", opts_b1, key="d_b1")
+                        opts_b2 = [n for n in names if n not in {a1, a2, b1}]
+                        b2 = st.selectbox("Team B – Spieler 2", opts_b2, key="d_b2")
+                        pb = st.number_input("Punkte Team B", min_value=0, step=1, key="d_pb")
 
-                disable_submit = not all([a1, a2, b1, b2]) or len({a1, a2, b1, b2}) < 4
-                if st.button("✅ Doppel einreichen", disabled=disable_submit):
-                    ok, msg = submit_double_pending(st.session_state.user, a1, a2, b1, b2, int(pa), int(pb))
-                    if ok:
-                        st.success("Doppel angelegt")
-                    else:
-                        st.error(msg)
-                    _set_editing_false()
-                    st.rerun()
+                    disable_submit = not all([a1, a2, b1, b2]) or len({a1, a2, b1, b2}) < 4
+                    submit_double = st.form_submit_button("✅ Doppel einreichen", disabled=disable_submit)
+                    if submit_double:
+                        ok, msg = submit_double_pending(st.session_state.user, a1, a2, b1, b2, int(pa), int(pb))
+                        if ok:
+                            st.success("Doppel angelegt")
+                        else:
+                            st.error(msg)
+                        st.rerun()
             else:
                 st.info("Mindestens vier Spieler erforderlich.")
 
@@ -863,40 +873,44 @@ else:
             data_players = supabase.table("players").select("name").order("name").execute().data
             names = [p["name"] for p in data_players] if data_players else []
             if len(names) >= 3:
-                participants = st.multiselect("Teilnehmer", names, key="r_parts", on_change=_set_editing_true)
-                fin_cols = st.columns(2)
-                with fin_cols[0]:
-                    fin1 = st.selectbox("Finalist 1", [""] + participants, key="r_f1", on_change=_set_editing_true)
-                with fin_cols[1]:
-                    fin2 = st.selectbox("Finalist 2", [""] + participants, key="r_f2", on_change=_set_editing_true)
-                # neu: Sieger-Optionen hängen von den gewählten Finalisten ab
-                winner_options = [x for x in [fin1, fin2] if x]
-                winner = st.selectbox("Sieger", winner_options if winner_options else [""], key="r_win", on_change=_set_editing_true)
+                with st.form("round_form", clear_on_submit=False):
+                    participants = st.multiselect("Teilnehmer", names, key="r_parts")
+                    fin_cols = st.columns(2)
+                    with fin_cols[0]:
+                        fin1 = st.selectbox("Finalist 1", [""] + participants, key="r_f1")
+                    with fin_cols[1]:
+                        fin2 = st.selectbox("Finalist 2", [""] + participants, key="r_f2")
+                    winner_options = [x for x in [fin1, fin2] if x]
+                    winner = st.selectbox("Sieger", winner_options if winner_options else [""], key="r_win")
 
-                if st.button("✅ Rundlauf einreichen"):
-                    if len(participants) < 3:
-                        st.error("Mindestens drei Teilnehmer erforderlich.")
-                    elif not winner or winner not in participants:
-                        st.error("Sieger muss Teilnehmer sein.")
-                    elif not fin1 or not fin2:
-                        st.error("Bitte beide Finalisten wählen.")
-                    elif fin1 == fin2:
-                        st.error("Finalisten müssen unterschiedlich sein.")
-                    elif fin1 not in participants or fin2 not in participants:
-                        st.error("Finalisten müssen Teilnehmer sein.")
-                    elif winner not in (fin1, fin2):
-                        st.error("Sieger muss einer der Finalisten sein.")
-                    else:
-                        ok, msg = submit_round_pending(st.session_state.user, participants, (fin1, fin2), winner)
-                        if ok:
-                            st.success("Rundlauf angelegt")
+                    submit_round = st.form_submit_button("✅ Rundlauf einreichen")
+                    if submit_round:
+                        if len(participants) < 3:
+                            st.error("Mindestens drei Teilnehmer erforderlich.")
+                        elif not winner or winner not in participants:
+                            st.error("Sieger muss Teilnehmer sein.")
+                        elif not fin1 or not fin2:
+                            st.error("Bitte beide Finalisten wählen.")
+                        elif fin1 == fin2:
+                            st.error("Finalisten müssen unterschiedlich sein.")
+                        elif fin1 not in participants or fin2 not in participants:
+                            st.error("Finalisten müssen Teilnehmer sein.")
+                        elif winner not in (fin1, fin2):
+                            st.error("Sieger muss einer der Finalisten sein.")
                         else:
-                            st.error(msg)
-                        _set_editing_false()
-                        st.rerun()
+                            ok, msg = submit_round_pending(st.session_state.user, participants, (fin1, fin2), winner)
+                            if ok:
+                                st.success("Rundlauf angelegt")
+                            else:
+                                st.error(msg)
+                            st.rerun()
             else:
                 st.info("Mindestens drei Spieler erforderlich.")
 
+        col_ref3, _ = st.columns([1, 9])
+        if col_ref3.button("🔄 Aktualisieren", key="s_refresh_pending"):
+            st.cache_data.clear()
+            st.rerun()
         st.markdown("### ✅ Offene Bestätigungen")
         to_conf_all, wait_all = pending_combined_for_user(st.session_state.user)
         if to_conf_all:
@@ -963,9 +977,4 @@ else:
             if "token" in st.query_params:
                 del st.query_params["token"]
             st.rerun()
-
-    # Auto-refresh loop (only when logged in)
-    if not st.session_state.get("editing", False):
-        time.sleep(30)
-        st.rerun()
 # endregion
