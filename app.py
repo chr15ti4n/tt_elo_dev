@@ -49,8 +49,7 @@ with st.form("add_row", clear_on_submit=True):
             res = (
                 supabase_sync
                 .table(TABLE)
-                .insert({"a": str(d)})
-                .select("*")
+                .insert({"a": str(d)}, returning="representation")
                 .execute()
             )
             new_row = (res.data or [{"a": str(d)}])[0]
@@ -161,4 +160,3 @@ except Exception:
     except Exception:
         # ältere Streamlit-Versionen
         st.experimental_rerun()
-        
