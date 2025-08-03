@@ -262,7 +262,7 @@ def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base:
     return True, "Rundlauf gespeichert und ELO aktualisiert."
 # endregion
 
-# region Pending helpers (Einzel)
+# region Pending helpers (Einzel / Doppel / Rundlauf)
 
 @st.cache_data(ttl=5)
 
@@ -357,6 +357,192 @@ def reject_pending_match(row_id: str, user: str):
     except Exception:
         pass
     return True, "Match abgelehnt und entfernt."
+# endregion
+
+# region Pending helpers (Doppel)
+@st.cache_data(ttl=5)
+def fetch_pending_doubles_for_user(user: str):
+    res = supabase.table("pending_doubles").select("*").order("datum", desc=True).execute()
+    rows = res.data or []
+    to_confirm, waiting = [], []
+    for r in rows:
+        a_side = user in (r.get("a1"), r.get("a2"))
+        b_side = user in (r.get("b1"), r.get("b2"))
+        if not (a_side or b_side):
+            continue
+        if a_side and not r.get("confa", False):
+            to_confirm.append(r)
+        elif b_side and not r.get("confb", False):
+            to_confirm.append(r)
+        elif (a_side and r.get("confa", False) and not r.get("confb", False)) or \
+             (b_side and r.get("confb", False) and not r.get("confa", False)):
+            waiting.append(r)
+    return to_confirm, waiting
+
+
+def submit_double_pending(creator: str, a1: str, a2: str, b1: str, b2: str, pa: int, pb: int):
+    names = [a1, a2, b1, b2]
+    if any(n is None or n == "" for n in names):
+        return False, "Alle Spieler müssen ausgewählt sein."
+    if len(set(names)) < 4:
+        return False, "Jeder Spieler darf nur einmal vorkommen."
+    if pa == pb:
+        return False, "Unentschieden ist nicht erlaubt."
+    # confirmation side
+    confa = creator in (a1, a2)
+    confb = creator in (b1, b2)
+    if not (confa or confb):
+        confa = True
+    supabase.table("pending_doubles").insert({
+        "datum": now_utc_iso(),
+        "a1": a1, "a2": a2, "b1": b1, "b2": b2,
+        "punktea": int(pa), "punkteb": int(pb),
+        "confa": confa, "confb": confb,
+    }).execute()
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Doppel eingereicht. Warte auf Bestätigung."
+
+
+def confirm_pending_double(row_id: str, user: str):
+    r = supabase.table("pending_doubles").select("*").eq("id", row_id).single().execute().data
+    if not r:
+        return False, "Eintrag nicht gefunden."
+    fields = {}
+    if user in (r.get("a1"), r.get("a2")):
+        fields["confa"] = True
+    if user in (r.get("b1"), r.get("b2")):
+        fields["confb"] = True
+    if not fields:
+        return False, "Du bist an diesem Match nicht beteiligt."
+    supabase.table("pending_doubles").update(fields).eq("id", row_id).execute()
+
+    r = supabase.table("pending_doubles").select("*").eq("id", row_id).single().execute().data
+    if r and r.get("confa") and r.get("confb"):
+        ok, msg = apply_double_result(r["a1"], r["a2"], r["b1"], r["b2"], int(r["punktea"]), int(r["punkteb"]))
+        supabase.table("pending_doubles").delete().eq("id", row_id).execute()
+        try:
+            st.cache_data.clear()
+        except Exception:
+            pass
+        return ok, "Doppel bestätigt und gewertet."
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Bestätigung gespeichert. Warte auf Gegner."
+
+
+def reject_pending_double(row_id: str, user: str):
+    r = supabase.table("pending_doubles").select("*").eq("id", row_id).single().execute().data
+    if not r:
+        return False, "Eintrag nicht gefunden."
+    if user not in (r.get("a1"), r.get("a2"), r.get("b1"), r.get("b2")):
+        return False, "Du bist an diesem Match nicht beteiligt."
+    supabase.table("pending_doubles").delete().eq("id", row_id).execute()
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Doppel abgelehnt und entfernt."
+# endregion
+
+# region Pending helpers (Rundlauf)
+@st.cache_data(ttl=5)
+def fetch_pending_rounds_for_user(user: str):
+    res = supabase.table("pending_rounds").select("*").order("datum", desc=True).execute()
+    rows = res.data or []
+    to_confirm, waiting = [], []
+    for r in rows:
+        teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
+        if user not in teilnehmer:
+            continue
+        # if user hasn't confirmed yet
+        needs_a = not r.get("confa", False)
+        needs_b = not r.get("confb", False)
+        if needs_a or needs_b:
+            to_confirm.append(r)
+        elif r.get("confa", False) and not r.get("confb", False):
+            waiting.append(r)
+    return to_confirm, waiting
+
+
+def submit_round_pending(creator: str, teilnehmer: list[str], finalisten: tuple[str|None,str|None], sieger: str):
+    teilnehmer = [t for t in (teilnehmer or []) if t]
+    if len(teilnehmer) < 3:
+        return False, "Mindestens 3 Teilnehmer erforderlich."
+    if sieger not in teilnehmer:
+        return False, "Sieger muss Teilnehmer sein."
+    f1, f2 = finalisten if isinstance(finalisten, tuple) else (None, None)
+    for f in (f1, f2):
+        if f and f not in teilnehmer:
+            return False, "Finalisten müssen Teilnehmer sein."
+    confa = creator in teilnehmer
+    confb = False
+    supabase.table("pending_rounds").insert({
+        "datum": now_utc_iso(),
+        "teilnehmer": ";".join(teilnehmer),
+        "finalisten": ";".join([x for x in (f1, f2) if x]),
+        "sieger": sieger,
+        "confa": confa, "confb": confb,
+    }).execute()
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Rundlauf eingereicht. Warte auf Bestätigung."
+
+
+def confirm_pending_round(row_id: str, user: str):
+    r = supabase.table("pending_rounds").select("*").eq("id", row_id).single().execute().data
+    if not r:
+        return False, "Eintrag nicht gefunden."
+    teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
+    if user not in teilnehmer:
+        return False, "Du bist an diesem Rundlauf nicht beteiligt."
+    fields = {}
+    if not r.get("confa", False):
+        fields["confa"] = True
+    elif not r.get("confb", False):
+        fields["confb"] = True
+    else:
+        return True, "Schon vollständig bestätigt."
+    supabase.table("pending_rounds").update(fields).eq("id", row_id).execute()
+
+    r = supabase.table("pending_rounds").select("*").eq("id", row_id).single().execute().data
+    if r and r.get("confa") and r.get("confb"):
+        teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
+        fin = str(r.get("finalisten", "")).split(";") if r.get("finalisten") else []
+        f1, f2 = (fin + [None, None])[:2]
+        ok, msg = apply_round_result(teilnehmer, (f1, f2), r.get("sieger"))
+        supabase.table("pending_rounds").delete().eq("id", row_id).execute()
+        try:
+            st.cache_data.clear()
+        except Exception:
+            pass
+        return ok, "Rundlauf bestätigt und gewertet."
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Bestätigung gespeichert. Warte auf Gegner."
+
+
+def reject_pending_round(row_id: str, user: str):
+    r = supabase.table("pending_rounds").select("*").eq("id", row_id).single().execute().data
+    if not r:
+        return False, "Eintrag nicht gefunden."
+    teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
+    if user not in teilnehmer:
+        return False, "Du bist an diesem Rundlauf nicht beteiligt."
+    supabase.table("pending_rounds").delete().eq("id", row_id).execute()
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Rundlauf abgelehnt und entfernt."
 # endregion
 
 # region Persistent Login via Query Params
@@ -465,6 +651,80 @@ else:
         else:
             st.info("Keine Bestätigungen offen.")
 
+        st.subheader("✅ Offene Bestätigungen (Doppel)")
+        to_conf_d, wait_d = fetch_pending_doubles_for_user(st.session_state.user)
+        if to_conf_d:
+            for r in to_conf_d:
+                c1, c2, c3, c4 = st.columns([4,2,2,2])
+                c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
+                c2.write(fmt_dt_local(r['datum']))
+                if c3.button("Bestätigen", key=f"w_d_conf_{r['id']}"):
+                    ok, msg = confirm_pending_double(r["id"], st.session_state.user)
+                    if ok:
+                        st.success("Doppel bestätigt")
+                    else:
+                        st.error(msg)
+                if c4.button("Ablehnen", key=f"w_d_rej_{r['id']}"):
+                    ok, msg = reject_pending_double(r["id"], st.session_state.user)
+                    if ok:
+                        st.success("Doppel abgelehnt")
+                    else:
+                        st.error(msg)
+        else:
+            st.caption("Keine Doppel-Bestätigungen offen.")
+
+        st.subheader("🕔 Vom Gegner ausstehend (Doppel)")
+        if wait_d:
+            for r in wait_d:
+                c1, c2, c3 = st.columns([4,2,2])
+                c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
+                c2.write(fmt_dt_local(r['datum']))
+                if c3.button("Ablehnen", key=f"w_d_rej_wait_{r['id']}"):
+                    ok, msg = reject_pending_double(r["id"], st.session_state.user)
+                    if ok:
+                        st.success("Doppel abgelehnt")
+                    else:
+                        st.error(msg)
+        else:
+            st.caption("Keine ausstehenden Doppel beim Gegner.")
+
+        st.subheader("✅ Offene Bestätigungen (Rundlauf)")
+        to_conf_r, wait_r = fetch_pending_rounds_for_user(st.session_state.user)
+        if to_conf_r:
+            for r in to_conf_r:
+                c1, c2, c3, c4 = st.columns([4,2,2,2])
+                c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
+                c2.write(fmt_dt_local(r['datum']))
+                if c3.button("Bestätigen", key=f"w_r_conf_{r['id']}"):
+                    ok, msg = confirm_pending_round(r["id"], st.session_state.user)
+                    if ok:
+                        st.success("Rundlauf bestätigt")
+                    else:
+                        st.error(msg)
+                if c4.button("Ablehnen", key=f"w_r_rej_{r['id']}"):
+                    ok, msg = reject_pending_round(r["id"], st.session_state.user)
+                    if ok:
+                        st.success("Rundlauf abgelehnt")
+                    else:
+                        st.error(msg)
+        else:
+            st.caption("Keine Rundlauf-Bestätigungen offen.")
+
+        st.subheader("🕔 Vom Gegner ausstehend (Rundlauf)")
+        if wait_r:
+            for r in wait_r:
+                c1, c2, c3 = st.columns([4,2,2])
+                c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
+                c2.write(fmt_dt_local(r['datum']))
+                if c3.button("Ablehnen", key=f"w_r_rej_wait_{r['id']}"):
+                    ok, msg = reject_pending_round(r["id"], st.session_state.user)
+                    if ok:
+                        st.success("Rundlauf abgelehnt")
+                    else:
+                        st.error(msg)
+        else:
+            st.caption("Keine ausstehenden Rundläufe beim Gegner.")
+
         st.subheader("Letzte Spiele")
         last = load_last_matches(5)
         if last:
@@ -492,19 +752,141 @@ else:
                     b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b", on_change=_set_editing_true)
                     pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb", on_change=_set_editing_true)
                 if st.button("✅ Bestätigen"):
-                    ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
-                    if ok:
-                        st.success("Match angelegt")
+                    if not a or not b:
+                        st.error("Bitte beide Spieler auswählen.")
+                    elif a == b:
+                        st.error("Spieler A und B müssen unterschiedlich sein.")
                     else:
-                        st.error(msg)
-                    _set_editing_false()
+                        ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
+                        if ok:
+                            st.success("Match angelegt")
+                        else:
+                            st.error(msg)
+                        _set_editing_false()
             else:
                 st.info("Mindestens zwei Spieler erforderlich.")
 
         with sub2:
-            st.info("Doppel folgt – UI analog zu Einzel.")
+            st.markdown("### Doppel eintragen")
+            data_players = supabase.table("players").select("name").order("name").execute().data
+            names = [p["name"] for p in data_players] if data_players else []
+            if len(names) >= 4:
+                c1, c2 = st.columns(2)
+                with c1:
+                    a1 = st.selectbox("Team A – Spieler 1", names, key="d_a1", on_change=_set_editing_true)
+                    a2 = st.selectbox("Team A – Spieler 2", names, key="d_a2", on_change=_set_editing_true)
+                    pa = st.number_input("Punkte Team A", min_value=0, step=1, key="d_pa", on_change=_set_editing_true)
+                with c2:
+                    b1 = st.selectbox("Team B – Spieler 1", names, key="d_b1", on_change=_set_editing_true)
+                    b2 = st.selectbox("Team B – Spieler 2", names, key="d_b2", on_change=_set_editing_true)
+                    pb = st.number_input("Punkte Team B", min_value=0, step=1, key="d_pb", on_change=_set_editing_true)
+                if st.button("✅ Doppel einreichen"):
+                    ok, msg = submit_double_pending(st.session_state.user, a1, a2, b1, b2, int(pa), int(pb))
+                    if ok:
+                        st.success("Doppel angelegt")
+                    else:
+                        st.error(msg)
+                    _set_editing_false()
+            else:
+                st.info("Mindestens vier Spieler erforderlich.")
+
+            st.markdown("### ✅ Offene Bestätigungen (Doppel)")
+            to_conf_d, wait_d = fetch_pending_doubles_for_user(st.session_state.user)
+            if to_conf_d:
+                for r in to_conf_d:
+                    c1, c2, c3, c4 = st.columns([4,2,2,2])
+                    c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
+                    c2.write(fmt_dt_local(r['datum']))
+                    if c3.button("✅", key=f"d_conf_{r['id']}"):
+                        ok, msg = confirm_pending_double(r["id"], st.session_state.user)
+                        if ok:
+                            st.success("Doppel bestätigt")
+                        else:
+                            st.error(msg)
+                    if c4.button("❌", key=f"d_rej_{r['id']}"):
+                        ok, msg = reject_pending_double(r["id"], st.session_state.user)
+                        if ok:
+                            st.success("Doppel abgelehnt")
+                        else:
+                            st.error(msg)
+            else:
+                st.caption("Nichts zu bestätigen.")
+
+            st.markdown("### 🕔 Vom Gegner ausstehend (Doppel)")
+            if wait_d:
+                for r in wait_d:
+                    c1, c2, c3 = st.columns([4,2,2])
+                    c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
+                    c2.write(fmt_dt_local(r['datum']))
+                    if c3.button("❌", key=f"d_rej_wait_{r['id']}"):
+                        ok, msg = reject_pending_double(r["id"], st.session_state.user)
+                        if ok:
+                            st.success("Doppel abgelehnt")
+                        else:
+                            st.error(msg)
+            else:
+                st.caption("Keine offenen Anfragen beim Gegner.")
+
         with sub3:
-            st.info("Rundlauf folgt – UI analog zu Einzel.")
+            st.markdown("### Rundlauf eintragen")
+            data_players = supabase.table("players").select("name").order("name").execute().data
+            names = [p["name"] for p in data_players] if data_players else []
+            if len(names) >= 3:
+                participants = st.multiselect("Teilnehmer", names, key="r_parts", on_change=_set_editing_true)
+                winner = st.selectbox("Sieger", participants if participants else [""], key="r_win", on_change=_set_editing_true)
+                fin_cols = st.columns(2)
+                with fin_cols[0]:
+                    fin1 = st.selectbox("Finalist 1 (optional)", [""] + participants, key="r_f1", on_change=_set_editing_true)
+                with fin_cols[1]:
+                    fin2 = st.selectbox("Finalist 2 (optional)", [""] + participants, key="r_f2", on_change=_set_editing_true)
+                if st.button("✅ Rundlauf einreichen"):
+                    f1 = fin1 if fin1 else None
+                    f2 = fin2 if fin2 else None
+                    ok, msg = submit_round_pending(st.session_state.user, participants, (f1, f2), winner)
+                    if ok:
+                        st.success("Rundlauf angelegt")
+                    else:
+                        st.error(msg)
+                    _set_editing_false()
+            else:
+                st.info("Mindestens drei Spieler erforderlich.")
+
+            st.markdown("### ✅ Offene Bestätigungen (Rundlauf)")
+            to_conf_r, wait_r = fetch_pending_rounds_for_user(st.session_state.user)
+            if to_conf_r:
+                for r in to_conf_r:
+                    c1, c2, c3, c4 = st.columns([4,2,2,2])
+                    c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
+                    c2.write(fmt_dt_local(r['datum']))
+                    if c3.button("✅", key=f"r_conf_{r['id']}"):
+                        ok, msg = confirm_pending_round(r["id"], st.session_state.user)
+                        if ok:
+                            st.success("Rundlauf bestätigt")
+                        else:
+                            st.error(msg)
+                    if c4.button("❌", key=f"r_rej_{r['id']}"):
+                        ok, msg = reject_pending_round(r["id"], st.session_state.user)
+                        if ok:
+                            st.success("Rundlauf abgelehnt")
+                        else:
+                            st.error(msg)
+            else:
+                st.caption("Nichts zu bestätigen.")
+
+            st.markdown("### 🕔 Vom Gegner ausstehend (Rundlauf)")
+            if wait_r:
+                for r in wait_r:
+                    c1, c2, c3 = st.columns([4,2,2])
+                    c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
+                    c2.write(fmt_dt_local(r['datum']))
+                    if c3.button("❌", key=f"r_rej_wait_{r['id']}"):
+                        ok, msg = reject_pending_round(r["id"], st.session_state.user)
+                        if ok:
+                            st.success("Rundlauf abgelehnt")
+                        else:
+                            st.error(msg)
+            else:
+                st.caption("Keine offenen Anfragen beim Gegner.")
         
         st.markdown("### ✅ Offene Bestätigungen")
         to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
