@@ -6,3 +6,4 @@ pandas>=2.2
 numpy>=1.26
 bcrypt>=4.1
 tzdata>=2024.1
+inspect
