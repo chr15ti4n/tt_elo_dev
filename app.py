@@ -30,6 +30,7 @@ if 'user' not in st.session_state:
                 if resp.data and resp.data.get("pin") == pin:
                     st.session_state.user = name
                     st.success(f"Eingeloggt als {name}")
+                    st.rerun
                 else:
                     st.error("Ungültiger Name oder PIN")
 
