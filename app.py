@@ -508,7 +508,7 @@ if st.session_state.view_mode == "home":
     # Rundlauf: Teilnehmer ist current_player, noch nicht bestätigt (nur Einladungen)
     rp = pending_r[
         pending_r["teilnehmer"].str.contains(current_player, na=False)
-        & (~pending_r["confb"])
+        & (pending_r["confb"].astype(bool) == False)
     ].copy()
     total_pending = len(sp) + len(dp) + len(rp)
 
@@ -869,7 +869,7 @@ if st.session_state.view_mode == "home":
         ].copy()
         rp_inv = pending_r[
             (pending_r["teilnehmer"].str.contains(current_player, na=False))
-            & (~pending_r["confb"])
+            & (pending_r["confb"].astype(bool) == False)
         ].copy()
 
         if sp_inv.empty and dp_inv.empty and rp_inv.empty:
@@ -1006,7 +1006,7 @@ if st.session_state.view_mode == "home":
         ].copy()
         rp_cre = pending_r[
             (pending_r["teilnehmer"].str.contains(current_player, na=False))
-            & (~pending_r["confb"])
+            & (pending_r["confb"].astype(bool) == False)
         ].copy()
 
         if sp_cre.empty and dp_cre.empty and rp_cre.empty:
