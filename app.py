@@ -247,21 +247,6 @@ def apply_round_result(teilnehmer: list, finalisten: tuple, sieger: str, k_base:
 # region Pending helpers (Einzel)
 
 @st.cache_data(ttl=5)
-def fetch_pending_for_user(user: str):
-    # pending where user participates
-    res = supabase.table("pending_matches").select("*").or_(f"a.eq.{user},b.eq.{user}").order("datum", desc=True).execute()
-    rows = res.data or []
-    to_confirm = []
-    waiting_opponent = []
-    for r in rows:
-        if r["a"] == user and not r.get("confa", False):
-            to_confirm.append(r)
-        elif r["b"] == user and not r.get("confb", False):
-            to_confirm.append(r)
-        elif (r["a"] == user and r.get("confa", False) and not r.get("confb", False)) or \
-             (r["b"] == user and r.get("confb", False) and not r.get("confa", False)):
-            waiting_opponent.append(r)
-    return to_confirm, waiting_opponent
 
 @st.cache_data(ttl=5)
 def load_last_matches(limit: int = 5):
@@ -326,8 +311,34 @@ def confirm_pending_match(row_id: str, user: str):
         ok, msg = apply_single_result(r["a"], r["b"], int(r["punktea"]), int(r["punkteb"]), datum=r.get("datum"))
         # delete pending
         supabase.table("pending_matches").delete().eq("id", row_id).execute()
+        try:
+            st.cache_data.clear()
+        except Exception:
+            pass
         return ok, "Match bestätigt und gewertet."
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
     return True, "Bestätigung gespeichert. Warte auf Gegner."
+
+# New function: reject_pending_match
+def reject_pending_match(row_id: str, user: str):
+    """Allow either participant (creator or opponent) to reject a pending match.
+    Deletes the pending entry and does not change ratings or create a match record.
+    """
+    r = supabase.table("pending_matches").select("*").eq("id", row_id).single().execute().data
+    if not r:
+        return False, "Eintrag nicht gefunden."
+    if r.get("a") != user and r.get("b") != user:
+        return False, "Du bist an diesem Match nicht beteiligt."
+    supabase.table("pending_matches").delete().eq("id", row_id).execute()
+    # Invalidate cached pending/matches lists
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    return True, "Match abgelehnt und entfernt."
 # endregion
 
 # region Persistent Login via Query Params
@@ -432,8 +443,25 @@ else:
                     ok, msg = confirm_pending_match(r["id"], st.session_state.user)
                     st.toast(msg)
                     st.rerun()
+                if c4.button("Ablehnen", key=f"reject_{r['id']}"):
+                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                    st.toast(msg)
+                    st.rerun()
         else:
             st.info("Keine Bestätigungen offen.")
+
+        # Replace waiting_opponent caption block with actionable rows
+        if waiting_opponent:
+            for r in waiting_opponent:
+                c1, c2, c3 = st.columns([3,2,2])
+                c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+                c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
+                if c3.button("Ablehnen", key=f"reject_wait_{r['id']}"):
+                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                    st.toast(msg)
+                    st.rerun()
+        else:
+            st.info("Keine offenen Anfragen beim Gegner.")
 
         st.subheader("Letzte Spiele")
         last = load_last_matches(5)
@@ -477,15 +505,25 @@ else:
                         ok, msg = confirm_pending_match(r["id"], st.session_state.user)
                         st.toast(msg)
                         st.rerun()
+                    if c4.button("Ablehnen", key=f"sub_reject_{r['id']}"):
+                        ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                        st.toast(msg)
+                        st.rerun()
             else:
                 st.info("Keine offenen Bestätigungen.")
 
             st.markdown("### Vom Gegner ausstehend")
             if waiting_opponent:
                 for r in waiting_opponent:
-                    st.caption(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+                    c1, c2, c3 = st.columns([3,2,2])
+                    c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
+                    c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
+                    if c3.button("Ablehnen", key=f"sub_reject_wait_{r['id']}"):
+                        ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                        st.toast(msg)
+                        st.rerun()
             else:
-                st.info("Keine offenen Anfragen beim Gegner.")
+                st.caption("Keine offenen Anfragen beim Gegner.")
 
         with sub2:
             st.info("Doppel folgt – UI analog zu Einzel.")
