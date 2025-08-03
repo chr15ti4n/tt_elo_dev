@@ -71,26 +71,30 @@ if "user" not in st.session_state:
     init_user_from_query()
 
 def start_realtime_listener():
-    sb = get_supabase()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        sb = get_supabase()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-    channel = sb.channel("rt-matches")
+        channel = sb.channel("rt-matches")
 
-    def handle_change(payload):
-        # bump a counter to trigger UI refresh
-        st.session_state["rt_bump"] = st.session_state.get("rt_bump", 0) + 1
+        def handle_change(payload):
+            # bump a counter to trigger UI refresh
+            st.session_state["rt_bump"] = st.session_state.get("rt_bump", 0) + 1
 
-    async def subscribe():
-        await channel.on_postgres_changes(
-            event="*",
-            schema="public",
-            table="matches",
-            callback=handle_change,
-        ).subscribe()
+        async def subscribe():
+            await channel.on_postgres_changes(
+                event="*",
+                schema="public",
+                table="matches",
+                callback=handle_change,
+            ).subscribe()
 
-    loop.run_until_complete(subscribe())
-    loop.run_forever()
+        loop.run_until_complete(subscribe())
+        loop.run_forever()
+    except Exception as e:
+        # notfalls im State hinterlegen
+        st.session_state["rt_error"] = str(e)
 
 if "rt_thread" not in st.session_state:
     t = threading.Thread(target=start_realtime_listener, daemon=True)
@@ -101,8 +105,10 @@ st.title("🏓 TT-ELO – Live Leaderboard")
 if "user" in st.session_state:
     st.caption(f"Angemeldet als: {st.session_state['user']}")
 
-# leichte Auto-Refresh-Strategie
-st.autorefresh(interval=3000, key="tick", limit=None)
+# leichte Auto-Refresh-Strategie (Fallback ohne st.autorefresh)
+st.markdown("""
+<meta http-equiv='refresh' content='3'>
+""", unsafe_allow_html=True)
 
 sb = get_supabase()
 leaderboard = sb.table("v_leaderboard").select("*").execute().data
