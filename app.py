@@ -919,7 +919,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Doppel**")
                 for idx, row in dp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
                         payload = {
                             "Datum": row["datum"].isoformat(),
