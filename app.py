@@ -545,6 +545,48 @@ def reject_pending_round(row_id: str, user: str):
     return True, "Rundlauf abgelehnt und entfernt."
 # endregion
 
+# region Pending helpers (Combined View)
+@st.cache_data(ttl=5)
+def pending_combined_for_user(user: str):
+    e_to, e_wait = fetch_pending_for_user(user)
+    d_to, d_wait = fetch_pending_doubles_for_user(user)
+    r_to, r_wait = fetch_pending_rounds_for_user(user)
+
+    def map_single(rows):
+        return [{
+            "mode": "Einzel",
+            "id": r["id"],
+            "datum": r.get("datum"),
+            "text": f"{r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}"
+        } for r in rows]
+
+    def map_double(rows):
+        return [{
+            "mode": "Doppel",
+            "id": r["id"],
+            "datum": r.get("datum"),
+            "text": f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}"
+        } for r in rows]
+
+    def map_round(rows):
+        return [{
+            "mode": "Rundlauf",
+            "id": r["id"],
+            "datum": r.get("datum"),
+            "text": f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}"
+        } for r in rows]
+
+    to_confirm = map_single(e_to) + map_double(d_to) + map_round(r_to)
+    waiting    = map_single(e_wait) + map_double(d_wait) + map_round(r_wait)
+
+    # Sort by datum desc if available
+    def _sort_key(x):
+        return x.get("datum") or ""
+    to_confirm = sorted(to_confirm, key=_sort_key, reverse=True)
+    waiting    = sorted(waiting, key=_sort_key, reverse=True)
+    return to_confirm, waiting
+# endregion
+
 # region Persistent Login via Query Params
 q = st.query_params
 def _qp_first(val):
@@ -630,100 +672,56 @@ else:
         st.divider()
 
         st.subheader("✅ Offene Bestätigungen")
-        to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
-        if to_confirm:
-            for r in to_confirm:
-                c1, c2, c3, c4 = st.columns([3,2,2,2])
-                c1.write(f"{r['a']} vs {r['b']} — {r['punktea']} : {r['punkteb']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("Bestätigen", key=f"confirm_{r['id']}"):
-                    ok, msg = confirm_pending_match(r["id"], st.session_state.user)
+        to_conf_all, wait_all = pending_combined_for_user(st.session_state.user)
+        if to_conf_all:
+            for it in to_conf_all:
+                c1, c2, c3, c4 = st.columns([5,2,2,2])
+                c1.write(f"[{it['mode']}] {it['text']}")
+                c2.write(fmt_dt_local(it['datum']))
+                if c3.button("Bestätigen", key=f"w_conf_{it['mode']}_{it['id']}"):
+                    if it['mode'] == 'Einzel':
+                        ok, msg = confirm_pending_match(it['id'], st.session_state.user)
+                    elif it['mode'] == 'Doppel':
+                        ok, msg = confirm_pending_double(it['id'], st.session_state.user)
+                    else:
+                        ok, msg = confirm_pending_round(it['id'], st.session_state.user)
                     if ok:
-                        st.success("Match bestätigt")
+                        st.success(f"{it['mode']} bestätigt")
                     else:
                         st.error(msg)
-                if c4.button("Ablehnen", key=f"reject_{r['id']}"):
-                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                if c4.button("Ablehnen", key=f"w_rej_{it['mode']}_{it['id']}"):
+                    if it['mode'] == 'Einzel':
+                        ok, msg = reject_pending_match(it['id'], st.session_state.user)
+                    elif it['mode'] == 'Doppel':
+                        ok, msg = reject_pending_double(it['id'], st.session_state.user)
+                    else:
+                        ok, msg = reject_pending_round(it['id'], st.session_state.user)
                     if ok:
-                        st.success("Match abgelehnt")
+                        st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
         else:
-            st.info("Keine Bestätigungen offen.")
+            st.caption("Nichts zu bestätigen.")
 
-        st.subheader("✅ Offene Bestätigungen (Doppel)")
-        to_conf_d, wait_d = fetch_pending_doubles_for_user(st.session_state.user)
-        if to_conf_d:
-            for r in to_conf_d:
-                c1, c2, c3, c4 = st.columns([4,2,2,2])
-                c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("Bestätigen", key=f"w_d_conf_{r['id']}"):
-                    ok, msg = confirm_pending_double(r["id"], st.session_state.user)
-                    if ok:
-                        st.success("Doppel bestätigt")
+        st.subheader("🕔 Vom Gegner ausstehend")
+        if wait_all:
+            for it in wait_all:
+                c1, c2, c3 = st.columns([5,2,2])
+                c1.write(f"[{it['mode']}] {it['text']}")
+                c2.write(fmt_dt_local(it['datum']))
+                if c3.button("Ablehnen", key=f"w_rej_wait_{it['mode']}_{it['id']}"):
+                    if it['mode'] == 'Einzel':
+                        ok, msg = reject_pending_match(it['id'], st.session_state.user)
+                    elif it['mode'] == 'Doppel':
+                        ok, msg = reject_pending_double(it['id'], st.session_state.user)
                     else:
-                        st.error(msg)
-                if c4.button("Ablehnen", key=f"w_d_rej_{r['id']}"):
-                    ok, msg = reject_pending_double(r["id"], st.session_state.user)
+                        ok, msg = reject_pending_round(it['id'], st.session_state.user)
                     if ok:
-                        st.success("Doppel abgelehnt")
-                    else:
-                        st.error(msg)
-        else:
-            st.caption("Keine Doppel-Bestätigungen offen.")
-
-        st.subheader("🕔 Vom Gegner ausstehend (Doppel)")
-        if wait_d:
-            for r in wait_d:
-                c1, c2, c3 = st.columns([4,2,2])
-                c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("Ablehnen", key=f"w_d_rej_wait_{r['id']}"):
-                    ok, msg = reject_pending_double(r["id"], st.session_state.user)
-                    if ok:
-                        st.success("Doppel abgelehnt")
+                        st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
         else:
-            st.caption("Keine ausstehenden Doppel beim Gegner.")
-
-        st.subheader("✅ Offene Bestätigungen (Rundlauf)")
-        to_conf_r, wait_r = fetch_pending_rounds_for_user(st.session_state.user)
-        if to_conf_r:
-            for r in to_conf_r:
-                c1, c2, c3, c4 = st.columns([4,2,2,2])
-                c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("Bestätigen", key=f"w_r_conf_{r['id']}"):
-                    ok, msg = confirm_pending_round(r["id"], st.session_state.user)
-                    if ok:
-                        st.success("Rundlauf bestätigt")
-                    else:
-                        st.error(msg)
-                if c4.button("Ablehnen", key=f"w_r_rej_{r['id']}"):
-                    ok, msg = reject_pending_round(r["id"], st.session_state.user)
-                    if ok:
-                        st.success("Rundlauf abgelehnt")
-                    else:
-                        st.error(msg)
-        else:
-            st.caption("Keine Rundlauf-Bestätigungen offen.")
-
-        st.subheader("🕔 Vom Gegner ausstehend (Rundlauf)")
-        if wait_r:
-            for r in wait_r:
-                c1, c2, c3 = st.columns([4,2,2])
-                c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("Ablehnen", key=f"w_r_rej_wait_{r['id']}"):
-                    ok, msg = reject_pending_round(r["id"], st.session_state.user)
-                    if ok:
-                        st.success("Rundlauf abgelehnt")
-                    else:
-                        st.error(msg)
-        else:
-            st.caption("Keine ausstehenden Rundläufe beim Gegner.")
+            st.caption("Keine offenen Anfragen beim Gegner.")
 
         st.subheader("Letzte Spiele")
         last = load_last_matches(5)
@@ -790,43 +788,6 @@ else:
             else:
                 st.info("Mindestens vier Spieler erforderlich.")
 
-            st.markdown("### ✅ Offene Bestätigungen (Doppel)")
-            to_conf_d, wait_d = fetch_pending_doubles_for_user(st.session_state.user)
-            if to_conf_d:
-                for r in to_conf_d:
-                    c1, c2, c3, c4 = st.columns([4,2,2,2])
-                    c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
-                    c2.write(fmt_dt_local(r['datum']))
-                    if c3.button("✅", key=f"d_conf_{r['id']}"):
-                        ok, msg = confirm_pending_double(r["id"], st.session_state.user)
-                        if ok:
-                            st.success("Doppel bestätigt")
-                        else:
-                            st.error(msg)
-                    if c4.button("❌", key=f"d_rej_{r['id']}"):
-                        ok, msg = reject_pending_double(r["id"], st.session_state.user)
-                        if ok:
-                            st.success("Doppel abgelehnt")
-                        else:
-                            st.error(msg)
-            else:
-                st.caption("Nichts zu bestätigen.")
-
-            st.markdown("### 🕔 Vom Gegner ausstehend (Doppel)")
-            if wait_d:
-                for r in wait_d:
-                    c1, c2, c3 = st.columns([4,2,2])
-                    c1.write(f"A: {r['a1']} & {r['a2']} — B: {r['b1']} & {r['b2']} — {r['punktea']}:{r['punkteb']}")
-                    c2.write(fmt_dt_local(r['datum']))
-                    if c3.button("❌", key=f"d_rej_wait_{r['id']}"):
-                        ok, msg = reject_pending_double(r["id"], st.session_state.user)
-                        if ok:
-                            st.success("Doppel abgelehnt")
-                        else:
-                            st.error(msg)
-            else:
-                st.caption("Keine offenen Anfragen beim Gegner.")
-
         with sub3:
             st.markdown("### Rundlauf eintragen")
             data_players = supabase.table("players").select("name").order("name").execute().data
@@ -851,79 +812,57 @@ else:
             else:
                 st.info("Mindestens drei Spieler erforderlich.")
 
-            st.markdown("### ✅ Offene Bestätigungen (Rundlauf)")
-            to_conf_r, wait_r = fetch_pending_rounds_for_user(st.session_state.user)
-            if to_conf_r:
-                for r in to_conf_r:
-                    c1, c2, c3, c4 = st.columns([4,2,2,2])
-                    c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
-                    c2.write(fmt_dt_local(r['datum']))
-                    if c3.button("✅", key=f"r_conf_{r['id']}"):
-                        ok, msg = confirm_pending_round(r["id"], st.session_state.user)
-                        if ok:
-                            st.success("Rundlauf bestätigt")
-                        else:
-                            st.error(msg)
-                    if c4.button("❌", key=f"r_rej_{r['id']}"):
-                        ok, msg = reject_pending_round(r["id"], st.session_state.user)
-                        if ok:
-                            st.success("Rundlauf abgelehnt")
-                        else:
-                            st.error(msg)
-            else:
-                st.caption("Nichts zu bestätigen.")
-
-            st.markdown("### 🕔 Vom Gegner ausstehend (Rundlauf)")
-            if wait_r:
-                for r in wait_r:
-                    c1, c2, c3 = st.columns([4,2,2])
-                    c1.write(f"Teilnehmer: {r['teilnehmer']} — Sieger: {r['sieger']}")
-                    c2.write(fmt_dt_local(r['datum']))
-                    if c3.button("❌", key=f"r_rej_wait_{r['id']}"):
-                        ok, msg = reject_pending_round(r["id"], st.session_state.user)
-                        if ok:
-                            st.success("Rundlauf abgelehnt")
-                        else:
-                            st.error(msg)
-            else:
-                st.caption("Keine offenen Anfragen beim Gegner.")
-        
         st.markdown("### ✅ Offene Bestätigungen")
-        to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
-        if to_confirm:
-            for r in to_confirm:
-                c1, c2, c3, c4 = st.columns([3,2,2,2])
-                c1.write(f"{r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("✅", key=f"sub_confirm_{r['id']}"):
-                    ok, msg = confirm_pending_match(r["id"], st.session_state.user)
+        to_conf_all, wait_all = pending_combined_for_user(st.session_state.user)
+        if to_conf_all:
+            for it in to_conf_all:
+                c1, c2, c3, c4 = st.columns([5,2,2,2])
+                c1.write(f"[{it['mode']}] {it['text']}")
+                c2.write(fmt_dt_local(it['datum']))
+                if c3.button("✅", key=f"s_conf_{it['mode']}_{it['id']}"):
+                    if it['mode'] == 'Einzel':
+                        ok, msg = confirm_pending_match(it['id'], st.session_state.user)
+                    elif it['mode'] == 'Doppel':
+                        ok, msg = confirm_pending_double(it['id'], st.session_state.user)
+                    else:
+                        ok, msg = confirm_pending_round(it['id'], st.session_state.user)
                     if ok:
-                        st.success("Match bestätigt")
+                        st.success(f"{it['mode']} bestätigt")
                     else:
                         st.error(msg)
-                if c4.button("❌", key=f"sub_reject_{r['id']}"):
-                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+                if c4.button("❌", key=f"s_rej_{it['mode']}_{it['id']}"):
+                    if it['mode'] == 'Einzel':
+                        ok, msg = reject_pending_match(it['id'], st.session_state.user)
+                    elif it['mode'] == 'Doppel':
+                        ok, msg = reject_pending_double(it['id'], st.session_state.user)
+                    else:
+                        ok, msg = reject_pending_round(it['id'], st.session_state.user)
                     if ok:
-                        st.success("Match abgelehnt")
+                        st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
         else:
-            st.info("Keine offenen Bestätigungen.")
+            st.caption("Nichts zu bestätigen.")
 
         st.markdown("### 🕔 Vom Gegner ausstehend")
-        if waiting_opponent:
-            for r in waiting_opponent:
-                c1, c2, c3 = st.columns([3,2,2])
-                c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
-                c2.write(fmt_dt_local(r['datum']))
-                if c3.button("❌", key=f"sub_reject_wait_{r['id']}"):
-                    ok, msg = reject_pending_match(r["id"], st.session_state.user)
+        if wait_all:
+            for it in wait_all:
+                c1, c2, c3 = st.columns([5,2,2])
+                c1.write(f"[{it['mode']}] {it['text']}")
+                c2.write(fmt_dt_local(it['datum']))
+                if c3.button("❌", key=f"s_rej_wait_{it['mode']}_{it['id']}"):
+                    if it['mode'] == 'Einzel':
+                        ok, msg = reject_pending_match(it['id'], st.session_state.user)
+                    elif it['mode'] == 'Doppel':
+                        ok, msg = reject_pending_double(it['id'], st.session_state.user)
+                    else:
+                        ok, msg = reject_pending_round(it['id'], st.session_state.user)
                     if ok:
-                        st.success("Match abgelehnt")
+                        st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
         else:
-            st.info("Keine offenen Anfragen beim Gegner.")
+            st.caption("Keine offenen Anfragen beim Gegner.")
 
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
