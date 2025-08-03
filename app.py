@@ -117,9 +117,10 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # region Supabase Realtime (event-driven refresh)
 try:
-    from supabase import acreate_client  # async client for realtime
+    from supabase import acreate_client, AsyncClient  # async client for realtime
 except Exception:
     acreate_client = None
+    AsyncClient = None
 
 def _ensure_realtime_started():
     """Start a background task that subscribes to DB changes and flips a flag in session_state.
@@ -135,16 +136,19 @@ def _ensure_realtime_started():
 
         async def run():
             try:
-                acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
-                await acli.realtime.connect()
+                acli: AsyncClient = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
 
-                async def on_change(payload):
+                # Define a plain (sync) callback as per docs
+                def on_change(payload):
                     # mark time of change; UI thread will detect and rerun
                     st.session_state["_rt_changed_at"] = time.time()
 
-                chan = acli.realtime.channel("tt_elo_changes")
-                (
-                    chan
+                # Create a channel from the client (not via .realtime.channel)
+                channel = acli.channel("tt_elo_changes")
+
+                # Subscribe to Postgres changes for the relevant tables
+                await (
+                    channel
                     .on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
                     .on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
                     .on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
@@ -154,9 +158,11 @@ def _ensure_realtime_started():
                     .subscribe()
                 )
 
+                # Ensure realtime is connected and keep listening
+                await acli.realtime.connect()
                 await acli.realtime.listen()
             except Exception:
-                # If realtime fails (e.g., old client), do not crash the app
+                # If realtime fails (e.g., old client), do not crash the app; allow retry on next run
                 st.session_state["_rt_started"] = False
 
         loop.run_until_complete(run())
