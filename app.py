@@ -6,7 +6,10 @@ import bcrypt
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+
 import time
+import asyncio
+import threading
 
 # region UI Helpers (editing state)
 # region UI Helpers (editing state)
@@ -108,7 +111,72 @@ except KeyError:
     st.error("Bitte setze unter [supabase] url und key in deinen Streamlit Secrets.")
     st.stop()
 
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# endregion
+
+# region Supabase Realtime (event-driven refresh)
+try:
+    from supabase import acreate_client  # async client for realtime
+except Exception:
+    acreate_client = None
+
+def _ensure_realtime_started():
+    """Start a background task that subscribes to DB changes and flips a flag in session_state.
+    Requires: Realtime enabled for the tables in Supabase (Database → Replication → supabase_realtime).
+    """
+    if st.session_state.get("_rt_started") or acreate_client is None:
+        return
+    st.session_state["_rt_started"] = True
+
+    def _worker():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def run():
+            try:
+                acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+                await acli.realtime.connect()
+
+                async def on_change(payload):
+                    # mark time of change; UI thread will detect and rerun
+                    st.session_state["_rt_changed_at"] = time.time()
+
+                chan = acli.realtime.channel("tt_elo_changes")
+                (
+                    chan
+                    .on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
+                    .on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
+                    .on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
+                    .on_postgres_changes("*", schema="public", table="matches", callback=on_change)
+                    .on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
+                    .on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
+                    .subscribe()
+                )
+
+                await acli.realtime.listen()
+            except Exception:
+                # If realtime fails (e.g., old client), do not crash the app
+                st.session_state["_rt_started"] = False
+
+        loop.run_until_complete(run())
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+# Kick off realtime subscriber once per session
+_ensure_realtime_started()
+
+# When a change arrives, trigger a safe rerun once
+st.session_state.setdefault("_rt_last_seen", 0.0)
+_rt_changed_at = st.session_state.get("_rt_changed_at", 0.0)
+if _rt_changed_at > st.session_state["_rt_last_seen"]:
+    st.session_state["_rt_last_seen"] = _rt_changed_at
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+    st.rerun()
 # endregion
 
 # region ELO Core (Math + Apply)
