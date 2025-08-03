@@ -1,5 +1,5 @@
 streamlit>=1.36
-supabase>=2.5
+supabase>=2.6.0
 pandas>=2.2
 bcrypt>=4.1
-tzdata>=2024.1   # für zoneinfo auf allen Plattformen
+tzdata>=2024.1
