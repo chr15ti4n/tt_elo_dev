@@ -787,6 +787,11 @@ else:
         st.subheader("Letzte Spiele")
         df_last = load_last_events_table(5)
         if not df_last.empty:
+            # allow multiline cells (render \n as line breaks)
+            st.markdown(
+                "<style>[data-testid='stDataFrame'] div[role='gridcell']{white-space:pre-wrap;}</style>",
+                unsafe_allow_html=True
+            )
             st.dataframe(df_last, use_container_width=True, hide_index=True)
         else:
             st.info("Noch keine Spiele vorhanden.")
