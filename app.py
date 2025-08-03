@@ -12,6 +12,24 @@ import asyncio
 import threading
 import importlib
 
+from queue import SimpleQueue
+
+# Async Realtime import (must be early so availability shows correctly)
+try:
+    from supabase import acreate_client, AsyncClient  # async client for realtime
+except Exception:
+    acreate_client = None
+    AsyncClient = None
+
+# Thread-safe comms between realtime thread and main thread
+_RT_QUEUE = SimpleQueue()
+_RT_FLAGS = {
+    "client_created": False,
+    "channel_subscribed": False,
+    "connect_ok": False,
+    "last_error": None,
+}
+
 # region UI Helpers (editing state)
 # region UI Helpers (editing state)
 def _set_editing_true():
@@ -121,23 +139,18 @@ except KeyError:
     st.stop()
 
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Initialize realtime debug baseline (always visible)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 st.session_state.setdefault("_rt_debug", {})
 st.session_state["_rt_debug"].update({
     "supabase_py_version": SUPABASE_PY_VERSION,
-    "acreate_client_available": 'yes' if 'acreate_client' in globals() and acreate_client is not None else False,
-    "async_client_available": 'yes' if 'AsyncClient' in globals() and AsyncClient is not None else False,
+    "acreate_client_available": bool(acreate_client is not None),
+    "async_client_available": bool(AsyncClient is not None),
 })
 # endregion
 
 
 # region Supabase Realtime (event-driven refresh)
-try:
-    from supabase import acreate_client, AsyncClient  # async client for realtime
-except Exception:
-    acreate_client = None
-    AsyncClient = None
 
 def _ensure_realtime_started():
     """Start a background task that subscribes to DB changes and flips a flag in session_state.
@@ -175,21 +188,14 @@ def _ensure_realtime_started():
         async def run():
             try:
                 acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
-                st.session_state["_rt_debug"]["client_created"] = True
+                _RT_FLAGS["client_created"] = True
 
                 # Define a plain (sync) callback as per docs
                 def on_change(payload):
-                    ts = time.time()
-                    st.session_state["_rt_changed_at"] = ts
                     try:
-                        st.cache_data.clear()
+                        _RT_QUEUE.put(time.time())
                     except Exception:
                         pass
-                    try:
-                        st.session_state["_rt_debug"]["last_event_ts"] = ts
-                        st.session_state["_rt_debug"]["last_event_human"] = datetime.now(BERLIN).strftime("%d.%m.%Y %H:%M:%S")
-                    except Exception:
-                        st.session_state["_rt_debug"]["last_event_ts"] = ts
 
                 # Create a channel from the client (not via .realtime.channel)
                 channel = acli.channel("tt_elo_changes")
@@ -202,15 +208,15 @@ def _ensure_realtime_started():
                 channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
                 await channel.subscribe()
-                st.session_state["_rt_debug"]["channel_subscribed"] = True
+                _RT_FLAGS["channel_subscribed"] = True
 
                 # Ensure realtime is connected and keep listening
                 await acli.realtime.connect()
-                st.session_state["_rt_debug"]["connect_ok"] = True
+                _RT_FLAGS["connect_ok"] = True
                 await acli.realtime.listen()
             except Exception as e:
                 # If realtime fails (e.g., old client), do not crash the app; allow retry on next run
-                st.session_state["_rt_debug"]["last_error"] = str(e)
+                _RT_FLAGS["last_error"] = str(e)
                 st.session_state["_rt_started"] = False
 
         loop.run_until_complete(run())
@@ -221,15 +227,30 @@ def _ensure_realtime_started():
 # Kick off realtime subscriber once per session
 _ensure_realtime_started()
 
-# When a change arrives, trigger a safe rerun once
-st.session_state.setdefault("_rt_last_seen", 0.0)
-_rt_changed_at = st.session_state.get("_rt_changed_at", 0.0)
-if _rt_changed_at > st.session_state["_rt_last_seen"]:
-    st.session_state["_rt_last_seen"] = _rt_changed_at
+# Mirror thread flags into debug (main thread only)
+dbg = st.session_state.get("_rt_debug", {})
+dbg["started"] = True if st.session_state.get("_rt_started") else False
+dbg["client_created"] = bool(_RT_FLAGS.get("client_created"))
+dbg["channel_subscribed"] = bool(_RT_FLAGS.get("channel_subscribed"))
+dbg["connect_ok"] = bool(_RT_FLAGS.get("connect_ok"))
+dbg["last_error"] = _RT_FLAGS.get("last_error")
+st.session_state["_rt_debug"] = dbg
+
+# Drain realtime event queue and rerun once per batch
+_got_event = False
+while True:
+    try:
+        _ = _RT_QUEUE.get_nowait()
+        _got_event = True
+    except Exception:
+        break
+
+if _got_event:
     try:
         st.cache_data.clear()
     except Exception:
         pass
+    st.session_state["_rt_debug"]["last_event_human"] = datetime.now(BERLIN).strftime("%d.%m.%Y %H:%M:%S")
     st.rerun()
 # endregion
 # endregion
