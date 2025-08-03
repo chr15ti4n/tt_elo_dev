@@ -39,6 +39,28 @@ if "df" not in st.session_state:
         st.session_state.df = pd.DataFrame([])
         st.warning(f"Konnte Startdaten nicht laden: {e}")
 
+# --- Formular zum Einfügen ---
+with st.form("add_row", clear_on_submit=True):
+    d = st.date_input("Datum (Spalte a)", value=date.today(), format="DD.MM.YYYY")
+    submitted = st.form_submit_button("Eintrag speichern")
+    if submitted:
+        try:
+            # In DB einfügen und die eingefügte Zeile zurückgeben
+            res = (
+                supabase_sync
+                .table(TABLE)
+                .insert({"a": str(d)})
+                .select("*")
+                .execute()
+            )
+            new_row = (res.data or [{"a": str(d)}])[0]
+
+            # Lokal sofort anzeigen (vorne anfügen → neueste oben)
+            st.session_state.df = pd.concat([pd.DataFrame([new_row]), st.session_state.df], ignore_index=True)
+            st.success("Eintrag gespeichert.")
+        except Exception as e:
+            st.error(f"Konnte Eintrag nicht speichern: {e}")
+
 # --- Tabelle rendern (stabil) ---
 container = st.container()
 try:
@@ -139,3 +161,4 @@ except Exception:
     except Exception:
         # ältere Streamlit-Versionen
         st.experimental_rerun()
+        
