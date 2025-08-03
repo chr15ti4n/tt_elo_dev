@@ -59,7 +59,7 @@ if 'user' not in st.session_state:
                 if stored_hash and check_pin(pin, stored_hash):
                     # Successful login: persist via URL token
                     st.session_state.user = name
-                    st.query_params(user=name, token=stored_hash)
+                    st.experimental_set_query_params(user=name, token=stored_hash)
                     st.success(f"Eingeloggt als {name}")
                     st.rerun()
                 else:
