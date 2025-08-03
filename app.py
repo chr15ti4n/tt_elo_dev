@@ -374,7 +374,7 @@ else:
             del st.query_params["token"]
         st.rerun()
 
-    main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Statistik / Account"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Account"])
 
     with main_tab1:
         # Willkommen: ELO Anzeige, Matches bestätigen, letzte 5 Spiele
@@ -388,7 +388,7 @@ else:
             cols[3].metric("Rundlauf", int(me.get("r_elo", 1200)))
         st.divider()
 
-        st.subheader("🚥 Offene Bestätigungen")
+        st.subheader("✅ Offene Bestätigungen")
         to_confirm, waiting_opponent = fetch_pending_for_user(st.session_state.user)
         if to_confirm:
             for r in to_confirm:
@@ -402,14 +402,7 @@ else:
         else:
             st.info("Keine Bestätigungen offen.")
 
-        st.subheader("🕒 Wartet auf Gegner")
-        if waiting_opponent:
-            for r in waiting_opponent:
-                st.caption(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
-        else:
-            st.info("Keine offenen Anfragen beim Gegner.")
-
-        st.subheader("📰 Letzte 5 Spiele")
+        st.subheader("Letzte Spiele")
         last = supabase.table("matches").select("*").order("datum", desc=True).limit(5).execute().data
         if last:
             st.dataframe(pd.DataFrame(last))
@@ -451,14 +444,14 @@ else:
                         st.toast(msg)
                         st.rerun()
             else:
-                st.caption("Nichts zu bestätigen.")
+                st.info("Keine offenen Bestätigungen.")
 
             st.markdown("### Vom Gegner ausstehend")
             if waiting_opponent:
                 for r in waiting_opponent:
                     st.caption(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
             else:
-                st.caption("Keine offenen Anfragen beim Gegner.")
+                st.info("Keine offenen Anfragen beim Gegner.")
 
         with sub2:
             st.info("Doppel folgt – UI analog zu Einzel.")
@@ -467,5 +460,4 @@ else:
 
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
-# endregion
 # endregion
