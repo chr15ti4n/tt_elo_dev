@@ -867,7 +867,14 @@ if st.session_state.view_mode == "home":
                 if "dfs" in st.session_state:
                     st.session_state["dfs"].clear()
                 st.rerun()
-
+        st.write("DEBUG Spielen – gesamte pending_matches:", pending.shape)
+        st.write(pending.head())
+        st.write("DEBUG Spielen – Einladung sp_inv:", sp_inv.shape)
+        st.write(sp_inv.head())
+        st.write("DEBUG Spielen – Einladung dp_inv:", dp_inv.shape)
+        st.write(dp_inv.head())
+        st.write("DEBUG Spielen – Einladung rp_inv:", rp_inv.shape)
+        st.write(rp_inv.head())
         # Eingeladene Matches (Invitations)
         sp_inv = pending[
             (pending["b"] == current_player) & (~pending["confb"])
@@ -1011,9 +1018,18 @@ if st.session_state.view_mode == "home":
         # Eigene ausstehende Matches (Ersteller-Status)
         st.divider()
         st.subheader("Meine ausstehenden Matches")
-        sp_cre = sp[sp["a"] == current_player]
-        dp_cre = dp[(dp["a1"] == current_player) | (dp["a2"] == current_player)]
-        rp_cre = pd.DataFrame(columns=rp.columns)
+        # Use the full pending tables to find matches created by current player
+        sp_cre = pending[
+            (pending["a"] == current_player) & (~pending["confb"])
+        ].copy()
+        dp_cre = pending_d[
+            (((pending_d["a1"] == current_player) | (pending_d["a2"] == current_player))
+             & (~pending_d["confb"]))
+        ].copy()
+        rp_cre = pending_r[
+            (pending_r["teilnehmer"].str.contains(current_player, na=False))
+            & (~pending_r["confb"])
+        ].copy()
 
         if sp_cre.empty and dp_cre.empty and rp_cre.empty:
             st.info("Keine eigenen ausstehenden Matches.")
