@@ -51,10 +51,11 @@ def calc_elo(r_a, r_b, score_a, k=32):
 # --------- Gesamt-ELO berechnen -----------
 def compute_gelo(df: pd.DataFrame,
                  w_e=0.6, w_d=0.25, w_r=0.15) -> pd.DataFrame:
-    df["G_ELO"] = (
-        w_e * df["ELO"] +
-        w_d * df["D_ELO"] +
-        w_r * df["R_ELO"]
+    """Compute combined global ELO in 'g_elo' using weighted sum of solo, double, and round ELOs."""
+    df["g_elo"] = (
+        w_e * df["elo"] +
+        w_d * df["d_elo"] +
+        w_r * df["r_elo"]
     ).round(0).astype(int)
     return df
 # endregion
