@@ -41,8 +41,17 @@ def load_last_events_table(limit: int = 5) -> pd.DataFrame:
     for x in r:
         parts = ", ".join([t for t in (x.get('teilnehmer','').split(';') if x.get('teilnehmer') else []) if t])
         finals = [f for f in (x.get('finalisten','').split(';') if x.get('finalisten') else []) if f]
-        fin_str = ", ".join(finals) if finals else ""
-        res = f"Sieger: {x.get('sieger','')}" + (f" (Finalisten: {fin_str})" if fin_str else "")
+        winner = x.get('sieger','')
+        second = ""
+        if len(finals) >= 2:
+            if finals[0] == winner:
+                second = finals[1]
+            elif finals[1] == winner:
+                second = finals[0]
+            else:
+                # Fallback: wenn Sieger nicht in den Finalisten steht, nimm den ersten als Zweiten
+                second = finals[0]
+        res = f"1. {winner}, 2. {second}" if second else f"1. {winner}"
         rows.append({
             "Modus": "Rundlauf",
             "Teilnehmer": parts,
@@ -778,7 +787,7 @@ else:
         st.subheader("Letzte Spiele")
         df_last = load_last_events_table(5)
         if not df_last.empty:
-            st.dataframe(df_last, use_container_width=True)
+            st.dataframe(df_last, use_container_width=True, hide_index=True)
         else:
             st.info("Noch keine Spiele vorhanden.")
 
