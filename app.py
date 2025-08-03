@@ -892,14 +892,14 @@ else:
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
         
-    if st.button("🚪 Logout"):
-        st.session_state.pop("user", None)
-        st.session_state.pop("editing", None)
-        if "user" in st.query_params:
-            del st.query_params["user"]
-        if "token" in st.query_params:
-            del st.query_params["token"]
-        st.rerun()
+        if st.button("🚪 Logout"):
+            st.session_state.pop("user", None)
+            st.session_state.pop("editing", None)
+            if "user" in st.query_params:
+                del st.query_params["user"]
+            if "token" in st.query_params:
+                del st.query_params["token"]
+            st.rerun()
 
     # Auto-refresh loop (only when logged in)
     if not st.session_state.get("editing", False):
