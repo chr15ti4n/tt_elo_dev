@@ -156,6 +156,28 @@ st.session_state["_rt_debug"].update({
 
 # region Supabase Realtime (event-driven refresh)
 
+# Smoketest for Realtime
+async def _realtime_smoketest() -> tuple[bool, str]:
+    """Try to create async client, connect, subscribe, then disconnect.
+    Returns (ok, message)."""
+    try:
+        if acreate_client is None:
+            return False, "acreate_client ist nicht verfügbar (supabase-Paket zu alt?)."
+        acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+        await acli.realtime.connect()
+        chan = acli.channel("smoketest")
+        await chan.subscribe()
+        # brief no-op delay to allow handshake
+        try:
+            await asyncio.sleep(0.2)
+        except Exception:
+            pass
+        # clean up
+        await acli.realtime.disconnect()
+        return True, "Realtime-Verbindung (connect + subscribe) erfolgreich."
+    except Exception as e:
+        return False, f"Smoketest-Fehler: {type(e).__name__}: {e}"
+
 def _ensure_realtime_started():
     """Start a background task that subscribes to DB changes and flips a flag using a background thread.
     Requires: Realtime enabled for the tables in Supabase (Database → Replication → supabase_realtime).
@@ -1139,6 +1161,8 @@ else:
         with st.expander("⚡ Realtime-Debug", expanded=False):
             st.caption(f"supabase_py_version(var) = {SUPABASE_PY_VERSION}; acreate_client is None = {acreate_client is None}")
             dbg = st.session_state.get("_rt_debug", {})
+            _t = st.session_state.get("_rt_thread")
+            _alive = bool(_t.is_alive()) if _t is not None else False
             st.write({
                 "supabase_py_version": dbg.get("supabase_py_version"),
                 "acreate_client_available": dbg.get("acreate_client_available"),
@@ -1151,7 +1175,20 @@ else:
                 "phase": dbg.get("phase"),
                 "last_event_human": dbg.get("last_event_human"),
                 "last_error": dbg.get("last_error"),
+                "thread_alive": _alive,
             })
+            if st.button("🧪 Realtime-Smoketest"):
+                try:
+                    ok, msg = asyncio.run(_realtime_smoketest())
+                except RuntimeError:
+                    # If an event loop is already running (e.g., some environments), use a fallback
+                    ok, msg = False, "Smoketest konnte nicht ausgeführt werden (laufender Event-Loop)."
+                except Exception as e:
+                    ok, msg = False, f"Smoketest unerwarteter Fehler: {type(e).__name__}: {e}"
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
             if st.button("🔁 Realtime neu starten"):
                 # Stop & restart worker
                 st.session_state["_rt_started"] = False
