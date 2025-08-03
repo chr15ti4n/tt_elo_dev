@@ -303,19 +303,25 @@ def submit_single_pending(creator: str, a: str, b: str, punktea: int, punkteb: i
 
 def fetch_pending_for_user(user: str):
     # pending where user participates
-    res = supabase.table("pending_matches").select("*").or_(f"a.eq.{user},b.eq.{user}").order("datum", desc=True).execute()
+    res = supabase.table("pending_rounds").select("*").order("datum", desc=True).execute()
     rows = res.data or []
-    to_confirm = []
-    waiting_opponent = []
+    to_confirm, waiting = [], []
     for r in rows:
-        if r["a"] == user and not r.get("confa", False):
-            to_confirm.append(r)
-        elif r["b"] == user and not r.get("confb", False):
-            to_confirm.append(r)
-        elif (r["a"] == user and r.get("confa", False) and not r.get("confb", False)) or \
-             (r["b"] == user and r.get("confb", False) and not r.get("confa", False)):
-            waiting_opponent.append(r)
-    return to_confirm, waiting_opponent
+        teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
+        if user not in teilnehmer:
+            continue
+        creator = r.get("creator")
+        confa = bool(r.get("confa", False))
+        confb = bool(r.get("confb", False))
+        if creator == user:
+            # Ersteller wartet auf Bestätigung durch jemand anderen
+            if confa and not confb:
+                waiting.append(r)
+        else:
+            # Alle anderen Teilnehmer müssen bestätigen, solange etwas offen ist
+            if not (confa and confb):
+                to_confirm.append(r)
+    return to_confirm, waiting
 
 
 def confirm_pending_match(row_id: str, user: str):
@@ -501,6 +507,7 @@ def submit_round_pending(creator: str, teilnehmer: list[str], finalisten: tuple[
         "teilnehmer": ";".join(teilnehmer),
         "finalisten": ";".join([f1, f2]),
         "sieger": sieger,
+        "creator": creator,
         "confa": confa, "confb": confb,
     }).execute()
     try:
@@ -819,7 +826,9 @@ else:
                     fin1 = st.selectbox("Finalist 1", [""] + participants, key="r_f1", on_change=_set_editing_true)
                 with fin_cols[1]:
                     fin2 = st.selectbox("Finalist 2", [""] + participants, key="r_f2", on_change=_set_editing_true)
-                winner = st.selectbox("Sieger", participants if participants else [""], key="r_win", on_change=_set_editing_true)
+                # neu: Sieger-Optionen hängen von den gewählten Finalisten ab
+                winner_options = [x for x in [fin1, fin2] if x]
+                winner = st.selectbox("Sieger", winner_options if winner_options else [""], key="r_win", on_change=_set_editing_true)
 
                 if st.button("✅ Rundlauf einreichen"):
                     if len(participants) < 3:
