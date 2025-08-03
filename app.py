@@ -667,12 +667,10 @@ if st.session_state.view_mode == "home":
                     # 5) Final cache clear and notify
                     load_table.clear()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
                 if cols[2].button("❌", key=f"reject_s_{idx}"):
                     supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                     load_table.clear()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
 
         # Doppel-Einladungen
         if not dp_inv.empty:
@@ -709,12 +707,10 @@ if st.session_state.view_mode == "home":
                     # 5) Final cache clear and notify
                     load_table.clear()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
                 if cols[2].button("❌", key=f"reject_d_{idx}"):
                     supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                     load_table.clear()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
 
         # Rundlauf-Einladungen
         if not rp_inv.empty:
@@ -751,12 +747,10 @@ if st.session_state.view_mode == "home":
                     # 5) Final cache clear and notify
                     load_table.clear()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
                 if cols[2].button("❌", key=f"reject_r_{idx}"):
                     supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                     load_table.clear()
                     st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                    st.rerun()
 
     
         st.divider()
@@ -816,7 +810,6 @@ if st.session_state.view_mode == "home":
                 }]).execute()
                 load_table.clear()
                 st.success("Einzel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
-                st.rerun()
         # Doppelmatch eintragen
         with mtab2:
             st.subheader("Eintrag Doppelmatch")
@@ -834,7 +827,6 @@ if st.session_state.view_mode == "home":
                 }]).execute()
                 load_table.clear()
                 st.success("Doppel-Match erstellt! Bitte aktualisieren, um es zu sehen.")
-                st.rerun()
         # Rundlauf eintragen
         with mtab3:
             st.subheader("Eintrag Rundlauf")
@@ -856,7 +848,6 @@ if st.session_state.view_mode == "home":
                 }).execute()
                 load_table.clear()
                 st.success("Rundlauf-Match erstellt! Bitte aktualisieren, um es zu sehen.")
-                st.rerun()
 
         st.divider()
         cols_refresh2 = st.columns([4,1])
@@ -918,12 +909,10 @@ if st.session_state.view_mode == "home":
                         # 5) Final cache clear and notify
                         load_table.clear()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_s_{idx}"):
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         load_table.clear()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
 
             # Doppel-Einladungen
             if not dp_inv.empty:
@@ -960,12 +949,10 @@ if st.session_state.view_mode == "home":
                         # 5) Final cache clear and notify
                         load_table.clear()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_d_{idx}"):
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         load_table.clear()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
             # Rundlauf-Einladungen
             if not rp_inv.empty:
                 st.markdown("**Rundlauf**")
@@ -1001,12 +988,10 @@ if st.session_state.view_mode == "home":
                         # 5) Final cache clear and notify
                         load_table.clear()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
                     if cols[2].button("❌", key=f"tab2_reject_r_{idx}"):
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         load_table.clear()
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
 
         # Eigene ausstehende Matches (Ersteller-Status)
         st.divider()
@@ -1037,7 +1022,6 @@ if st.session_state.view_mode == "home":
                         supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                         load_table.clear()  # clear cache so pending will refresh
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
 
             if not dp_cre.empty:
                 st.markdown("**Doppel**")
@@ -1049,7 +1033,6 @@ if st.session_state.view_mode == "home":
                         supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
                         load_table.clear()  # clear cache so pending_d will refresh
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
 
             if not rp_cre.empty:
                 st.markdown("**Rundlauf**")
@@ -1061,7 +1044,6 @@ if st.session_state.view_mode == "home":
                         supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
                         load_table.clear()  # clear cache so pending_r will refresh
                         st.success("Match abgelehnt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
 
     # Tab 3: Leaderboards und Statistiken (wie bisher)
     with tab3:
