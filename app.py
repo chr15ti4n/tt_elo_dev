@@ -9,12 +9,12 @@ import pandas as pd
 from datetime import datetime
 # endregion
 
-# region Load environment variables
-load_dotenv()
-SUPABASE_URL: str = os.getenv("SUPABASE_URL")
-SUPABASE_KEY: str = os.getenv("SUPABASE_KEY")
-if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("Bitte setze SUPABASE_URL und SUPABASE_KEY in deiner .env-Datei.")
+# region Load Streamlit Secrets
+try:
+    SUPABASE_URL: str = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY: str = st.secrets["SUPABASE_KEY"]
+except KeyError:
+    st.error("Bitte setze SUPABASE_URL und SUPABASE_KEY in deinen Streamlit Secrets.")
     st.stop()
 # endregion
 
