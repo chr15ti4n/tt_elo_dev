@@ -33,15 +33,19 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # region Persistent Login via Query Params
 q = st.query_params
-if "user" in q and "token" in q and "user" not in st.session_state:
-    auto_user = q["user"][0]
-    auto_token = q["token"][0]
-    # Fetch stored hash for auto_user
-    resp = supabase.table("players").select("pin").eq("name", auto_user).single().execute()
-    stored_hash = resp.data.get("pin") if resp.data else None
-    if stored_hash and check_pin(auto_token, stored_hash):
-        # Valid token: set user
-        st.session_state.user = auto_user
+def _qp_first(val):
+    if isinstance(val, list):
+        return val[0] if val else None
+    return val
+if "user" not in st.session_state:
+    auto_user = _qp_first(q.get("user"))
+    auto_token = _qp_first(q.get("token"))
+    if auto_user and auto_token:
+        # Fetch stored hash for auto_user
+        resp = supabase.table("players").select("pin").eq("name", auto_user).single().execute()
+        stored_hash = resp.data.get("pin") if resp.data else None
+        if stored_hash and check_pin(auto_token, stored_hash):
+            st.session_state.user = auto_user
 # endregion
 
 # region Authentication & CSV Display
@@ -59,7 +63,7 @@ if 'user' not in st.session_state:
                 if stored_hash and check_pin(pin, stored_hash):
                     # Successful login: persist via URL token
                     st.session_state.user = name
-                    st.experimental_set_query_params(user=name, token=stored_hash)
+                    st.query_params.update({"user": name, "token": stored_hash})
                     st.success(f"Eingeloggt als {name}")
                     st.rerun()
                 else:
