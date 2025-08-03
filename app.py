@@ -425,7 +425,7 @@ else:
                 with c2:
                     b = st.selectbox("Spieler B", names, index=1 if len(names)>1 else 0, key="ein_b")
                     pb = st.number_input("Punkte B", min_value=0, step=1, key="ein_pb")
-                if st.button("Einreichen (Bestätigung erforderlich)"):
+                if st.button("✅ Bestätigen)"):
                     ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
                     st.success(msg) if ok else st.error(msg)
                     st.rerun()
