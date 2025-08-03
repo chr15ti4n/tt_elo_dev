@@ -481,11 +481,11 @@ else:
                     c1, c2, c3, c4 = st.columns([3,2,2,2])
                     c1.write(f"{r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
                     c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
-                    if c3.button("Bestätigen", key=f"sub_confirm_{r['id']}"):
+                    if c3.button("✅", key=f"sub_confirm_{r['id']}"):
                         ok, msg = confirm_pending_match(r["id"], st.session_state.user)
                         st.toast(msg)
                         st.rerun()
-                    if c4.button("Ablehnen", key=f"sub_reject_{r['id']}"):
+                    if c4.button("❌", key=f"sub_reject_{r['id']}"):
                         ok, msg = reject_pending_match(r["id"], st.session_state.user)
                         st.toast(msg)
                         st.rerun()
@@ -498,7 +498,7 @@ else:
                     c1, c2, c3 = st.columns([3,2,2])
                     c1.write(f"Wartet auf Gegner: {r['a']} vs {r['b']} — {r['punktea']}:{r['punkteb']}")
                     c2.write(pd.to_datetime(r['datum']).strftime("%d.%m.%Y %H:%M"))
-                    if c3.button("Ablehnen", key=f"sub_reject_wait_{r['id']}"):
+                    if c3.button("❌", key=f"sub_reject_wait_{r['id']}"):
                         ok, msg = reject_pending_match(r["id"], st.session_state.user)
                         st.toast(msg)
                         st.rerun()
@@ -512,6 +512,15 @@ else:
 
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
+        
+    if st.button("🚪 Logout"):
+        st.session_state.pop("user", None)
+        st.session_state.pop("editing", None)
+        if "user" in st.query_params:
+            del st.query_params["user"]
+        if "token" in st.query_params:
+            del st.query_params["token"]
+        st.rerun()
 
     # Auto-refresh loop (only when logged in)
     if not st.session_state.get("editing", False):
