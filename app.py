@@ -885,7 +885,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Einzel**")
                 for idx, row in sp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
+                    cols[0].write(f"{row['a']} vs {row['b']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_s_{idx}"):
                         payload = {
                             "Datum": row["datum"].isoformat(),
