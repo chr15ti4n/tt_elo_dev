@@ -17,7 +17,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # endregion
 
 # region Persistent Login via Query Params
-params = st.query_params
+params = st.experimental_get_query_params()
 if "user" in params and "user" not in st.session_state:
     st.session_state.user = params["user"][0]
 # endregion
@@ -32,10 +32,22 @@ if 'user' not in st.session_state:
             name = st.text_input("Name")
             pin  = st.text_input("PIN", type="password")
             if st.form_submit_button("Login"):
-                # Simple in-memory check: try fetching this user
                 resp = supabase.table("players").select("pin").eq("name", name).single().execute()
                 stored_hash = resp.data.get("pin") if resp.data else None
-                if stored_hash and bcrypt.checkpw(pin.encode(), stored_hash.encode()):
+                login_success = False
+                if stored_hash:
+                    try:
+                        # Try bcrypt verification
+                        if bcrypt.checkpw(pin.encode(), stored_hash.encode()):
+                            login_success = True
+                    except ValueError:
+                        # Invalid salt: stored_hash is plain text from legacy data
+                        if pin == stored_hash:
+                            login_success = True
+                            # Upgrade stored PIN to hashed version
+                            new_hash = bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
+                            supabase.table("players").update({"pin": new_hash}).eq("name", name).execute()
+                if login_success:
                     st.session_state.user = name
                     st.experimental_set_query_params(user=name)
                     st.success(f"Eingeloggt als {name}")
