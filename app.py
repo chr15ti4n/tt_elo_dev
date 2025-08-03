@@ -188,40 +188,55 @@ def _ensure_realtime_started():
 
     def _worker():
         try:
-            _RT_FLAGS["phase"] = "worker_start_sync"
-            # Use the synchronous client we already created above
-            # Create channel and register callbacks
-            _RT_FLAGS["phase"] = "channel_create"
-            channel = supabase.channel("tt_elo_changes")
+            _RT_FLAGS["phase"] = "worker_start"
 
-            def on_change(payload):
+            async def run():
                 try:
-                    _RT_QUEUE.put(time.time())
-                except Exception:
-                    pass
+                    # Create async client (required for Realtime in Python)
+                    _RT_FLAGS["phase"] = "create_client"
+                    acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+                    _RT_FLAGS["client_created"] = True
 
-            channel.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
-            channel.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
-            channel.on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
-            channel.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
-            channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
-            channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
+                    # Optional quick probe (non-fatal)
+                    try:
+                        _RT_FLAGS["phase"] = "probe_rest"
+                        _ = await acli.table("players").select("name").limit(1).execute()
+                    except Exception as e_probe:
+                        _RT_FLAGS["last_error"] = f"probe_rest: {type(e_probe).__name__}: {e_probe}"
 
-            _RT_FLAGS["client_created"] = True  # we have a working realtime channel on the sync client
+                    # Callback writes into queue (no session_state from thread)
+                    def on_change(payload):
+                        try:
+                            _RT_QUEUE.put(time.time())
+                        except Exception:
+                            pass
 
-            # Connect realtime, then subscribe and listen (blocking in this thread)
-            _RT_FLAGS["phase"] = "connect"
-            supabase.realtime.connect()
-            _RT_FLAGS["connect_ok"] = True
+                    # Connect → subscribe → listen (per docs)
+                    _RT_FLAGS["phase"] = "connect"
+                    await acli.realtime.connect()
+                    _RT_FLAGS["connect_ok"] = True
 
-            _RT_FLAGS["phase"] = "subscribe"
-            channel.subscribe()
-            _RT_FLAGS["channel_subscribed"] = True
+                    _RT_FLAGS["phase"] = "subscribe"
+                    chan = acli.channel("tt_elo_changes")
+                    chan.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
+                    chan.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
+                    chan.on_postgres_changes("*", schema="public", table="pending_rounds", callback=on_change)
+                    chan.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
+                    chan.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
+                    chan.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
+                    await chan.subscribe()
+                    _RT_FLAGS["channel_subscribed"] = True
 
-            _RT_FLAGS["phase"] = "listen"
-            supabase.realtime.listen()
+                    _RT_FLAGS["phase"] = "listen"
+                    await acli.realtime.listen()
+                except Exception as e:
+                    _RT_FLAGS["last_error"] = f"error at phase={_RT_FLAGS.get('phase')}: {type(e).__name__}: {e}\n{traceback.format_exc()}"
+                    st.session_state["_rt_started"] = False
+
+            # Run the async routine in this background thread
+            asyncio.run(run())
         except Exception as e_outer:
-            _RT_FLAGS["last_error"] = f"sync_worker_error at phase={_RT_FLAGS.get('phase')}: {type(e_outer).__name__}: {e_outer}\n{traceback.format_exc()}"
+            _RT_FLAGS["last_error"] = f"worker_error: {type(e_outer).__name__}: {e_outer}\n{traceback.format_exc()}"
             st.session_state["_rt_started"] = False
 
     t = threading.Thread(target=_worker, daemon=True)
