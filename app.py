@@ -14,6 +14,7 @@ import importlib
 
 from queue import SimpleQueue
 import traceback
+import inspect
 
 # Async Realtime import (must be early so availability shows correctly)
 try:
@@ -146,6 +147,7 @@ st.session_state.setdefault("_rt_debug", {})
 st.session_state["_rt_debug"].update({
     "supabase_py_version": SUPABASE_PY_VERSION,
     "acreate_client_available": bool(acreate_client is not None),
+    "acreate_is_coro": bool(acreate_client is not None and inspect.iscoroutinefunction(acreate_client)),
     "async_client_available": bool(AsyncClient is not None),
     "phase": "init",
 })
@@ -192,8 +194,30 @@ def _ensure_realtime_started():
             try:
                 # Phase: create async client (with timeout)
                 _RT_FLAGS["phase"] = "create_client"
-                acli = await asyncio.wait_for(acreate_client(SUPABASE_URL, SUPABASE_KEY), timeout=8)
-                _RT_FLAGS["client_created"] = True
+                acli = None
+                try_methods = []
+                if acreate_client is not None and inspect.iscoroutinefunction(acreate_client):
+                    try_methods.append(("acreate_client(url,key)", lambda: acreate_client(SUPABASE_URL, SUPABASE_KEY), True))
+                if AsyncClient is not None and hasattr(AsyncClient, "create"):
+                    try_methods.append(("AsyncClient.create(url,key)", lambda: AsyncClient.create(SUPABASE_URL, SUPABASE_KEY), True))
+                if AsyncClient is not None:
+                    try_methods.append(("AsyncClient(url,key) [sync ctor]", lambda: AsyncClient(SUPABASE_URL, SUPABASE_KEY), False))
+
+                last_err = None
+                for label, factory, needs_await in try_methods:
+                    try:
+                        if needs_await:
+                            acli = await asyncio.wait_for(factory(), timeout=12)
+                        else:
+                            acli = factory()
+                        _RT_FLAGS["client_created"] = True
+                        break
+                    except Exception as e_cf:
+                        last_err = f"{label} -> {type(e_cf).__name__}: {e_cf}"
+                        _RT_FLAGS["last_error"] = last_err
+
+                if acli is None:
+                    raise RuntimeError(f"Could not create Async Supabase client. Tried: {[m[0] for m in try_methods]}; last_error={last_err}")
 
                 # Optional: sanity REST probe (non-fatal)
                 try:
@@ -1129,6 +1153,7 @@ else:
             st.write({
                 "supabase_py_version": dbg.get("supabase_py_version"),
                 "acreate_client_available": dbg.get("acreate_client_available"),
+                "acreate_is_coro": dbg.get("acreate_is_coro"),
                 "async_client_available": dbg.get("async_client_available"),
                 "started": dbg.get("started"),
                 "client_created": dbg.get("client_created"),
