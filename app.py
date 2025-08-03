@@ -14,6 +14,49 @@ def _set_editing_true():
     st.session_state["editing"] = True
 def _set_editing_false():
     st.session_state["editing"] = False
+
+# region Recent combined (Last games)
+@st.cache_data(ttl=5)
+def load_last_events_table(limit: int = 5) -> pd.DataFrame:
+    # Fetch recent items per mode
+    m = supabase.table("matches").select("datum,a,b,punktea,punkteb").order("datum", desc=True).limit(limit).execute().data or []
+    d = supabase.table("doubles").select("datum,a1,a2,b1,b2,punktea,punkteb").order("datum", desc=True).limit(limit).execute().data or []
+    r = supabase.table("rounds").select("datum,teilnehmer,finalisten,sieger").order("datum", desc=True).limit(limit).execute().data or []
+
+    rows = []
+    for x in m:
+        rows.append({
+            "Modus": "Einzel",
+            "Teilnehmer": f"{x['a']} vs {x['b']}",
+            "Ergebnis": f"{x['punktea']}:{x['punkteb']}",
+            "datum": x.get("datum"),
+        })
+    for x in d:
+        rows.append({
+            "Modus": "Doppel",
+            "Teilnehmer": f"{x['a1']}+{x['a2']} vs {x['b1']}+{x['b2']}",
+            "Ergebnis": f"{x['punktea']}:{x['punkteb']}",
+            "datum": x.get("datum"),
+        })
+    for x in r:
+        parts = ", ".join([t for t in (x.get('teilnehmer','').split(';') if x.get('teilnehmer') else []) if t])
+        finals = [f for f in (x.get('finalisten','').split(';') if x.get('finalisten') else []) if f]
+        fin_str = ", ".join(finals) if finals else ""
+        res = f"Sieger: {x.get('sieger','')}" + (f" (Finalisten: {fin_str})" if fin_str else "")
+        rows.append({
+            "Modus": "Rundlauf",
+            "Teilnehmer": parts,
+            "Ergebnis": res,
+            "datum": x.get("datum"),
+        })
+
+    # Sort by datetime desc across modes and clip to limit
+    rows = sorted(rows, key=lambda r: r.get("datum") or "", reverse=True)[:limit]
+    if rows:
+        df = pd.DataFrame(rows, columns=["Modus","Teilnehmer","Ergebnis","datum"]) 
+        return df[["Modus","Teilnehmer","Ergebnis"]]
+    else:
+        return pd.DataFrame(columns=["Modus","Teilnehmer","Ergebnis"])
 # endregion
 
 # region Time Helpers (TZ)
@@ -679,14 +722,15 @@ if 'user' not in st.session_state:
     st.stop()
 # region UI: Tabs (Willkommen, Spielen, Account)
 else:
-    st.header(f"👋 Willkommen, {st.session_state.user}!")
+    st.header("🏓 AK-Tischtennis")
     
     st.session_state.setdefault("editing", False)
 
-    main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Account"])
+    main_tab1, main_tab2, main_tab3 = st.tabs(["Übersicht", "Spielen", "Account"])
 
     with main_tab1:
         # Willkommen: ELO Anzeige, Matches bestätigen, letzte 5 Spiele
+        st.subheader(f"👋 Willkommen, {st.session_state.user}!")
         st.subheader("Deine Ratings")
         me = supabase.table("players").select("*").eq("name", st.session_state.user).single().execute().data
         if me:
@@ -732,12 +776,9 @@ else:
             st.caption("Nichts zu bestätigen.")
 
         st.subheader("Letzte Spiele")
-        last = load_last_matches(5)
-        if last:
-            df_last = pd.DataFrame(last)
-            if not df_last.empty and "datum" in df_last.columns:
-                df_last["datum"] = pd.to_datetime(df_last["datum"], utc=True).dt.tz_convert(BERLIN).dt.strftime("%d.%m.%Y %H:%M")
-            st.dataframe(df_last)
+        df_last = load_last_events_table(5)
+        if not df_last.empty:
+            st.dataframe(df_last, use_container_width=True)
         else:
             st.info("Noch keine Spiele vorhanden.")
 
