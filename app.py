@@ -17,7 +17,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # endregion
 
 # region Persistent Login via Query Params
-params = st.query_params()
+params = st.experimental_get_query_params()
 if "user" in params and "user" not in st.session_state:
     st.session_state.user = params["user"][0]
 # endregion
