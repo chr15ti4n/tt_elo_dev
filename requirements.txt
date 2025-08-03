@@ -1,10 +1,5 @@
-streamlit>=1.47
-pandas
-matplotlib
-bcrypt
-qrcode
-gspread
-gspread_dataframe
-numpy
-supabase
-dotenv
+streamlit>=1.36
+supabase>=2.5
+pandas>=2.2
+bcrypt>=4.1
+tzdata>=2024.1   # für zoneinfo auf allen Plattformen
