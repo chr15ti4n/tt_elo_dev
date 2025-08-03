@@ -649,25 +649,29 @@ if st.session_state.view_mode == "home":
                         "PunkteA": row["punktea"],
                         "PunkteB": row["punkteb"]
                     }
+                    # 1) Insert match
                     try:
-                        res = supabase.table("matches").insert([payload]).execute()
-                        load_table.clear()
-                        _rebuild_all()
-                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
-                        load_table.clear()
-                        st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
-                        st.rerun()
+                        supabase.table("matches").insert([payload]).execute()
                     except Exception as e:
-                        st.error(f"DEBUG Insert Error: {e}")
+                        st.error(f"ERROR inserting match: {e}")
                         st.write("Payload:", payload)
-                        st.write("Supabase URL:", st.secrets['supabase']['url'])
-                        # --- Debug: inspect table schema/sample data ---
-                        schema_res = supabase.table("matches").select("*").limit(1).execute()
-                        st.write("Matches table sample data:", schema_res.data)
-                        if schema_res.data:
-                            st.write("Available columns in 'matches':", list(schema_res.data[0].keys()))
-                        # --- End debug ---
                         st.stop()
+                    # 2) Delete pending entry
+                    try:
+                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                    except Exception as e:
+                        st.error(f"ERROR deleting pending match: {e}")
+                    # 3) Clear cache before rebuild
+                    load_table.clear()
+                    # 4) Recalculate ELOs (non-blocking)
+                    try:
+                        _rebuild_all()
+                    except Exception as e:
+                        st.warning(f"ELO-Rebuild failed: {e}")
+                    # 5) Final cache clear and notify
+                    load_table.clear()
+                    st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
+                    st.rerun()
                 if cols[2].button("❌", key=f"reject_s_{idx}"):
                     supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
                     load_table.clear()
@@ -681,15 +685,32 @@ if st.session_state.view_mode == "home":
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['a1']}/{row['a2']} vs {row['b1']}/{row['b2']}  {int(row['punktea'])}:{int(row['punkteb'])}")
                 if cols[1].button("✅", key=f"confirm_d_{idx}"):
-                    supabase.table("doubles").insert([{
+                    payload = {
                         "Datum": row["datum"].isoformat(),
                         "A1": row["a1"], "A2": row["a2"],
                         "B1": row["b1"], "B2": row["b2"],
                         "PunkteA": row["punktea"], "PunkteB": row["punkteb"]
-                    }]).execute()
+                    }
+                    # 1) Insert match
+                    try:
+                        supabase.table("doubles").insert([payload]).execute()
+                    except Exception as e:
+                        st.error(f"ERROR inserting double match: {e}")
+                        st.write("Payload:", payload)
+                        st.stop()
+                    # 2) Delete pending entry
+                    try:
+                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                    except Exception as e:
+                        st.error(f"ERROR deleting pending double match: {e}")
+                    # 3) Clear cache before rebuild
                     load_table.clear()
-                    _rebuild_all()
-                    supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                    # 4) Recalculate ELOs (non-blocking)
+                    try:
+                        _rebuild_all()
+                    except Exception as e:
+                        st.warning(f"ELO-Rebuild failed: {e}")
+                    # 5) Final cache clear and notify
                     load_table.clear()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
@@ -706,15 +727,32 @@ if st.session_state.view_mode == "home":
                 cols = st.columns([3,1,1])
                 cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                 if cols[1].button("✅", key=f"confirm_r_{idx}"):
-                    supabase.table("rounds").insert({
+                    payload = {
                         "Datum": row["datum"].isoformat(),
                         "Teilnehmer": row["teilnehmer"],
                         "Finalisten": row["finalisten"],
                         "Sieger": row["sieger"]
-                    }).execute()
+                    }
+                    # 1) Insert round
+                    try:
+                        supabase.table("rounds").insert(payload).execute()
+                    except Exception as e:
+                        st.error(f"ERROR inserting round: {e}")
+                        st.write("Payload:", payload)
+                        st.stop()
+                    # 2) Delete pending entry
+                    try:
+                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                    except Exception as e:
+                        st.error(f"ERROR deleting pending round: {e}")
+                    # 3) Clear cache before rebuild
                     load_table.clear()
-                    _rebuild_all()
-                    supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                    # 4) Recalculate ELOs (non-blocking)
+                    try:
+                        _rebuild_all()
+                    except Exception as e:
+                        st.warning(f"ELO-Rebuild failed: {e}")
+                    # 5) Final cache clear and notify
                     load_table.clear()
                     st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                     st.rerun()
@@ -849,13 +887,31 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A']} vs {row['B']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_s_{idx}"):
-                        supabase.table("matches").insert([{
-                            "Datum": row["datum"].isoformat(), "A": row["a"], "B": row["b"],
+                        payload = {
+                            "Datum": row["datum"].isoformat(),
+                            "A": row["a"], "B": row["b"],
                             "PunkteA": row["punktea"], "PunkteB": row["punkteb"]
-                        }]).execute()
+                        }
+                        # 1) Insert match
+                        try:
+                            supabase.table("matches").insert([payload]).execute()
+                        except Exception as e:
+                            st.error(f"ERROR inserting match: {e}")
+                            st.write("Payload:", payload)
+                            st.stop()
+                        # 2) Delete pending entry
+                        try:
+                            supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        except Exception as e:
+                            st.error(f"ERROR deleting pending match: {e}")
+                        # 3) Clear cache before rebuild
                         load_table.clear()
-                        _rebuild_all()
-                        supabase.table("pending_matches").delete().eq("id", row["id"]).execute()
+                        # 4) Recalculate ELOs (non-blocking)
+                        try:
+                            _rebuild_all()
+                        except Exception as e:
+                            st.warning(f"ELO-Rebuild failed: {e}")
+                        # 5) Final cache clear and notify
                         load_table.clear()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
@@ -872,15 +928,32 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['A1']}/{row['A2']} vs {row['B1']}/{row['B2']}  {int(row['PunkteA'])}:{int(row['PunkteB'])}")
                     if cols[1].button("✅", key=f"tab2_confirm_d_{idx}"):
-                        supabase.table("doubles").insert([{
+                        payload = {
                             "Datum": row["datum"].isoformat(),
                             "A1": row["a1"], "A2": row["a2"],
                             "B1": row["b1"], "B2": row["b2"],
                             "PunkteA": row["punktea"], "PunkteB": row["punkteb"]
-                        }]).execute()
+                        }
+                        # 1) Insert double match
+                        try:
+                            supabase.table("doubles").insert([payload]).execute()
+                        except Exception as e:
+                            st.error(f"ERROR inserting double match: {e}")
+                            st.write("Payload:", payload)
+                            st.stop()
+                        # 2) Delete pending entry
+                        try:
+                            supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                        except Exception as e:
+                            st.error(f"ERROR deleting pending double match: {e}")
+                        # 3) Clear cache before rebuild
                         load_table.clear()
-                        _rebuild_all()
-                        supabase.table("pending_doubles").delete().eq("id", row["id"]).execute()
+                        # 4) Recalculate ELOs (non-blocking)
+                        try:
+                            _rebuild_all()
+                        except Exception as e:
+                            st.warning(f"ELO-Rebuild failed: {e}")
+                        # 5) Final cache clear and notify
                         load_table.clear()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
@@ -896,15 +969,32 @@ if st.session_state.view_mode == "home":
                     cols = st.columns([3,1,1])
                     cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
                     if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
-                        supabase.table("rounds").insert({
+                        payload = {
                             "Datum": row["datum"].isoformat(),
                             "Teilnehmer": row["teilnehmer"],
                             "Finalisten": row["finalisten"],
                             "Sieger": row["sieger"]
-                        }).execute()
+                        }
+                        # 1) Insert round
+                        try:
+                            supabase.table("rounds").insert(payload).execute()
+                        except Exception as e:
+                            st.error(f"ERROR inserting round: {e}")
+                            st.write("Payload:", payload)
+                            st.stop()
+                        # 2) Delete pending entry
+                        try:
+                            supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                        except Exception as e:
+                            st.error(f"ERROR deleting pending round: {e}")
+                        # 3) Clear cache before rebuild
                         load_table.clear()
-                        _rebuild_all()
-                        supabase.table("pending_rounds").delete().eq("id", row["id"]).execute()
+                        # 4) Recalculate ELOs (non-blocking)
+                        try:
+                            _rebuild_all()
+                        except Exception as e:
+                            st.warning(f"ELO-Rebuild failed: {e}")
+                        # 5) Final cache clear and notify
                         load_table.clear()
                         st.success("Match bestätigt! Bitte aktualisieren, um die Änderungen zu sehen.")
                         st.rerun()
