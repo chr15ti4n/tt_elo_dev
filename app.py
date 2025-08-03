@@ -57,13 +57,22 @@ if 'user' not in st.session_state:
         with st.form("login_form"):
             name = st.text_input("Name")
             pin  = st.text_input("PIN", type="password")
+            remember = st.checkbox("Angemeldet bleiben", value=True)
             if st.form_submit_button("Login"):
                 resp = supabase.table("players").select("pin").eq("name", name).single().execute()
                 stored_hash = resp.data.get("pin") if resp.data else None
                 if stored_hash and check_pin(pin, stored_hash):
-                    # Successful login: persist via URL token
+                    # Successful login
                     st.session_state.user = name
-                    st.query_params.update({"user": name, "token": stored_hash})
+                    if remember:
+                        st.query_params["user"] = name
+                        st.query_params["token"] = stored_hash
+                    else:
+                        # Do not persist in URL
+                        if "user" in st.query_params:
+                            del st.query_params["user"]
+                        if "token" in st.query_params:
+                            del st.query_params["token"]
                     st.success(f"Eingeloggt als {name}")
                     st.rerun()
                 else:
@@ -88,6 +97,13 @@ if 'user' not in st.session_state:
     st.stop()
 else:
     st.header(f"👋 Willkommen, {st.session_state.user}!")
+    if st.button("🚪 Logout"):
+        st.session_state.pop("user", None)
+        if "user" in st.query_params:
+            del st.query_params["user"]
+        if "token" in st.query_params:
+            del st.query_params["token"]
+        st.rerun()
     # Show the full players CSV from Supabase
     data = supabase.table("players").select("*").execute()
     df = pd.DataFrame(data.data)
