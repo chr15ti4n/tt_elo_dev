@@ -2,6 +2,7 @@
 import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
+import bcrypt
 # endregion
 
 # region Supabase Setup
@@ -13,6 +14,12 @@ except KeyError:
     st.stop()
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# endregion
+
+# region Persistent Login via Query Params
+params = st.experimental_get_query_params()
+if "user" in params and "user" not in st.session_state:
+    st.session_state.user = params["user"][0]
 # endregion
 
 # region Authentication & CSV Display
@@ -27,10 +34,12 @@ if 'user' not in st.session_state:
             if st.form_submit_button("Login"):
                 # Simple in-memory check: try fetching this user
                 resp = supabase.table("players").select("pin").eq("name", name).single().execute()
-                if resp.data and resp.data.get("pin") == pin:
+                stored_hash = resp.data.get("pin") if resp.data else None
+                if stored_hash and bcrypt.checkpw(pin.encode(), stored_hash.encode()):
                     st.session_state.user = name
+                    st.experimental_set_query_params(user=name)
                     st.success(f"Eingeloggt als {name}")
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     st.error("Ungültiger Name oder PIN")
 
@@ -47,7 +56,8 @@ if 'user' not in st.session_state:
                 elif pin != pin_confirm:
                     st.error("PIN stimmt nicht überein.")
                 else:
-                    supabase.table("players").insert({"name": name, "pin": pin}).execute()
+                    hashed = bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
+                    supabase.table("players").insert({"name": name, "pin": hashed}).execute()
                     st.success("Registrierung erfolgreich. Bitte einloggen.")
     st.stop()
 else:
