@@ -7,3 +7,4 @@ gspread
 gspread_dataframe
 numpy
 supabase
+dotenv
