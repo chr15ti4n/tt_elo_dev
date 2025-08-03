@@ -1,8 +1,4 @@
-
-
-# region Imports and Configuration
-import os
-from dotenv import load_dotenv
+# region import
 import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
@@ -11,10 +7,10 @@ from datetime import datetime
 
 # region Load Streamlit Secrets
 try:
-    SUPABASE_URL: str = st.secrets["SUPABASE_URL"]
-    SUPABASE_KEY: str = st.secrets["SUPABASE_KEY"]
+    SUPABASE_URL: str = st.secrets["supabase"]["url"]
+    SUPABASE_KEY: str = st.secrets["supabase"]["key"]
 except KeyError:
-    st.error("Bitte setze SUPABASE_URL und SUPABASE_KEY in deinen Streamlit Secrets.")
+    st.error("Bitte setze unter [supabase] url und key in deinen Streamlit Secrets.")
     st.stop()
 # endregion
 
