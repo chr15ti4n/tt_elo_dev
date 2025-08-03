@@ -473,18 +473,23 @@ def submit_round_pending(creator: str, teilnehmer: list[str], finalisten: tuple[
     teilnehmer = [t for t in (teilnehmer or []) if t]
     if len(teilnehmer) < 3:
         return False, "Mindestens 3 Teilnehmer erforderlich."
-    if sieger not in teilnehmer:
+    if not sieger or sieger not in teilnehmer:
         return False, "Sieger muss Teilnehmer sein."
     f1, f2 = finalisten if isinstance(finalisten, tuple) else (None, None)
-    for f in (f1, f2):
-        if f and f not in teilnehmer:
-            return False, "Finalisten müssen Teilnehmer sein."
+    if not f1 or not f2:
+        return False, "Bitte beide Finalisten wählen."
+    if f1 == f2:
+        return False, "Finalisten müssen unterschiedlich sein."
+    if f1 not in teilnehmer or f2 not in teilnehmer:
+        return False, "Finalisten müssen Teilnehmer sein."
+    if sieger not in (f1, f2):
+        return False, "Sieger muss einer der Finalisten sein."
     confa = creator in teilnehmer
     confb = False
     supabase.table("pending_rounds").insert({
         "datum": now_utc_iso(),
         "teilnehmer": ";".join(teilnehmer),
-        "finalisten": ";".join([x for x in (f1, f2) if x]),
+        "finalisten": ";".join([f1, f2]),
         "sieger": sieger,
         "confa": confa, "confb": confb,
     }).execute()
@@ -689,6 +694,7 @@ else:
                         st.success(f"{it['mode']} bestätigt")
                     else:
                         st.error(msg)
+                    st.rerun()
                 if c4.button("Ablehnen", key=f"w_rej_{it['mode']}_{it['id']}"):
                     if it['mode'] == 'Einzel':
                         ok, msg = reject_pending_match(it['id'], st.session_state.user)
@@ -700,6 +706,7 @@ else:
                         st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
+                    st.rerun()
         else:
             st.caption("Nichts zu bestätigen.")
 
@@ -720,6 +727,7 @@ else:
                         st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
+                    st.rerun()
         else:
             st.caption("Keine offenen Anfragen beim Gegner.")
 
@@ -761,6 +769,7 @@ else:
                         else:
                             st.error(msg)
                         _set_editing_false()
+                        st.rerun()
             else:
                 st.info("Mindestens zwei Spieler erforderlich.")
 
@@ -785,6 +794,7 @@ else:
                     else:
                         st.error(msg)
                     _set_editing_false()
+                    st.rerun()
             else:
                 st.info("Mindestens vier Spieler erforderlich.")
 
@@ -797,18 +807,30 @@ else:
                 winner = st.selectbox("Sieger", participants if participants else [""], key="r_win", on_change=_set_editing_true)
                 fin_cols = st.columns(2)
                 with fin_cols[0]:
-                    fin1 = st.selectbox("Finalist 1 (optional)", [""] + participants, key="r_f1", on_change=_set_editing_true)
+                    fin1 = st.selectbox("Finalist 1", [""] + participants, key="r_f1", on_change=_set_editing_true)
                 with fin_cols[1]:
-                    fin2 = st.selectbox("Finalist 2 (optional)", [""] + participants, key="r_f2", on_change=_set_editing_true)
+                    fin2 = st.selectbox("Finalist 2", [""] + participants, key="r_f2", on_change=_set_editing_true)
                 if st.button("✅ Rundlauf einreichen"):
-                    f1 = fin1 if fin1 else None
-                    f2 = fin2 if fin2 else None
-                    ok, msg = submit_round_pending(st.session_state.user, participants, (f1, f2), winner)
-                    if ok:
-                        st.success("Rundlauf angelegt")
+                    if len(participants) < 3:
+                        st.error("Mindestens drei Teilnehmer erforderlich.")
+                    elif not winner or winner not in participants:
+                        st.error("Sieger muss Teilnehmer sein.")
+                    elif not fin1 or not fin2:
+                        st.error("Bitte beide Finalisten wählen.")
+                    elif fin1 == fin2:
+                        st.error("Finalisten müssen unterschiedlich sein.")
+                    elif fin1 not in participants or fin2 not in participants:
+                        st.error("Finalisten müssen Teilnehmer sein.")
+                    elif winner not in (fin1, fin2):
+                        st.error("Sieger muss einer der Finalisten sein.")
                     else:
-                        st.error(msg)
-                    _set_editing_false()
+                        ok, msg = submit_round_pending(st.session_state.user, participants, (fin1, fin2), winner)
+                        if ok:
+                            st.success("Rundlauf angelegt")
+                        else:
+                            st.error(msg)
+                        _set_editing_false()
+                        st.rerun()
             else:
                 st.info("Mindestens drei Spieler erforderlich.")
 
@@ -830,6 +852,7 @@ else:
                         st.success(f"{it['mode']} bestätigt")
                     else:
                         st.error(msg)
+                    st.rerun()
                 if c4.button("❌", key=f"s_rej_{it['mode']}_{it['id']}"):
                     if it['mode'] == 'Einzel':
                         ok, msg = reject_pending_match(it['id'], st.session_state.user)
@@ -841,6 +864,7 @@ else:
                         st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
+                    st.rerun()
         else:
             st.caption("Nichts zu bestätigen.")
 
@@ -861,23 +885,24 @@ else:
                         st.success(f"{it['mode']} abgelehnt")
                     else:
                         st.error(msg)
+                    st.rerun()
         else:
             st.caption("Keine offenen Anfragen beim Gegner.")
 
     with main_tab3:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
         
-        if st.button("🚪 Logout"):
-            st.session_state.pop("user", None)
-            st.session_state.pop("editing", None)
-            if "user" in st.query_params:
-                del st.query_params["user"]
-            if "token" in st.query_params:
-                del st.query_params["token"]
-            st.rerun()
-        
-        # Auto-refresh loop (only when logged in)
-        if not st.session_state.get("editing", False):
-            time.sleep(20)
-            st.rerun()
+    if st.button("🚪 Logout"):
+        st.session_state.pop("user", None)
+        st.session_state.pop("editing", None)
+        if "user" in st.query_params:
+            del st.query_params["user"]
+        if "token" in st.query_params:
+            del st.query_params["token"]
+        st.rerun()
+
+    # Auto-refresh loop (only when logged in)
+    if not st.session_state.get("editing", False):
+        time.sleep(20)
+        st.rerun()
 # endregion
