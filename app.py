@@ -191,13 +191,13 @@ def _ensure_realtime_started():
         async def run():
             try:
                 # Phase: create async client (with timeout)
-                st.session_state["_rt_debug"]["phase"] = "create_client"
+                _RT_FLAGS["phase"] = "create_client"
                 acli = await asyncio.wait_for(acreate_client(SUPABASE_URL, SUPABASE_KEY), timeout=8)
                 _RT_FLAGS["client_created"] = True
 
                 # Optional: sanity REST probe (non-fatal)
                 try:
-                    st.session_state["_rt_debug"]["phase"] = "probe_rest"
+                    _RT_FLAGS["phase"] = "probe_rest"
                     # Try a lightweight list of players to ensure the async client works
                     _ = await asyncio.wait_for(acli.table("players").select("name").limit(1).execute(), timeout=6)
                 except Exception as e_probe:
@@ -211,8 +211,7 @@ def _ensure_realtime_started():
                     except Exception:
                         pass
 
-                # Phase: subscribe to channel
-                st.session_state["_rt_debug"]["phase"] = "subscribe"
+                # Phase: connect, subscribe, then listen (correct order)
                 channel = acli.channel("tt_elo_changes")
                 channel.on_postgres_changes("*", schema="public", table="pending_matches", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="pending_doubles", callback=on_change)
@@ -220,22 +219,23 @@ def _ensure_realtime_started():
                 channel.on_postgres_changes("*", schema="public", table="matches", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="doubles", callback=on_change)
                 channel.on_postgres_changes("*", schema="public", table="rounds", callback=on_change)
-                await asyncio.wait_for(channel.subscribe(), timeout=8)
-                _RT_FLAGS["channel_subscribed"] = True
 
-                # Phase: connect + listen
-                st.session_state["_rt_debug"]["phase"] = "connect"
+                _RT_FLAGS["phase"] = "connect"
                 await asyncio.wait_for(acli.realtime.connect(), timeout=8)
                 _RT_FLAGS["connect_ok"] = True
 
-                st.session_state["_rt_debug"]["phase"] = "listen"
+                _RT_FLAGS["phase"] = "subscribe"
+                await asyncio.wait_for(channel.subscribe(), timeout=8)
+                _RT_FLAGS["channel_subscribed"] = True
+
+                _RT_FLAGS["phase"] = "listen"
                 await acli.realtime.listen()
             except asyncio.TimeoutError as te:
-                _RT_FLAGS["last_error"] = f"timeout at phase={st.session_state['_rt_debug'].get('phase')}: {te}"
+                _RT_FLAGS["last_error"] = f"timeout at phase={_RT_FLAGS.get('phase')}: {te}"
                 st.session_state["_rt_started"] = False
             except Exception as e:
                 # Include traceback for deeper diagnostics
-                _RT_FLAGS["last_error"] = f"error at phase={st.session_state['_rt_debug'].get('phase')}: {type(e).__name__}: {e}\n{traceback.format_exc()}"
+                _RT_FLAGS["last_error"] = f"error at phase={_RT_FLAGS.get('phase')}: {type(e).__name__}: {e}\n{traceback.format_exc()}"
                 st.session_state["_rt_started"] = False
 
         loop.run_until_complete(run())
@@ -253,6 +253,7 @@ dbg["client_created"] = bool(_RT_FLAGS.get("client_created"))
 dbg["channel_subscribed"] = bool(_RT_FLAGS.get("channel_subscribed"))
 dbg["connect_ok"] = bool(_RT_FLAGS.get("connect_ok"))
 dbg["last_error"] = _RT_FLAGS.get("last_error")
+dbg["phase"] = _RT_FLAGS.get("phase", dbg.get("phase"))
 st.session_state["_rt_debug"] = dbg
 
 # Drain realtime event queue and rerun once per batch
