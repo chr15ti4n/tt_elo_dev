@@ -407,8 +407,6 @@ else:
 
     st.session_state.setdefault("editing", False)
 
-    st.session_state.setdefault("auto_refresh", True)
-
     main_tab1, main_tab2, main_tab3 = st.tabs(["Willkommen", "Spielen", "Account"])
 
     with main_tab1:
@@ -498,7 +496,7 @@ else:
         st.info("Statistik & Account – folgt. Hier kommen Profile, Verlauf, Einstellungen.")
 
     # Auto-refresh loop (only when logged in)
-    if st.session_state.get("auto_refresh", True) and not st.session_state.get("editing", False):
+    if not st.session_state.get("editing", False):
         time.sleep(30)
         st.rerun()
 # endregion
