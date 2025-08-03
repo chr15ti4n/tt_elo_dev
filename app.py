@@ -958,7 +958,7 @@ if st.session_state.view_mode == "home":
                 st.markdown("**Rundlauf**")
                 for idx, row in rp_inv.iterrows():
                     cols = st.columns([3,1,1])
-                    cols[0].write(f"{row['Teilnehmer']}  Sieger: {row['Sieger']}")
+                    cols[0].write(f"{row['teilnehmer']}  Sieger: {row['sieger']}")
                     if cols[1].button("✅", key=f"tab2_confirm_r_{idx}"):
                         payload = {
                             "Datum": row["datum"].isoformat(),
