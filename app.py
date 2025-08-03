@@ -781,13 +781,18 @@ else:
                 c1, c2 = st.columns(2)
                 with c1:
                     a1 = st.selectbox("Team A – Spieler 1", names, key="d_a1", on_change=_set_editing_true)
-                    a2 = st.selectbox("Team A – Spieler 2", names, key="d_a2", on_change=_set_editing_true)
+                    opts_a2 = [n for n in names if n != a1]
+                    a2 = st.selectbox("Team A – Spieler 2", opts_a2, key="d_a2", on_change=_set_editing_true)
                     pa = st.number_input("Punkte Team A", min_value=0, step=1, key="d_pa", on_change=_set_editing_true)
                 with c2:
-                    b1 = st.selectbox("Team B – Spieler 1", names, key="d_b1", on_change=_set_editing_true)
-                    b2 = st.selectbox("Team B – Spieler 2", names, key="d_b2", on_change=_set_editing_true)
+                    opts_b1 = [n for n in names if n not in {a1, a2}]
+                    b1 = st.selectbox("Team B – Spieler 1", opts_b1, key="d_b1", on_change=_set_editing_true)
+                    opts_b2 = [n for n in names if n not in {a1, a2, b1}]
+                    b2 = st.selectbox("Team B – Spieler 2", opts_b2, key="d_b2", on_change=_set_editing_true)
                     pb = st.number_input("Punkte Team B", min_value=0, step=1, key="d_pb", on_change=_set_editing_true)
-                if st.button("✅ Doppel einreichen"):
+
+                disable_submit = not all([a1, a2, b1, b2]) or len({a1, a2, b1, b2}) < 4
+                if st.button("✅ Doppel einreichen", disabled=disable_submit):
                     ok, msg = submit_double_pending(st.session_state.user, a1, a2, b1, b2, int(pa), int(pb))
                     if ok:
                         st.success("Doppel angelegt")
