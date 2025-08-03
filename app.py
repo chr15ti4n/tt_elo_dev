@@ -122,14 +122,15 @@ except KeyError:
 
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Initialize realtime debug baseline (always visible)
+st.session_state.setdefault("_rt_debug", {})
+st.session_state["_rt_debug"].update({
+    "supabase_py_version": SUPABASE_PY_VERSION,
+    "acreate_client_available": 'yes' if 'acreate_client' in globals() and acreate_client is not None else False,
+    "async_client_available": 'yes' if 'AsyncClient' in globals() and AsyncClient is not None else False,
+})
 # endregion
 
-# region Supabase Realtime (event-driven refresh)
-try:
-    from supabase import acreate_client, AsyncClient  # async client for realtime
-except Exception:
-    acreate_client = None
-    AsyncClient = None
 
 # region Supabase Realtime (event-driven refresh)
 try:
@@ -142,7 +143,15 @@ def _ensure_realtime_started():
     """Start a background task that subscribes to DB changes and flips a flag in session_state.
     Requires: Realtime enabled for the tables in Supabase (Database → Replication → supabase_realtime).
     """
-    if st.session_state.get("_rt_started") or acreate_client is None:
+    if st.session_state.get("_rt_started"):
+        return
+    if acreate_client is None:
+        # record why realtime did not start
+        st.session_state.setdefault("_rt_debug", {})
+        st.session_state["_rt_debug"]["last_error"] = (
+            f"Realtime not started: acreate_client missing (supabase_py_version={SUPABASE_PY_VERSION}). "
+            "Please upgrade 'supabase' package to >=2.6.0."
+        )
         return
     st.session_state["_rt_started"] = True
     st.session_state.setdefault("_rt_debug", {})
@@ -165,7 +174,7 @@ def _ensure_realtime_started():
 
         async def run():
             try:
-                acli: AsyncClient = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
+                acli = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
                 st.session_state["_rt_debug"]["client_created"] = True
 
                 # Define a plain (sync) callback as per docs
@@ -1074,6 +1083,7 @@ else:
 
     with main_tab3:
         with st.expander("⚡ Realtime-Debug", expanded=False):
+            st.caption(f"supabase_py_version(var) = {SUPABASE_PY_VERSION}; acreate_client is None = {acreate_client is None}")
             dbg = st.session_state.get("_rt_debug", {})
             st.write({
                 "supabase_py_version": dbg.get("supabase_py_version"),
