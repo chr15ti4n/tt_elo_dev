@@ -44,7 +44,7 @@ if "user" not in st.session_state:
         # Fetch stored hash for auto_user
         resp = supabase.table("players").select("pin").eq("name", auto_user).single().execute()
         stored_hash = resp.data.get("pin") if resp.data else None
-        if stored_hash and check_pin(auto_token, stored_hash):
+        if stored_hash and auto_token == stored_hash:
             st.session_state.user = auto_user
 # endregion
 
