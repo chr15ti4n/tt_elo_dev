@@ -30,18 +30,25 @@ if 'user' not in st.session_state:
                 if resp.data and resp.data.get("pin") == pin:
                     st.session_state.user = name
                     st.success(f"Eingeloggt als {name}")
-                    st.experimental_rerun()
                 else:
                     st.error("Ungültiger Name oder PIN")
 
     with register_tab:
         with st.form("register_form"):
             name = st.text_input("Neuer Benutzername")
-            pin  = st.text_input("PIN", type="password")
+            pin = st.text_input("PIN", type="password")
+            pin_confirm = st.text_input("PIN wiederholen", type="password")
             if st.form_submit_button("Registrieren"):
-                # Attempt to insert new user
-                supabase.table("players").insert({"name": name, "pin": pin}).execute()
-                st.success("Registrierung erfolgreich. Bitte einloggen.")
+                if not name:
+                    st.error("Bitte einen Benutzernamen eingeben.")
+                elif not pin:
+                    st.error("Bitte eine PIN eingeben.")
+                elif pin != pin_confirm:
+                    st.error("PIN stimmt nicht überein.")
+                else:
+                    supabase.table("players").insert({"name": name, "pin": pin}).execute()
+                    st.success("Registrierung erfolgreich. Bitte einloggen.")
+    st.stop()
 else:
     st.header(f"👋 Willkommen, {st.session_state.user}!")
     # Show the full players CSV from Supabase
