@@ -519,6 +519,8 @@ def submit_round_pending(creator: str, teilnehmer: list[str], finalisten: tuple[
 
 def confirm_pending_round(row_id: str, user: str):
     r = supabase.table("pending_rounds").select("*").eq("id", row_id).single().execute().data
+    if r.get("creator") == user and r.get("confa") and not r.get("confb"):
+        return False, "Bestätigung muss durch einen anderen Teilnehmer erfolgen."
     if not r:
         return False, "Eintrag nicht gefunden."
     teilnehmer = str(r.get("teilnehmer", "")).split(";") if r.get("teilnehmer") else []
