@@ -452,12 +452,10 @@ else:
                 c2.write(fmt_dt_local(r['datum']))
                 if c3.button("Bestätigen", key=f"confirm_{r['id']}"):
                     ok, msg = confirm_pending_match(r["id"], st.session_state.user)
-                    st.toast(msg)
-                    st.rerun()
+                    st.success(msg) if ok else st.error(msg)
                 if c4.button("Ablehnen", key=f"reject_{r['id']}"):
                     ok, msg = reject_pending_match(r["id"], st.session_state.user)
-                    st.toast(msg)
-                    st.rerun()
+                    st.success(msg) if ok else st.error(msg)
         else:
             st.info("Keine Bestätigungen offen.")
 
@@ -491,7 +489,6 @@ else:
                     ok, msg = submit_single_pending(st.session_state.user, a, b, int(pa), int(pb))
                     st.success(msg) if ok else st.error(msg)
                     _set_editing_false()
-                    st.rerun()
             else:
                 st.info("Mindestens zwei Spieler erforderlich.")
 
@@ -509,12 +506,10 @@ else:
                 c2.write(fmt_dt_local(r['datum']))
                 if c3.button("✅", key=f"sub_confirm_{r['id']}"):
                     ok, msg = confirm_pending_match(r["id"], st.session_state.user)
-                    st.toast(msg)
-                    st.rerun()
+                    st.success(msg) if ok else st.error(msg)
                 if c4.button("❌", key=f"sub_reject_{r['id']}"):
                     ok, msg = reject_pending_match(r["id"], st.session_state.user)
-                    st.toast(msg)
-                    st.rerun()
+                    st.success(msg) if ok else st.error(msg)
         else:
             st.info("Keine offenen Bestätigungen.")
 
@@ -526,8 +521,7 @@ else:
                 c2.write(fmt_dt_local(r['datum']))
                 if c3.button("❌", key=f"sub_reject_wait_{r['id']}"):
                     ok, msg = reject_pending_match(r["id"], st.session_state.user)
-                    st.toast(msg)
-                    st.rerun()
+                    st.success(msg) if ok else st.error(msg)
         else:
             st.info("Keine offenen Anfragen beim Gegner.")
 
