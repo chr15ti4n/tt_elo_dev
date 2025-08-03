@@ -51,7 +51,7 @@ def load_last_events_table(limit: int = 5) -> pd.DataFrame:
             else:
                 # Fallback: wenn Sieger nicht in den Finalisten steht, nimm den ersten als Zweiten
                 second = finals[0]
-        res = f"1. {winner}, 2. {second}" if second else f"1. {winner}"
+        res = f"1. {winner}\n2. {second}" if second else f"1. {winner}"
         rows.append({
             "Modus": "Rundlauf",
             "Teilnehmer": parts,
