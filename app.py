@@ -255,7 +255,7 @@ def logged_in_header(user: dict):
         </style>
         <div class="elo-wrap">
           <div class="welcome">Willkommen, {name}</div>
-          <div class="elo-center"><div class="value">{gelo}</div></div>
+          <div class="elo-center"><div class="value">{gelo}, Gesamt Elo</div></div>
           <div class="elo-grid">
               <div class="elo-card"><div class="label">Einzel</div><div class="value">{elo}</div></div>
               <div class="elo-card"><div class="label">Doppel</div><div class="value">{d_elo}</div></div>
