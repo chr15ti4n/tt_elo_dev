@@ -206,7 +206,7 @@ def login_register_ui():
 # endregion
 
 # region layout_header
-st.title("🏓 AK-Tischtennis")
+st.header("🏓 AK-Tischtennis")
 # endregion
 
 # region session_init
@@ -229,18 +229,42 @@ def _metric_val(user: dict, key: str, default: int = 1200) -> int:
         return default
 
 def logged_in_header(user: dict):
-    left, right = st.columns([3,1])
-    with left:
-        st.markdown(f"### 👤 {user.get('name', 'Unbekannt')}")
-        st.caption("Eingeloggt – Übersicht")
-    with right:
-        st.empty()  # Platzhalter – Logout liegt im Tab 'Account'
+    name = user.get('name', 'Spieler')
+    gelo = _metric_val(user, 'g_elo')
+    elo = _metric_val(user, 'elo')
+    d_elo = _metric_val(user, 'd_elo')
+    r_elo = _metric_val(user, 'r_elo')
 
-    cols = st.columns(4)
-    cols[0].metric("G‑ELO", _metric_val(user, "g_elo"))
-    cols[1].metric("Einzel", _metric_val(user, "elo"))
-    cols[2].metric("Doppel", _metric_val(user, "d_elo"))
-    cols[3].metric("Rundlauf", _metric_val(user, "r_elo"))
+    st.markdown(
+        f"""
+        <style>
+        .elo-wrap {{ margin: 0.25rem 0 0.5rem; }}
+        .welcome {{ font-size: 1.25rem; font-weight: 600; margin: 0 0 .25rem; }}
+        .elo-center {{ text-align: center; margin: .25rem 0 .5rem; }}
+        .elo-center .value {{ font-size: 40px; font-weight: 700; line-height: 1; }}
+        .elo-grid {{ display: flex; gap: 8px; justify-content: center; align-items: stretch; flex-wrap: nowrap; }}
+        .elo-card {{ flex: 0 1 33%; max-width: 33%; padding: 8px 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; text-align: center; backdrop-filter: blur(2px); }}
+        .elo-card .label {{ font-size: 12px; opacity: .75; margin-bottom: 2px; }}
+        .elo-card .value {{ font-size: 18px; font-weight: 600; line-height: 1.1; }}
+        @media (max-width: 480px) {{
+          .elo-center .value {{ font-size: 34px; }}
+          .elo-grid {{ gap: 6px; }}
+          .elo-card {{ padding: 6px 6px; }}
+          .elo-card .value {{ font-size: 16px; }}
+        }}
+        </style>
+        <div class="elo-wrap">
+          <div class="welcome">Willkommen, {name}</div>
+          <div class="elo-center"><div class="value">{gelo}</div></div>
+          <div class="elo-grid">
+              <div class="elo-card"><div class="label">Einzel</div><div class="value">{elo}</div></div>
+              <div class="elo-card"><div class="label">Doppel</div><div class="value">{d_elo}</div></div>
+              <div class="elo-card"><div class="label">Rundlauf</div><div class="value">{r_elo}</div></div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def get_current_user() -> dict | None:
