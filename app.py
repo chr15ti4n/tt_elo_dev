@@ -193,7 +193,7 @@ def login_register_ui():
 # endregion
 
 # region layout_header
-st.title("🏓 tt-elo – Supabase Datenbrowser")
+st.title("🏓 AK-Tischtennis")
 
 # endregion
 
