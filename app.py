@@ -738,7 +738,13 @@ def logged_in_ui():
         st.divider()
 
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
-        st.markdown("### Offene Bestätigungen")
+        col_head, col_btn = st.columns([6,1])
+        with col_head:
+            st.markdown("### Offene Bestätigungen")
+        with col_btn:
+            if st.button("🔄", key="btn_refresh_confirmations"):
+                clear_table_cache()
+                st.rerun()
                 # Refresh nur für die Pending-Listen
         if st.button("🔄 Aktualisieren", key="btn_refresh_confirmations"):
             clear_table_cache()
