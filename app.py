@@ -1,15 +1,3 @@
-
-
-# tt-elo – Streamlit + Supabase (PIN-basiert)
-# -------------------------------------------------
-# Voraussetzungen:
-#   pip install streamlit supabase bcrypt pandas numpy pytz
-# Streamlit Secrets (.streamlit/secrets.toml):
-#   [supabase]
-#   url = "https://<YOUR-PROJECT>.supabase.co"
-#   key = "<YOUR-ANON-OR-SERVICE-KEY>"
-# -------------------------------------------------
-
 from __future__ import annotations
 import streamlit as st
 import pandas as pd
