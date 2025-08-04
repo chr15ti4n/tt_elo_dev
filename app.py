@@ -123,6 +123,93 @@ def get_current_user() -> dict | None:
     except Exception:
         return None
 
+@st.cache_data(ttl=30)
+def get_player_maps():
+    """Gibt (id_to_name, name_to_id) basierend auf der players-Tabelle zurück."""
+    df = load_table("players")
+    id_to_name = {}
+    name_to_id = {}
+    if not df.empty:
+        for _, r in df.iterrows():
+            pid = str(r.get("id"))
+            nm = str(r.get("name"))
+            if pid and nm:
+                id_to_name[pid] = nm
+                name_to_id[nm] = pid
+    return id_to_name, name_to_id
+
+# endregion
+
+# region game_helpers
+from datetime import datetime
+
+def _utc_iso(ts) -> str:
+    return pd.Timestamp(ts).tz_convert("UTC").isoformat()
+
+def create_pending_single(creator_id: str, opponent_id: str, s_a: int, s_b: int):
+    payload = {
+        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+        "a": creator_id, "b": opponent_id,
+        "punktea": int(s_a), "punkteb": int(s_b),
+        "confa": True, "confb": False,
+    }
+    sp.table("pending_matches").insert(payload).execute()
+
+def create_pending_double(creator_id: str, partner_id: str, opp1_id: str, opp2_id: str, s_a: int, s_b: int):
+    payload = {
+        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+        "a1": creator_id, "a2": partner_id,
+        "b1": opp1_id, "b2": opp2_id,
+        "punktea": int(s_a), "punkteb": int(s_b),
+        "confa": True, "confb": False,
+    }
+    sp.table("pending_doubles").insert(payload).execute()
+
+def create_pending_round(creator_id: str, participant_ids: list[str]):
+    teilnehmer = ";".join([creator_id] + [pid for pid in participant_ids if pid != creator_id])
+    payload = {
+        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+        "teilnehmer": teilnehmer,
+        "finalisten": None,
+        "sieger": None,
+        "confa": True, "confb": False,
+    }
+    sp.table("pending_rounds").insert(payload).execute()
+
+# --- Confirm / Reject (ohne ELO-Update; das bauen wir im nächsten Schritt) ---
+
+def confirm_pending_single(row: pd.Series):
+    sp.table("matches").insert({
+        "datum": _utc_iso(pd.Timestamp(row["datum"])),
+        "a": row["a"], "b": row["b"],
+        "punktea": int(row["punktea"]), "punkteb": int(row["punkteb"]),
+    }).execute()
+    sp.table("pending_matches").delete().eq("id", row["id"]).execute()
+
+
+def confirm_pending_double(row: pd.Series):
+    sp.table("doubles").insert({
+        "datum": _utc_iso(pd.Timestamp(row["datum"])),
+        "a1": row["a1"], "a2": row["a2"],
+        "b1": row["b1"], "b2": row["b2"],
+        "punktea": int(row["punktea"]), "punkteb": int(row["punkteb"]),
+    }).execute()
+    sp.table("pending_doubles").delete().eq("id", row["id"]).execute()
+
+
+def confirm_pending_round(row: pd.Series):
+    sp.table("rounds").insert({
+        "datum": _utc_iso(pd.Timestamp(row["datum"])),
+        "teilnehmer": row["teilnehmer"],
+        "finalisten": row.get("finalisten"),
+        "sieger": row.get("sieger"),
+    }).execute()
+    sp.table("pending_rounds").delete().eq("id", row["id"]).execute()
+
+
+def reject_pending(table: str, id_: str):
+    sp.table(table).delete().eq("id", id_).execute()
+
 # endregion
 
 # region login_ui
@@ -255,7 +342,7 @@ def logged_in_header(user: dict):
         </style>
         <div class="elo-wrap">
           <div class="welcome">Willkommen, {name}</div>
-          <div class="elo-center"><div class="value">{gelo}, Gesamt Elo</div></div>
+          <div class="elo-center"><div class="value">{gelo}</div></div>
           <div class="elo-grid">
               <div class="elo-card"><div class="label">Einzel</div><div class="value">{elo}</div></div>
               <div class="elo-card"><div class="label">Doppel</div><div class="value">{d_elo}</div></div>
@@ -287,7 +374,7 @@ def logged_in_ui():
         st.rerun()
         return
 
-    # Tabs: Übersicht (zuerst), Spielen (leer), Account (Logout)
+    # Tabs: Übersicht (zuerst), Spielen, Account (Logout)
     tabs = st.tabs(["Übersicht", "Spielen", "Account"])  
 
     # Übersicht
@@ -299,10 +386,170 @@ def logged_in_ui():
         Hier bauen wir als Nächstes die Inhalte auf (z. B. letzte Spiele, Win‑Streak, offene Bestätigungen).
         """)
 
-    # Spielen – vorerst leer (wird später implementiert)
+    # Spielen – neue UI für Spiele erstellen und verwalten
     with tabs[1]:
         st.subheader("Spielen")
-        st.info("Hier werden später Spiele erstellt (Einzel/Doppel/Rundlauf).")
+        id_to_name, name_to_id = get_player_maps()
+        me = st.session_state.get("player_id")
+
+        # --- Erstellung ---
+        mode = st.radio("Modus wählen", ["Einzel", "Doppel", "Rundlauf"], horizontal=True)
+        if mode == "Einzel":
+            opponent = st.selectbox("Gegner", [n for n in name_to_id.keys() if name_to_id[n] != me])
+            c1, c2 = st.columns(2)
+            s_a = c1.number_input("Deine Punkte", min_value=0, step=1, value=11)
+            s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=9)
+            if st.button("Einladung senden (Einzel)"):
+                create_pending_single(me, name_to_id[opponent], s_a, s_b)
+                clear_table_cache()
+                st.success("Einladung erstellt. Der Gegner muss bestätigen oder ablehnen.")
+                st.rerun()
+
+        elif mode == "Doppel":
+            partner = st.selectbox("Partner", [n for n in name_to_id.keys() if name_to_id[n] != me])
+            right1 = st.selectbox("Gegner 1", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner])])
+            right2 = st.selectbox("Gegner 2", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner], name_to_id[right1])])
+            c1, c2 = st.columns(2)
+            s_a = c1.number_input("Eure Punkte", min_value=0, step=1, value=11)
+            s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=8)
+            if st.button("Einladung senden (Doppel)"):
+                create_pending_double(me, name_to_id[partner], name_to_id[right1], name_to_id[right2], s_a, s_b)
+                clear_table_cache()
+                st.success("Doppel-Einladung erstellt.")
+                st.rerun()
+
+        else:  # Rundlauf
+            teilnehmer = st.multiselect("Teilnehmer wählen", [n for n in name_to_id.keys() if name_to_id[n] != me])
+            if st.button("Rundlauf eintragen (pending)"):
+                if len(teilnehmer) < 1:
+                    st.warning("Mindestens 1 weiterer Teilnehmer.")
+                else:
+                    others = [name_to_id[n] for n in teilnehmer]
+                    create_pending_round(me, others)
+                    clear_table_cache()
+                    st.success("Rundlauf gespeichert (pending).")
+                    st.rerun()
+
+        st.divider()
+
+        # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
+        st.markdown("### Offene Bestätigungen")
+        pm = load_table("pending_matches")
+        pdbl = load_table("pending_doubles")
+        pr = load_table("pending_rounds")
+
+        if not pm.empty:
+            my_conf = pm[(pm["b"].astype(str) == str(me)) & (~pm["confa"] | ~pm["confb"])]
+            for _, r in my_conf.iterrows():
+                a_n = id_to_name.get(str(r["a"]), r["a"])
+                b_n = id_to_name.get(str(r["b"]), r["b"])
+                line = f"Einzel: {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                c1, c2 = st.columns([3,1])
+                c1.write(line)
+                if c2.button("Bestätigen", key=f"conf_s_{r['id']}"):
+                    confirm_pending_single(r)
+                    clear_table_cache()
+                    st.success("Einzel bestätigt.")
+                    st.rerun()
+                if c2.button("Ablehnen", key=f"rej_s_{r['id']}"):
+                    reject_pending("pending_matches", r["id"])
+                    clear_table_cache()
+                    st.info("Einzel abgelehnt.")
+                    st.rerun()
+
+        if not pdbl.empty:
+            mask = (
+                (pdbl["a1"].astype(str) != str(me)) & (
+                    (pdbl["a2"].astype(str) == str(me)) |
+                    (pdbl["b1"].astype(str) == str(me)) |
+                    (pdbl["b2"].astype(str) == str(me))
+                ) & (~pdbl["confa"] | ~pdbl["confb"]))
+            my_conf = pdbl[mask]
+            for _, r in my_conf.iterrows():
+                a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
+                b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
+                line = f"Doppel: {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                c1, c2 = st.columns([3,1])
+                c1.write(line)
+                if c2.button("Bestätigen", key=f"conf_d_{r['id']}"):
+                    confirm_pending_double(r)
+                    clear_table_cache()
+                    st.success("Doppel bestätigt.")
+                    st.rerun()
+                if c2.button("Ablehnen", key=f"rej_d_{r['id']}"):
+                    reject_pending("pending_doubles", r["id"])
+                    clear_table_cache()
+                    st.info("Doppel abgelehnt.")
+                    st.rerun()
+
+        if not pr.empty:
+            # bestätigbar, wenn ich Teilnehmer bin und nicht der Ersteller (Ersteller = erster Eintrag in teilnehmer)
+            def _is_involved_not_creator(row):
+                teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
+            my_conf = pr[pr.apply(_is_involved_not_creator, axis=1)]
+            for _, r in my_conf.iterrows():
+                teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
+                line = f"Rundlauf: {', '.join(teiln)}"
+                c1, c2 = st.columns([3,1])
+                c1.write(line)
+                if c2.button("Bestätigen", key=f"conf_r_{r['id']}"):
+                    confirm_pending_round(r)
+                    clear_table_cache()
+                    st.success("Rundlauf bestätigt.")
+                    st.rerun()
+                if c2.button("Ablehnen", key=f"rej_r_{r['id']}"):
+                    reject_pending("pending_rounds", r["id"])
+                    clear_table_cache()
+                    st.info("Rundlauf abgelehnt.")
+                    st.rerun()
+
+        st.divider()
+
+        # --- Von mir erstellt (ich kann abbrechen) ---
+        st.markdown("### Von dir erstellt")
+        if not pm.empty:
+            mine = pm[pm["a"].astype(str) == str(me)]
+            for _, r in mine.iterrows():
+                a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
+                line = f"Einzel: {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                c1, c2 = st.columns([3,1])
+                c1.write(line)
+                if c2.button("Abbrechen", key=f"cancel_s_{r['id']}"):
+                    reject_pending("pending_matches", r["id"])
+                    clear_table_cache()
+                    st.info("Einladung verworfen.")
+                    st.rerun()
+
+        if not pdbl.empty:
+            mine = pdbl[pdbl["a1"].astype(str) == str(me)]
+            for _, r in mine.iterrows():
+                a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
+                b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
+                line = f"Doppel: {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                c1, c2 = st.columns([3,1])
+                c1.write(line)
+                if c2.button("Abbrechen", key=f"cancel_d_{r['id']}"):
+                    reject_pending("pending_doubles", r["id"])
+                    clear_table_cache()
+                    st.info("Einladung verworfen.")
+                    st.rerun()
+
+        if not pr.empty:
+            def _created_by_me(row):
+                teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                return len(teiln) > 0 and teiln[0] == str(me)
+            mine = pr[pr.apply(_created_by_me, axis=1)]
+            for _, r in mine.iterrows():
+                teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
+                line = f"Rundlauf: {', '.join(teiln)}"
+                c1, c2 = st.columns([3,1])
+                c1.write(line)
+                if c2.button("Abbrechen", key=f"cancel_r_{r['id']}"):
+                    reject_pending("pending_rounds", r["id"])
+                    clear_table_cache()
+                    st.info("Rundlauf verworfen.")
+                    st.rerun()
 
     # Account – mit Logout‑Button
     with tabs[2]:
