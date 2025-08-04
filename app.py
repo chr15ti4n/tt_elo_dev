@@ -738,7 +738,7 @@ def logged_in_ui():
         st.divider()
 
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
-        col_head, col_btn = st.columns([1,1])
+        col_head, col_btn = st.columns([6,0.6])  # button column very narrow
         with col_head:
             st.markdown("### Offene Bestätigungen")
         with col_btn:
@@ -746,9 +746,6 @@ def logged_in_ui():
                 clear_table_cache()
                 st.rerun()
                 # Refresh nur für die Pending-Listen
-        if st.button("🔄 Aktualisieren", key="btn_refresh_confirmations"):
-            clear_table_cache()
-            st.rerun()
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
