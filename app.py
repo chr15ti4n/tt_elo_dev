@@ -157,6 +157,178 @@ def _utc_iso(ts) -> str:
     return pd.Timestamp(ts).tz_convert("UTC").isoformat()
 
 
+# --- ELO: Utilities (aus alter Datei adaptiert) ---
+
+
+def _compute_gelo_from_parts(elo: int, d_elo: int, r_elo: int) -> int:
+    # 0.6 Einzel, 0.25 Doppel, 0.15 Rundlauf
+    return int(round(0.6 * int(elo) + 0.25 * int(d_elo) + 0.15 * int(r_elo)))
+
+
+# --- Dynamische G-ELO-Berechnung nach Spielanteilen ---
+def _compute_gelo_dynamic(elo:int, d_elo:int, r_elo:int, n_e:int, n_d:int, n_r:int) -> int:
+    """Berechnet G‑ELO nach Spielanteilen.
+    Gewichte = Anteil der jeweiligen Spielanzahl; spielt jemand einen Modus nicht, zählt er 0.
+    """
+    total = n_e + n_d + n_r
+    if total == 0:
+        return int(round((elo + d_elo + r_elo)/3))  # Fallback, sollte nie passieren
+    w_e, w_d, w_r = n_e/total, n_d/total, n_r/total
+    return int(round(w_e*elo + w_d*d_elo + w_r*r_elo))
+
+
+def calc_elo(r_a: float, r_b: float, score_a: float, k: float = 64) -> int:
+    """ELO-Formel mit Erwartungswert; k wird außerhalb ggf. um Margenfaktor skaliert."""
+    exp_a = 1 / (1 + 10 ** ((r_b - r_a) / 400))
+    return int(round(r_a + k * (score_a - exp_a)))
+
+
+def calc_doppel_elo(r1: float, r2: float, opp_avg: float, s: float, k: float = 48) -> tuple[int, int]:
+    team_avg = (r1 + r2) / 2
+    exp = 1 / (1 + 10 ** ((opp_avg - team_avg) / 400))
+    delta = k * (s - exp)
+    return int(round(r1 + delta)), int(round(r2 + delta))
+
+# --- Rundlauf-ELO ---
+def calc_round_elo(r: float, avg: float, s: float, k: int = 48) -> int:
+    """Rundlauf-ELO: Sieger=1, Zweiter=0.5, andere=0."""
+    exp = 1 / (1 + 10 ** ((avg - r) / 400))
+    return int(round(r + k * (s - exp)))
+
+def update_round_after_confirm_id(participant_ids: list[str], fin1_id: str, fin2_id: str, winner_id: str, k: int = 48) -> None:
+    """Aktualisiert r_elo/Stats und g_elo aller Teilnehmer eines Rundlaufs (ID-basiert)."""
+    # 1) Aktuelle Werte holen
+    current = {}
+    for pid in participant_ids:
+        rec = sp.table("players").select("id, name, r_elo, r_siege, r_zweite, r_niederlagen, r_spiele, elo, d_elo").eq("id", pid).single().execute().data
+        if rec:
+            current[str(pid)] = rec
+    if not current:
+        return
+    # 2) Durchschnitt berechnen (auf Basis r_elo vor Update)
+    avg = float(pd.Series([float(v.get("r_elo", 1200)) for v in current.values()]).mean())
+    # 3) Für jeden Spieler neues r_elo + Stats
+    for pid, rec in current.items():
+        old_r = float(rec.get("r_elo", 1200))
+        if pid == str(winner_id):
+            s = 1.0
+            inc = {"r_siege": 1, "r_zweite": 0, "r_niederlagen": 0}
+        elif pid in (str(fin1_id), str(fin2_id)):
+            # Wenn nicht Gewinner, aber Finalist → Zweiter
+            if pid != str(winner_id):
+                s = 0.5
+                inc = {"r_siege": 0, "r_zweite": 1, "r_niederlagen": 0}
+            else:
+                s = 1.0
+                inc = {"r_siege": 1, "r_zweite": 0, "r_niederlagen": 0}
+        else:
+            s = 0.0
+            inc = {"r_siege": 0, "r_zweite": 0, "r_niederlagen": 1}
+        new_r = calc_round_elo(old_r, avg, s, k)
+        payload = {
+            "r_elo": int(new_r),
+            "r_siege": int(rec.get("r_siege", 0)) + inc["r_siege"],
+            "r_zweite": int(rec.get("r_zweite", 0)) + inc["r_zweite"],
+            "r_niederlagen": int(rec.get("r_niederlagen", 0)) + inc["r_niederlagen"],
+            "r_spiele": int(rec.get("r_spiele", 0)) + 1,
+        }
+        payload["g_elo"] = _compute_gelo_dynamic(
+            int(rec.get("elo", 1200)),
+            int(rec.get("d_elo", 1200)),
+            payload["r_elo"],
+            int(rec.get("spiele", 0)),
+            int(rec.get("d_spiele", 0)),
+            payload["r_spiele"],
+        )
+        sp.table("players").update(payload).eq("id", pid).execute()
+
+
+def update_single_after_confirm_id(a_id: str, b_id: str, pa: int, pb: int, k_base: int = 64) -> None:
+    if int(pa) == int(pb):
+        return
+    a = sp.table("players").select("id, elo, siege, niederlagen, spiele, d_elo, r_elo").eq("id", a_id).single().execute().data
+    b = sp.table("players").select("id, elo, siege, niederlagen, spiele, d_elo, r_elo").eq("id", b_id).single().execute().data
+    if not a or not b:
+        return
+    r_a, r_b = float(a.get("elo", 1200)), float(b.get("elo", 1200))
+    margin = abs(int(pa) - int(pb))  # 0–11
+    k_eff = k_base * (1 + margin / 11)
+    winner_is_a = int(pa) > int(pb)
+    new_r_a = calc_elo(r_a, r_b, 1 if winner_is_a else 0, k_eff)
+    new_r_b = calc_elo(r_b, r_a, 0 if winner_is_a else 1, k_eff)
+    a_payload = {
+        "elo": new_r_a,
+        "siege": int(a.get("siege", 0)) + (1 if winner_is_a else 0),
+        "niederlagen": int(a.get("niederlagen", 0)) + (0 if winner_is_a else 1),
+        "spiele": int(a.get("spiele", 0)) + 1,
+    }
+    b_payload = {
+        "elo": new_r_b,
+        "siege": int(b.get("siege", 0)) + (0 if winner_is_a else 1),
+        "niederlagen": int(b.get("niederlagen", 0)) + (1 if winner_is_a else 0),
+        "spiele": int(b.get("spiele", 0)) + 1,
+    }
+    a_payload["g_elo"] = _compute_gelo_dynamic(
+        a_payload["elo"],
+        int(a.get("d_elo", 1200)),
+        int(a.get("r_elo", 1200)),
+        a_payload["spiele"],
+        int(a.get("d_spiele", 0)),
+        int(a.get("r_spiele", 0)),
+    )
+    b_payload["g_elo"] = _compute_gelo_dynamic(
+        b_payload["elo"],
+        int(b.get("d_elo", 1200)),
+        int(b.get("r_elo", 1200)),
+        b_payload["spiele"],
+        int(b.get("d_spiele", 0)),
+        int(b.get("r_spiele", 0)),
+    )
+    sp.table("players").update(a_payload).eq("id", a_id).execute()
+    sp.table("players").update(b_payload).eq("id", b_id).execute()
+
+
+def update_double_after_confirm_id(a1_id: str, a2_id: str, b1_id: str, b2_id: str, pa: int, pb: int, k_base: int = 48) -> None:
+    if int(pa) == int(pb):
+        return
+    A1 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", a1_id).single().execute().data
+    A2 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", a2_id).single().execute().data
+    B1 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", b1_id).single().execute().data
+    B2 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", b2_id).single().execute().data
+    if not A1 or not A2 or not B1 or not B2:
+        return
+    ra1, ra2 = float(A1.get("d_elo", 1200)), float(A2.get("d_elo", 1200))
+    rb1, rb2 = float(B1.get("d_elo", 1200)), float(B2.get("d_elo", 1200))
+    a_avg, b_avg = (ra1 + ra2) / 2, (rb1 + rb2) / 2
+    margin = abs(int(pa) - int(pb))
+    k_eff = k_base * (1 + margin / 11)
+    team_a_win = 1 if int(pa) > int(pb) else 0
+    nr1, nr2 = calc_doppel_elo(ra1, ra2, b_avg, team_a_win, k_eff)
+    nr3, nr4 = calc_doppel_elo(rb1, rb2, a_avg, 1 - team_a_win, k_eff)
+    updates = [
+        (a1_id, A1, nr1, team_a_win),
+        (a2_id, A2, nr2, team_a_win),
+        (b1_id, B1, nr3, 1 - team_a_win),
+        (b2_id, B2, nr4, 1 - team_a_win),
+    ]
+    for pid, Rec, new_val, win in updates:
+        payload = {
+            "d_elo": int(new_val),
+            "d_siege": int(Rec.get("d_siege", 0)) + int(win),
+            "d_niederlagen": int(Rec.get("d_niederlagen", 0)) + (1 - int(win)),
+            "d_spiele": int(Rec.get("d_spiele", 0)) + 1,
+        }
+        payload["g_elo"] = _compute_gelo_dynamic(
+            int(Rec.get("elo", 1200)),
+            payload["d_elo"],
+            int(Rec.get("r_elo", 1200)),
+            int(Rec.get("spiele", 0)),
+            payload["d_spiele"],
+            int(Rec.get("r_spiele", 0)),
+        )
+        sp.table("players").update(payload).eq("id", pid).execute()
+
+
 # --- Neue create_pending_* Funktionen mit optionaler creator-Spalte ---
 
 def create_pending_single(creator_id: str, opponent_id: str, s_a: int, s_b: int, a_id: str | None = None):
@@ -198,14 +370,15 @@ def create_pending_double(creator_id: str, partner_id: str, opp1_id: str, opp2_i
     return payload
 
 
-def create_pending_round(creator_id: str, participant_ids: list[str]):
-    """Erstellt ein Rundlauf-Pending mit exakt den übergebenen Teilnehmern (ohne Auto-Ergänzung des Erstellers)."""
+def create_pending_round(creator_id: str, participant_ids: list[str], fin1_id: str, fin2_id: str, winner_id: str):
+    """Erstellt ein Rundlauf-Pending mit Teilnehmern + Finalisten (1. und 2.) + Sieger."""
     teilnehmer = ";".join([pid for pid in participant_ids if pid])
+    finalisten = ";".join([pid for pid in [fin1_id, fin2_id] if pid])
     payload = {
         "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
         "teilnehmer": teilnehmer,
-        "finalisten": None,
-        "sieger": None,
+        "finalisten": finalisten,
+        "sieger": winner_id,
         "confa": False, "confb": False,
     }
     if table_has_creator("pending_rounds"):
@@ -215,31 +388,50 @@ def create_pending_round(creator_id: str, participant_ids: list[str]):
 # --- Confirm / Reject (ohne ELO-Update; das bauen wir im nächsten Schritt) ---
 
 def confirm_pending_single(row: pd.Series):
+    # Update ELO/Stats (IDs)
+    update_single_after_confirm_id(str(row["a"]), str(row["b"]), int(row["punktea"]), int(row["punkteb"]))
+    # Persist match
     sp.table("matches").insert({
         "datum": _utc_iso(pd.Timestamp(row["datum"])),
         "a": row["a"], "b": row["b"],
         "punktea": int(row["punktea"]), "punkteb": int(row["punkteb"]),
     }).execute()
+    # Remove pending
     sp.table("pending_matches").delete().eq("id", row["id"]).execute()
 
 
 def confirm_pending_double(row: pd.Series):
+    # Update ELO/Stats (IDs)
+    update_double_after_confirm_id(str(row["a1"]), str(row["a2"]), str(row["b1"]), str(row["b2"]), int(row["punktea"]), int(row["punkteb"]))
+    # Persist match
     sp.table("doubles").insert({
         "datum": _utc_iso(pd.Timestamp(row["datum"])),
         "a1": row["a1"], "a2": row["a2"],
         "b1": row["b1"], "b2": row["b2"],
         "punktea": int(row["punktea"]), "punkteb": int(row["punkteb"]),
     }).execute()
+    # Remove pending
     sp.table("pending_doubles").delete().eq("id", row["id"]).execute()
 
 
 def confirm_pending_round(row: pd.Series):
+    # IDs aus Strings extrahieren
+    participant_ids = [pid for pid in str(row["teilnehmer"]).split(";") if pid]
+    fin_list = [pid for pid in str(row.get("finalisten") or "").split(";") if pid]
+    fin1_id = fin_list[0] if len(fin_list) > 0 else None
+    fin2_id = fin_list[1] if len(fin_list) > 1 else None
+    winner_id = str(row.get("sieger")) if row.get("sieger") else None
+    # ELO/Stats updaten (nur wenn alles vorhanden)
+    if participant_ids and fin1_id and fin2_id and winner_id:
+        update_round_after_confirm_id(participant_ids, fin1_id, fin2_id, winner_id)
+    # Persist in rounds
     sp.table("rounds").insert({
         "datum": _utc_iso(pd.Timestamp(row["datum"])),
         "teilnehmer": row["teilnehmer"],
         "finalisten": row.get("finalisten"),
         "sieger": row.get("sieger"),
     }).execute()
+    # Remove pending
     sp.table("pending_rounds").delete().eq("id", row["id"]).execute()
 
 
@@ -518,14 +710,29 @@ def logged_in_ui():
             if play_myself_r and st.session_state.get("player_name") in selectable:
                 default_sel = [st.session_state.get("player_name")]
             selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
+            if len(selected) >= 2:
+                c1, c2 = st.columns(2)
+                winner_name = c1.selectbox("Sieger (1.)", selected, key="round_winner")
+                second_candidates = [n for n in selected if n != winner_name]
+                second_name = c2.selectbox("Zweiter (2.)", second_candidates, key="round_second")
+            else:
+                winner_name, second_name = None, None
             if st.button("✅", key="btn_send_round"):
                 pids = [name_to_id[n] for n in selected]
                 if len(pids) < 2:
                     st.warning("Mindestens 2 Teilnehmer.")
+                elif not winner_name or not second_name:
+                    st.warning("Bitte Sieger und Zweiten wählen.")
                 else:
-                    create_pending_round(me, pids)
+                    create_pending_round(
+                        me,
+                        pids,
+                        fin1_id=name_to_id[winner_name],
+                        fin2_id=name_to_id[second_name],
+                        winner_id=name_to_id[winner_name],
+                    )
                     clear_table_cache()
-                    st.success("Rundlauf erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.success("Rundlauf erstellt (mit Sieger/Zweiter). Ein Teilnehmer muss bestätigen.")
                     st.rerun()
 
         st.divider()
@@ -598,7 +805,10 @@ def logged_in_ui():
                 my_conf = pr[pr.apply(_is_involved_not_creator, axis=1)]
             for _, r in my_conf.iterrows():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
-                line = f"Rundlauf: {', '.join(teiln)}"
+                fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
+                winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
+                fin_text = f"  – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
+                line = f"Rundlauf: {', '.join(teiln)}" + fin_text
                 c1, c2 = st.columns([3,1])
                 c1.write(line)
                 if c2.button("Bestätigen", key=f"conf_r_{r['id']}"):
@@ -659,7 +869,10 @@ def logged_in_ui():
                 mine = pr[pr.apply(_created_by_me, axis=1)]
             for _, r in mine.iterrows():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
-                line = f"Rundlauf: {', '.join(teiln)}"
+                fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
+                winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
+                fin_text = f"  – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
+                line = f"Rundlauf: {', '.join(teiln)}" + fin_text
                 c1, c2 = st.columns([3,1])
                 c1.write(line)
                 if c2.button("Abbrechen", key=f"cancel_r_{r['id']}"):
