@@ -738,7 +738,7 @@ def logged_in_ui():
         st.divider()
 
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
-        col_head, col_btn = st.columns([6,0.6])  # button column very narrow
+        col_head, col_btn = st.columns([8,1])  # heading wide, button stays tiny – fits better on mobile
         with col_head:
             st.markdown("### Offene Bestätigungen")
         with col_btn:
