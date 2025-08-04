@@ -738,14 +738,23 @@ def logged_in_ui():
         st.divider()
 
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
-        col_head, col_btn = st.columns([8,1])  # heading wide, button stays tiny – fits better on mobile
-        with col_head:
-            st.markdown("### Offene Bestätigungen")
-        with col_btn:
+        # Flexbox‑Header mit Emoji‑Button (bleibt auch auf Mobile inline)
+        with st.container():
+            st.markdown(
+                """
+                <style>
+                .pending-header {display:flex; align-items:center; justify-content:space-between; margin:0 0 4px;}
+                .pending-header h3 {margin:0; font-size:1.1rem;}
+                .pending-header div.stButton>button {padding:2px 6px; font-size:18px;}
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown('<div class="pending-header"><h3>Offene Bestätigungen</h3>', unsafe_allow_html=True)
             if st.button("🔄", key="btn_refresh_confirmations"):
                 clear_table_cache()
                 st.rerun()
-                # Refresh nur für die Pending-Listen
+            st.markdown('</div>', unsafe_allow_html=True)
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
