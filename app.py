@@ -138,6 +138,16 @@ def get_player_maps():
                 name_to_id[nm] = pid
     return id_to_name, name_to_id
 
+
+@st.cache_data(ttl=30)
+def table_has_creator(table: str) -> bool:
+    """Prüft, ob die Pending-Tabelle eine Spalte 'creator' hat."""
+    try:
+        sp.table(table).select("creator").limit(1).execute()
+        return True
+    except Exception:
+        return False
+
 # endregion
 
 # region game_helpers
@@ -146,34 +156,60 @@ from datetime import datetime
 def _utc_iso(ts) -> str:
     return pd.Timestamp(ts).tz_convert("UTC").isoformat()
 
-def create_pending_single(creator_id: str, opponent_id: str, s_a: int, s_b: int):
+
+# --- Neue create_pending_* Funktionen mit optionaler creator-Spalte ---
+
+def create_pending_single(creator_id: str, opponent_id: str, s_a: int, s_b: int, a_id: str | None = None):
+    """Erstellt ein Einzel-Pending.
+    - Wenn a_id None ist, spielt der Ersteller (a=creator_id) gegen opponent_id (b).
+    - Wenn a_id gesetzt ist, wird a=a_id und b=opponent_id; der Ersteller kann außen vor bleiben.
+    """
+    a_val = creator_id if a_id is None else a_id
     payload = {
         "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
-        "a": creator_id, "b": opponent_id,
+        "a": a_val, "b": opponent_id,
         "punktea": int(s_a), "punkteb": int(s_b),
-        "confa": True, "confb": False,
+        "confa": False, "confb": False,
     }
+    if table_has_creator("pending_matches"):
+        payload["creator"] = creator_id
     sp.table("pending_matches").insert(payload).execute()
 
-def create_pending_double(creator_id: str, partner_id: str, opp1_id: str, opp2_id: str, s_a: int, s_b: int):
+
+def create_pending_double(creator_id: str, partner_id: str, opp1_id: str, opp2_id: str, team_a_is_creator: bool = True):
+    """Erstellt ein Doppel-Pending.
+    - team_a_is_creator=True: Team A = (creator_id, partner_id)
+    - team_a_is_creator=False: Team A = (partner_id, opp1_id) und Team B = (opp2_id, creator_id) wird NICHT automatisch gesetzt; stattdessen erstellt der Ersteller nur für andere (A=partner_id+opp1_id, B=opp2_id+<zweiter Gegner>). In diesem Fall muss partner_id bereits beide Team-A-Spieler enthalten, daher verwenden wir partner_id als A2 und erwarten, dass opp1_id/opp2_id die Team‑B‑Spieler sind.
+    """
+    if team_a_is_creator:
+        a1, a2, b1, b2 = creator_id, partner_id, opp1_id, opp2_id
+    else:
+        # Ersteller spielt nicht mit → A = (partner_id, opp1_id), B = (opp2_id, irgendein anderer). Für UI-Varianten bauen wir unten einen zweiten Aufruf.
+        a1, a2, b1, b2 = partner_id, opp1_id, opp2_id, None  # b2 wird in der UI-Logik gesetzt
     payload = {
         "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
-        "a1": creator_id, "a2": partner_id,
-        "b1": opp1_id, "b2": opp2_id,
-        "punktea": int(s_a), "punkteb": int(s_b),
-        "confa": True, "confb": False,
+        "a1": a1, "a2": a2, "b1": b1, "b2": b2,
+        "punktea": 0, "punkteb": 0,  # Scores werden aus der UI-Variante gesetzt
+        "confa": False, "confb": False,
     }
-    sp.table("pending_doubles").insert(payload).execute()
+    if table_has_creator("pending_doubles"):
+        payload["creator"] = creator_id
+    # Insert erfolgt in der UI mit finalen Werten (wir überschreiben punktea/punkteb/b2 dort vor dem Insert)
+    return payload
+
 
 def create_pending_round(creator_id: str, participant_ids: list[str]):
-    teilnehmer = ";".join([creator_id] + [pid for pid in participant_ids if pid != creator_id])
+    """Erstellt ein Rundlauf-Pending mit exakt den übergebenen Teilnehmern (ohne Auto-Ergänzung des Erstellers)."""
+    teilnehmer = ";".join([pid for pid in participant_ids if pid])
     payload = {
         "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
         "teilnehmer": teilnehmer,
         "finalisten": None,
         "sieger": None,
-        "confa": True, "confb": False,
+        "confa": False, "confb": False,
     }
+    if table_has_creator("pending_rounds"):
+        payload["creator"] = creator_id
     sp.table("pending_rounds").insert(payload).execute()
 
 # --- Confirm / Reject (ohne ELO-Update; das bauen wir im nächsten Schritt) ---
@@ -392,40 +428,102 @@ def logged_in_ui():
         id_to_name, name_to_id = get_player_maps()
         me = st.session_state.get("player_id")
 
-        # --- Erstellung ---
-        mode = st.radio("Modus wählen", ["Einzel", "Doppel", "Rundlauf"], horizontal=True)
-        if mode == "Einzel":
-            opponent = st.selectbox("Gegner", [n for n in name_to_id.keys() if name_to_id[n] != me])
-            c1, c2 = st.columns(2)
-            s_a = c1.number_input("Deine Punkte", min_value=0, step=1, value=11)
-            s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=9)
-            if st.button("Einladung senden (Einzel)"):
-                create_pending_single(me, name_to_id[opponent], s_a, s_b)
-                clear_table_cache()
-                st.success("Einladung erstellt. Der Gegner muss bestätigen oder ablehnen.")
-                st.rerun()
+        # Optional: Info-Hinweis, falls creator-Spalte fehlt
+        missing = []
+        for t in ("pending_matches","pending_doubles","pending_rounds"):
+            if not table_has_creator(t):
+                missing.append(t)
+        if missing:
+            st.info("Tipp: Für volle Funktion (Ersteller-Ansicht & richtige Bestätigungslogik) füge in Supabase eine Spalte **creator uuid** zu den Tabellen hinzu: " + ", ".join(missing))
 
-        elif mode == "Doppel":
-            partner = st.selectbox("Partner", [n for n in name_to_id.keys() if name_to_id[n] != me])
-            right1 = st.selectbox("Gegner 1", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner])])
-            right2 = st.selectbox("Gegner 2", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner], name_to_id[right1])])
-            c1, c2 = st.columns(2)
-            s_a = c1.number_input("Eure Punkte", min_value=0, step=1, value=11)
-            s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=8)
-            if st.button("Einladung senden (Doppel)"):
-                create_pending_double(me, name_to_id[partner], name_to_id[right1], name_to_id[right2], s_a, s_b)
-                clear_table_cache()
-                st.success("Doppel-Einladung erstellt.")
-                st.rerun()
+        # --- Erstellung: Modus per Tabs ---
+        m_tabs = st.tabs(["Einzel", "Doppel", "Rundlauf"]) 
 
-        else:  # Rundlauf
-            teilnehmer = st.multiselect("Teilnehmer wählen", [n for n in name_to_id.keys() if name_to_id[n] != me])
-            if st.button("Rundlauf eintragen (pending)"):
-                if len(teilnehmer) < 1:
-                    st.warning("Mindestens 1 weiterer Teilnehmer.")
+        # Einzel
+        with m_tabs[0]:
+            play_myself = st.checkbox("Ich spiele mit", value=True, help="Dein Name als Teilnehmer A. Deaktiviere, um ein Match für andere anzulegen.")
+            if play_myself:
+                opponent = st.selectbox("Gegner", [n for n in name_to_id.keys() if name_to_id[n] != me], key="einzel_opponent")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Deine Punkte", min_value=0, step=1, value=11, key="einzel_s_a")
+                s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=9, key="einzel_s_b")
+                if st.button("Einladung senden (Einzel)", key="btn_send_single_me"):
+                    create_pending_single(me, name_to_id[opponent], s_a, s_b)
+                    clear_table_cache()
+                    st.success("Einladung erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+            else:
+                a_player = st.selectbox("Spieler A", [n for n in name_to_id.keys()], key="einzel_a")
+                b_player = st.selectbox("Spieler B", [n for n in name_to_id.keys() if n != a_player], key="einzel_b")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Punkte A", min_value=0, step=1, value=11, key="einzel2_s_a")
+                s_b = c2.number_input("Punkte B", min_value=0, step=1, value=9, key="einzel2_s_b")
+                if st.button("Einladung senden (für andere)", key="btn_send_single_others"):
+                    create_pending_single(me, name_to_id[b_player], s_a, s_b, a_id=name_to_id[a_player])
+                    clear_table_cache()
+                    st.success("Einladung erstellt (für andere). Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+
+        # Doppel
+        with m_tabs[1]:
+            play_myself_d = st.checkbox("Ich spiele mit", value=True, key="doppel_play_myself")
+            if play_myself_d:
+                partner = st.selectbox("Partner", [n for n in name_to_id.keys() if name_to_id[n] != me], key="d_partner")
+                right1 = st.selectbox("Gegner 1", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner])], key="d_opp1")
+                right2 = st.selectbox("Gegner 2", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner], name_to_id[right1])], key="d_opp2")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Eure Punkte", min_value=0, step=1, value=11, key="d_s_a")
+                s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=8, key="d_s_b")
+                if st.button("Einladung senden (Doppel)", key="btn_send_double_me"):
+                    # Direktes Insert mit fertigem Payload
+                    payload = {
+                        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+                        "a1": me, "a2": name_to_id[partner], "b1": name_to_id[right1], "b2": name_to_id[right2],
+                        "punktea": int(s_a), "punkteb": int(s_b),
+                        "confa": False, "confb": False,
+                    }
+                    if table_has_creator("pending_doubles"):
+                        payload["creator"] = me
+                    sp.table("pending_doubles").insert(payload).execute()
+                    clear_table_cache()
+                    st.success("Doppel-Einladung erstellt.")
+                    st.rerun()
+            else:
+                a1 = st.selectbox("Spieler A1", [n for n in name_to_id.keys()], key="d_a1")
+                a2 = st.selectbox("Spieler A2", [n for n in name_to_id.keys() if n != a1], key="d_a2")
+                b1 = st.selectbox("Spieler B1", [n for n in name_to_id.keys() if n not in (a1, a2)], key="d_b1")
+                b2 = st.selectbox("Spieler B2", [n for n in name_to_id.keys() if n not in (a1, a2, b1)], key="d_b2")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Punkte Team A", min_value=0, step=1, value=11, key="d2_s_a")
+                s_b = c2.number_input("Punkte Team B", min_value=0, step=1, value=8, key="d2_s_b")
+                if st.button("Einladung senden (für andere)", key="btn_send_double_others"):
+                    payload = {
+                        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+                        "a1": name_to_id[a1], "a2": name_to_id[a2], "b1": name_to_id[b1], "b2": name_to_id[b2],
+                        "punktea": int(s_a), "punkteb": int(s_b),
+                        "confa": False, "confb": False,
+                    }
+                    if table_has_creator("pending_doubles"):
+                        payload["creator"] = me
+                    sp.table("pending_doubles").insert(payload).execute()
+                    clear_table_cache()
+                    st.success("Doppel-Einladung erstellt (für andere).")
+                    st.rerun()
+
+        # Rundlauf
+        with m_tabs[2]:
+            play_myself_r = st.checkbox("Ich spiele mit", value=True, key="round_play_myself")
+            selectable = list(name_to_id.keys())
+            default_sel = []
+            if play_myself_r and st.session_state.get("player_name") in selectable:
+                default_sel = [st.session_state.get("player_name")]
+            selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
+            if st.button("Rundlauf eintragen (pending)", key="btn_send_round"):
+                pids = [name_to_id[n] for n in selected]
+                if len(pids) < 2:
+                    st.warning("Mindestens 2 Teilnehmer.")
                 else:
-                    others = [name_to_id[n] for n in teilnehmer]
-                    create_pending_round(me, others)
+                    create_pending_round(me, pids)
                     clear_table_cache()
                     st.success("Rundlauf gespeichert (pending).")
                     st.rerun()
@@ -439,7 +537,12 @@ def logged_in_ui():
         pr = load_table("pending_rounds")
 
         if not pm.empty:
-            my_conf = pm[(pm["b"].astype(str) == str(me)) & (~pm["confa"] | ~pm["confb"])]
+            has_c = table_has_creator("pending_matches")
+            if has_c:
+                my_conf = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
+            else:
+                # Fallback: ohne creator-Spalte lassen wir wie bisher den Gegner (b) bestätigen
+                my_conf = pm[pm["b"].astype(str) == str(me)]
             for _, r in my_conf.iterrows():
                 a_n = id_to_name.get(str(r["a"]), r["a"])
                 b_n = id_to_name.get(str(r["b"]), r["b"])
@@ -458,13 +561,12 @@ def logged_in_ui():
                     st.rerun()
 
         if not pdbl.empty:
-            mask = (
-                (pdbl["a1"].astype(str) != str(me)) & (
-                    (pdbl["a2"].astype(str) == str(me)) |
-                    (pdbl["b1"].astype(str) == str(me)) |
-                    (pdbl["b2"].astype(str) == str(me))
-                ) & (~pdbl["confa"] | ~pdbl["confb"]))
-            my_conf = pdbl[mask]
+            has_c_d = table_has_creator("pending_doubles")
+            if has_c_d:
+                part_mask = (pdbl[["a1","a2","b1","b2"]].astype(str) == str(me)).any(axis=1)
+                my_conf = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
+            else:
+                my_conf = pdbl[(pdbl["a1"].astype(str) != str(me)) & ((pdbl["a2"].astype(str) == str(me)) | (pdbl["b1"].astype(str) == str(me)) | (pdbl["b2"].astype(str) == str(me)))]
             for _, r in my_conf.iterrows():
                 a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
                 b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
@@ -483,11 +585,17 @@ def logged_in_ui():
                     st.rerun()
 
         if not pr.empty:
-            # bestätigbar, wenn ich Teilnehmer bin und nicht der Ersteller (Ersteller = erster Eintrag in teilnehmer)
-            def _is_involved_not_creator(row):
-                teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
-                return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
-            my_conf = pr[pr.apply(_is_involved_not_creator, axis=1)]
+            has_c_r = table_has_creator("pending_rounds")
+            if has_c_r:
+                def _involved_not_creator(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return (str(me) in teiln) and (str(row.get("creator")) != str(me))
+                my_conf = pr[pr.apply(_involved_not_creator, axis=1)]
+            else:
+                def _is_involved_not_creator(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
+                my_conf = pr[pr.apply(_is_involved_not_creator, axis=1)]
             for _, r in my_conf.iterrows():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
                 line = f"Rundlauf: {', '.join(teiln)}"
@@ -509,7 +617,10 @@ def logged_in_ui():
         # --- Von mir erstellt (ich kann abbrechen) ---
         st.markdown("### Von dir erstellt")
         if not pm.empty:
-            mine = pm[pm["a"].astype(str) == str(me)]
+            if table_has_creator("pending_matches"):
+                mine = pm[pm["creator"].astype(str) == str(me)]
+            else:
+                mine = pm[pm["a"].astype(str) == str(me)]
             for _, r in mine.iterrows():
                 a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
                 line = f"Einzel: {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
@@ -522,7 +633,10 @@ def logged_in_ui():
                     st.rerun()
 
         if not pdbl.empty:
-            mine = pdbl[pdbl["a1"].astype(str) == str(me)]
+            if table_has_creator("pending_doubles"):
+                mine = pdbl[pdbl["creator"].astype(str) == str(me)]
+            else:
+                mine = pdbl[pdbl["a1"].astype(str) == str(me)]
             for _, r in mine.iterrows():
                 a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
                 b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
@@ -536,10 +650,13 @@ def logged_in_ui():
                     st.rerun()
 
         if not pr.empty:
-            def _created_by_me(row):
-                teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
-                return len(teiln) > 0 and teiln[0] == str(me)
-            mine = pr[pr.apply(_created_by_me, axis=1)]
+            if table_has_creator("pending_rounds"):
+                mine = pr[pr["creator"].astype(str) == str(me)]
+            else:
+                def _created_by_me(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return len(teiln) > 0 and teiln[0] == str(me)
+                mine = pr[pr.apply(_created_by_me, axis=1)]
             for _, r in mine.iterrows():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
                 line = f"Rundlauf: {', '.join(teiln)}"
