@@ -1,21 +1,26 @@
+# region imports
 from __future__ import annotations
 import streamlit as st
 import pandas as pd
 from zoneinfo import ZoneInfo
 from typing import Optional
+import bcrypt
+import uuid
 try:
     from supabase import create_client, Client
 except Exception:
     create_client = None
     Client = object  # type: ignore
+# endregion
 
-# ---------- App Setup ----------
+# region app_setup
 st.set_page_config(page_title="tt-elo – Datenbrowser", page_icon="🏓", layout="wide")
 TZ = ZoneInfo("Europe/Berlin")
+# endregion
 
-# ---------- Supabase ----------
+# region supabase
 @st.cache_resource
-def get_supabase():
+def get_supabase() -> Optional[Client]:
     """Erzeugt den Supabase-Client aus den Streamlit-Secrets.
     Gibt None zurück, wenn Secrets fehlen oder das Paket nicht installiert ist.
     """
@@ -32,8 +37,9 @@ def get_supabase():
         return None
 
 sp = get_supabase()
+# endregion
 
-# ---------- Daten laden ----------
+# region data_loading
 @st.cache_data(ttl=30)
 def load_table(table_name: str) -> pd.DataFrame:
     """Lädt eine Supabase-Tabelle vollständig in ein DataFrame.
@@ -56,7 +62,137 @@ def load_table(table_name: str) -> pd.DataFrame:
         df["datum"] = pd.to_datetime(df["datum"], errors="coerce", utc=True).dt.tz_convert(TZ)
     return df
 
-# ---------- UI ----------
+def clear_table_cache():
+    load_table.clear()
+# endregion
+
+# region auth_helpers
+def hash_pin(pin: str) -> str:
+    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
+
+def check_pin(entered: str, stored: str) -> bool:
+    """Vergleicht eingegebene PIN mit gespeichertem Wert (unterstützt Legacy-Klartext)."""
+    if stored and (stored.startswith("$2b$") or stored.startswith("$2a$")):
+        try:
+            return bcrypt.checkpw(entered.encode(), stored.encode())
+        except Exception:
+            return False
+    return entered == (stored or "")
+
+def try_auto_login_from_query():
+    """Auto-Login via URL-Parameter ?user=&token= (wenn players.auto_token vorhanden).
+    Greift nur, wenn noch nicht eingeloggt.
+    """
+    if sp is None or st.session_state.get("logged_in"):
+        return
+    q = st.query_params
+    if "user" not in q or "token" not in q:
+        return
+    user = q.get("user")
+    token = q.get("token")
+    try:
+        rec = sp.table("players").select("*").eq("name", user).single().execute().data
+    except Exception:
+        rec = None
+    if not rec:
+        return
+    if str(rec.get("auto_token", "")) == str(token):
+        st.session_state.logged_in = True
+        st.session_state.player_id = rec.get("id")
+        st.session_state.player_name = rec.get("name")
+
+# endregion
+
+# region login_ui
+def login_register_ui():
+    """UI für Login & Registrierung (PIN-basiert) inkl. "Angemeldet bleiben".
+    Bei erstem Login aus Legacy-Klartext wird die PIN auf bcrypt migriert.
+    """
+    if sp is None:
+        st.error("Supabase-Client nicht initialisiert.")
+        with st.expander("Secrets konfigurieren", expanded=False):
+            st.code('[supabase]\nurl = "https://<PROJECT>.supabase.co"\nkey = "<ANON-ODER-SERVICE-KEY>"', language="toml")
+        return
+
+    tabs = st.tabs(["Einloggen", "Registrieren"])    
+
+    with tabs[0]:
+        name = st.text_input("Spielername", key="login_name")
+        pin = st.text_input("PIN", type="password", key="login_pin")
+        remember = st.checkbox("Angemeldet bleiben")
+        if st.button("Einloggen", type="primary"):
+            # Spieler holen
+            try:
+                rec = sp.table("players").select("*").eq("name", name).single().execute().data
+            except Exception:
+                rec = None
+            if not rec:
+                st.error("Spielername nicht gefunden.")
+                return
+            stored_pin = str(rec.get("pin", ""))
+            if not check_pin(pin, stored_pin):
+                st.error("PIN falsch.")
+                return
+            # ggf. Legacy -> bcrypt upgraden
+            if not (stored_pin.startswith("$2b$") or stored_pin.startswith("$2a$")):
+                try:
+                    sp.table("players").update({"pin": hash_pin(pin)}).eq("id", rec["id"]).execute()
+                except Exception:
+                    pass
+            # Session setzen
+            st.session_state.logged_in = True
+            st.session_state.player_id = rec.get("id")
+            st.session_state.player_name = rec.get("name")
+
+            # Remember-Me via auto_token + URL-Params
+            if remember:
+                try:
+                    token = uuid.uuid4().hex
+                    # Versuch: Spalte auto_token aktualisieren (falls nicht vorhanden, wird es fehlschlagen)
+                    sp.table("players").update({"auto_token": token}).eq("id", rec["id"]).execute()
+                    st.query_params.update({"user": rec.get("name"), "token": token})
+                except Exception:
+                    st.info("Hinweis: 'auto_token' Spalte nicht vorhanden – automatischer Login per URL-Token ist deaktiviert.")
+            st.success(f"Willkommen, {rec.get('name')}!")
+            st.experimental_rerun()
+
+    with tabs[1]:
+        r_name = st.text_input("Neuer Spielername", key="reg_name")
+        r_pin1 = st.text_input("PIN wählen (4-stellig)", type="password", key="reg_pin1")
+        r_pin2 = st.text_input("PIN bestätigen", type="password", key="reg_pin2")
+        if st.button("Registrieren"):
+            if not r_name or not r_pin1 or not r_pin2:
+                st.warning("Name und PIN eingeben.")
+                return
+            if r_pin1 != r_pin2:
+                st.warning("PINs stimmen nicht überein.")
+                return
+            # existiert schon?
+            try:
+                exists = sp.table("players").select("id").eq("name", r_name).maybe_single().execute().data
+            except Exception:
+                exists = None
+            if exists:
+                st.warning("Spieler existiert bereits.")
+                return
+            payload = {
+                "name": r_name,
+                "pin": hash_pin(r_pin1),
+                # Stats-Defaults, falls Spalten existieren
+                "elo": 1200, "siege": 0, "niederlagen": 0, "spiele": 0,
+                "d_elo": 1200, "d_siege": 0, "d_niederlagen": 0, "d_spiele": 0,
+                "r_elo": 1200, "r_siege": 0, "r_zweite": 0, "r_niederlagen": 0, "r_spiele": 0,
+                "g_elo": 1200,
+            }
+            try:
+                sp.table("players").insert(payload).execute()
+                clear_table_cache()
+                st.success("Registriert! Bitte einloggen.")
+            except Exception as e:
+                st.error(f"Konnte nicht registrieren: {e}")
+# endregion
+
+# region layout_header
 st.title("🏓 tt-elo – Supabase Datenbrowser")
 
 if sp is None:
@@ -66,13 +202,47 @@ if sp is None:
     st.stop()
 else:
     st.success("Supabase-Client initialisiert.")
+# endregion
 
-# Refresh-Button
-cols = st.columns([1,3])
-if cols[0].button("Aktualisieren", type="primary"):
-    load_table.clear()
+# region auto_login
+# Auto-Login via Query-Params (falls vorhanden)
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.player_id = None
+    st.session_state.player_name = None
+
+try_auto_login_from_query()
+# endregion
+
+# region topbar
+cols = st.columns([1,3,2])
+if st.session_state.get("logged_in"):
+    cols[0].success(f"Eingeloggt als {st.session_state.get('player_name')}")
+    if cols[2].button("Logout"):
+        # Optional: auto_token löschen (wenn Spalte existiert)
+        try:
+            if st.session_state.get("player_id"):
+                sp.table("players").update({"auto_token": None}).eq("id", st.session_state["player_id"]).execute()
+        except Exception:
+            pass
+        # Session & Query-Params leeren
+        for k in ("logged_in","player_id","player_name"):
+            st.session_state.pop(k, None)
+        st.query_params.clear()
+        st.experimental_rerun()
+else:
+    cols[0].info("Nicht eingeloggt")
+# endregion
+
+# region refresh_button
+# Refresh-Button für Tabellen
+rcols = st.columns([1,6])
+if rcols[0].button("Aktualisieren", type="primary"):
+    clear_table_cache()
     st.experimental_rerun()
+# endregion
 
+# region data_browser
 st.caption("Die folgenden Tabellen werden direkt aus Supabase geladen (select *).")
 
 tables = [
@@ -93,6 +263,13 @@ for t in tables:
         else:
             st.caption(f"{len(df)} Zeilen × {len(df.columns)} Spalten")
             st.dataframe(df, use_container_width=True)
+# endregion
 
+# region auth_section
 st.divider()
-st.markdown("Das ist nur der Daten-Browser. Als nächstes bauen wir PIN-Login & Eintragen/Bestätigen auf diesem Layer auf.")
+st.subheader("Login & Registrierung")
+if not st.session_state.get("logged_in"):
+    login_register_ui()
+else:
+    st.success("Bereit – du bist eingeloggt. Als nächstes können wir Eintragen/Bestätigen bauen.")
+# endregion
