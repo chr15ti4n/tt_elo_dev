@@ -14,7 +14,7 @@ except Exception:
 # endregion
 
 # region app_setup
-st.set_page_config(page_title="tt-elo – Datenbrowser", page_icon="🏓", layout="wide")
+st.set_page_config(page_title="AK-Tischtennis", page_icon="🏓", layout="wide")
 TZ = ZoneInfo("Europe/Berlin")
 # endregion
 
@@ -195,13 +195,6 @@ def login_register_ui():
 # region layout_header
 st.title("🏓 tt-elo – Supabase Datenbrowser")
 
-if sp is None:
-    st.error("Supabase-Client nicht initialisiert.")
-    with st.expander("Secrets konfigurieren", expanded=False):
-        st.code('[supabase]\nurl = "https://<PROJECT>.supabase.co"\nkey = "<ANON-ODER-SERVICE-KEY>"', language="toml")
-    st.stop()
-else:
-    st.success("Supabase-Client initialisiert.")
 # endregion
 
 # region auth_section
