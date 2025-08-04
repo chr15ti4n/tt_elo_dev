@@ -739,6 +739,10 @@ def logged_in_ui():
 
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
         st.markdown("### Offene Bestätigungen")
+                # Refresh nur für die Pending-Listen
+        if st.button("🔄 Aktualisieren", key="btn_refresh_confirmations"):
+            clear_table_cache()
+            st.rerun()
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
