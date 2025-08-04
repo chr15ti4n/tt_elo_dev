@@ -154,7 +154,7 @@ def login_register_ui():
                 except Exception:
                     st.info("Hinweis: 'auto_token' Spalte nicht vorhanden – automatischer Login per URL-Token ist deaktiviert.")
             st.success(f"Willkommen, {rec.get('name')}!")
-            st.experimental_rerun()
+            st.rerun()
 
     with tabs[1]:
         r_name = st.text_input("Neuer Spielername", key="reg_name")
@@ -229,7 +229,7 @@ if st.session_state.get("logged_in"):
         for k in ("logged_in","player_id","player_name"):
             st.session_state.pop(k, None)
         st.query_params.clear()
-        st.experimental_rerun()
+        st.rerun()
 else:
     cols[0].info("Nicht eingeloggt")
 # endregion
@@ -239,7 +239,7 @@ else:
 rcols = st.columns([1,6])
 if rcols[0].button("Aktualisieren", type="primary"):
     clear_table_cache()
-    st.experimental_rerun()
+    st.rerun()
 # endregion
 
 # region data_browser
