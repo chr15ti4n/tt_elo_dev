@@ -20,7 +20,7 @@ TZ = ZoneInfo("Europe/Berlin")
 
 # region supabase
 @st.cache_resource
-def get_supabase() -> Optional[Client]:
+def get_supabase():
     """Erzeugt den Supabase-Client aus den Streamlit-Secrets.
     Gibt None zurück, wenn Secrets fehlen oder das Paket nicht installiert ist.
     """
@@ -202,67 +202,6 @@ if sp is None:
     st.stop()
 else:
     st.success("Supabase-Client initialisiert.")
-# endregion
-
-# region auto_login
-# Auto-Login via Query-Params (falls vorhanden)
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.player_id = None
-    st.session_state.player_name = None
-
-try_auto_login_from_query()
-# endregion
-
-# region topbar
-cols = st.columns([1,3,2])
-if st.session_state.get("logged_in"):
-    cols[0].success(f"Eingeloggt als {st.session_state.get('player_name')}")
-    if cols[2].button("Logout"):
-        # Optional: auto_token löschen (wenn Spalte existiert)
-        try:
-            if st.session_state.get("player_id"):
-                sp.table("players").update({"auto_token": None}).eq("id", st.session_state["player_id"]).execute()
-        except Exception:
-            pass
-        # Session & Query-Params leeren
-        for k in ("logged_in","player_id","player_name"):
-            st.session_state.pop(k, None)
-        st.query_params.clear()
-        st.rerun()
-else:
-    cols[0].info("Nicht eingeloggt")
-# endregion
-
-# region refresh_button
-# Refresh-Button für Tabellen
-rcols = st.columns([1,6])
-if rcols[0].button("Aktualisieren", type="primary"):
-    clear_table_cache()
-    st.rerun()
-# endregion
-
-# region data_browser
-st.caption("Die folgenden Tabellen werden direkt aus Supabase geladen (select *).")
-
-tables = [
-    "players",
-    "matches",
-    "doubles",
-    "rounds",
-    "pending_matches",
-    "pending_doubles",
-    "pending_rounds",
-]
-
-for t in tables:
-    with st.expander(f"{t}", expanded=False):
-        df = load_table(t)
-        if df.empty:
-            st.info("Keine Daten vorhanden oder Tabelle (noch) nicht angelegt.")
-        else:
-            st.caption(f"{len(df)} Zeilen × {len(df.columns)} Spalten")
-            st.dataframe(df, use_container_width=True)
 # endregion
 
 # region auth_section
