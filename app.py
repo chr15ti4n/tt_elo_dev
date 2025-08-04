@@ -447,10 +447,10 @@ def logged_in_ui():
                 c1, c2 = st.columns(2)
                 s_a = c1.number_input("Deine Punkte", min_value=0, step=1, value=11, key="einzel_s_a")
                 s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=9, key="einzel_s_b")
-                if st.button("Einladung senden (Einzel)", key="btn_send_single_me"):
+                if st.button("✅", key="btn_send_single_me"):
                     create_pending_single(me, name_to_id[opponent], s_a, s_b)
                     clear_table_cache()
-                    st.success("Einladung erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
             else:
                 a_player = st.selectbox("Spieler A", [n for n in name_to_id.keys()], key="einzel_a")
@@ -458,10 +458,10 @@ def logged_in_ui():
                 c1, c2 = st.columns(2)
                 s_a = c1.number_input("Punkte A", min_value=0, step=1, value=11, key="einzel2_s_a")
                 s_b = c2.number_input("Punkte B", min_value=0, step=1, value=9, key="einzel2_s_b")
-                if st.button("Einladung senden (für andere)", key="btn_send_single_others"):
+                if st.button("✅", key="btn_send_single_others"):
                     create_pending_single(me, name_to_id[b_player], s_a, s_b, a_id=name_to_id[a_player])
                     clear_table_cache()
-                    st.success("Einladung erstellt (für andere). Ein Teilnehmer muss bestätigen.")
+                    st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
 
         # Doppel
@@ -474,7 +474,7 @@ def logged_in_ui():
                 c1, c2 = st.columns(2)
                 s_a = c1.number_input("Eure Punkte", min_value=0, step=1, value=11, key="d_s_a")
                 s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=8, key="d_s_b")
-                if st.button("Einladung senden (Doppel)", key="btn_send_double_me"):
+                if st.button("✅", key="btn_send_double_me"):
                     # Direktes Insert mit fertigem Payload
                     payload = {
                         "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
@@ -486,7 +486,7 @@ def logged_in_ui():
                         payload["creator"] = me
                     sp.table("pending_doubles").insert(payload).execute()
                     clear_table_cache()
-                    st.success("Doppel-Einladung erstellt.")
+                    st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
             else:
                 a1 = st.selectbox("Spieler A1", [n for n in name_to_id.keys()], key="d_a1")
@@ -496,7 +496,7 @@ def logged_in_ui():
                 c1, c2 = st.columns(2)
                 s_a = c1.number_input("Punkte Team A", min_value=0, step=1, value=11, key="d2_s_a")
                 s_b = c2.number_input("Punkte Team B", min_value=0, step=1, value=8, key="d2_s_b")
-                if st.button("Einladung senden (für andere)", key="btn_send_double_others"):
+                if st.button("✅", key="btn_send_double_others"):
                     payload = {
                         "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
                         "a1": name_to_id[a1], "a2": name_to_id[a2], "b1": name_to_id[b1], "b2": name_to_id[b2],
@@ -507,7 +507,7 @@ def logged_in_ui():
                         payload["creator"] = me
                     sp.table("pending_doubles").insert(payload).execute()
                     clear_table_cache()
-                    st.success("Doppel-Einladung erstellt (für andere).")
+                    st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
 
         # Rundlauf
@@ -518,14 +518,14 @@ def logged_in_ui():
             if play_myself_r and st.session_state.get("player_name") in selectable:
                 default_sel = [st.session_state.get("player_name")]
             selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
-            if st.button("Rundlauf eintragen (pending)", key="btn_send_round"):
+            if st.button("✅", key="btn_send_round"):
                 pids = [name_to_id[n] for n in selected]
                 if len(pids) < 2:
                     st.warning("Mindestens 2 Teilnehmer.")
                 else:
                     create_pending_round(me, pids)
                     clear_table_cache()
-                    st.success("Rundlauf gespeichert (pending).")
+                    st.success("Rundlauf erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
 
         st.divider()
