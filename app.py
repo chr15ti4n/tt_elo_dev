@@ -769,14 +769,15 @@ def logged_in_ui():
             for _, r in my_conf.iterrows():
                 a_n = id_to_name.get(str(r["a"]), r["a"])
                 b_n = id_to_name.get(str(r["b"]), r["b"])
-                line = f"**Einzel** &nbsp;&nbsp; {a_n} vs {b_n} &nbsp;&nbsp; **{int(r['punktea'])}:{int(r['punkteb'])}**"
-                with st.container():
-                    col_info, col_acc, col_rej = st.columns([7,1,1])
-                    col_info.markdown(f'<div class="pending-card">{line}</div>', unsafe_allow_html=True)
-                    if col_acc.button("✅", key=f"conf_s_{r['id']}"):
-                        confirm_pending_single(r); clear_table_cache(); st.success("Einzel bestätigt."); st.rerun()
-                    if col_rej.button("❌", key=f"rej_s_{r['id']}"):
-                        reject_pending("pending_matches", r["id"]); clear_table_cache(); st.info("Einzel abgelehnt."); st.rerun()
+                line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                st.markdown('<div class="pending-card">', unsafe_allow_html=True)
+                col_info, col_acc, col_rej = st.columns([7,1,1])
+                col_info.markdown(line, unsafe_allow_html=True)
+                if col_acc.button("✅", key=f"conf_s_{r['id']}"):
+                    confirm_pending_single(r); clear_table_cache(); st.success("Einzel bestätigt."); st.rerun()
+                if col_rej.button("❌", key=f"rej_s_{r['id']}"):
+                    reject_pending("pending_matches", r["id"]); clear_table_cache(); st.info("Einzel abgelehnt."); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         if not pdbl.empty:
             has_c_d = table_has_creator("pending_doubles")
@@ -788,14 +789,15 @@ def logged_in_ui():
             for _, r in my_conf.iterrows():
                 a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
                 b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
-                line = f"**Doppel** &nbsp;&nbsp; {a1}/{a2} vs {b1}/{b2} &nbsp;&nbsp; **{int(r['punktea'])}:{int(r['punkteb'])}**"
-                with st.container():
-                    col_info, col_acc, col_rej = st.columns([7,1,1])
-                    col_info.markdown(f'<div class="pending-card">{line}</div>', unsafe_allow_html=True)
-                    if col_acc.button("✅", key=f"conf_d_{r['id']}"):
-                        confirm_pending_double(r); clear_table_cache(); st.success("Doppel bestätigt."); st.rerun()
-                    if col_rej.button("❌", key=f"rej_d_{r['id']}"):
-                        reject_pending("pending_doubles", r["id"]); clear_table_cache(); st.info("Doppel abgelehnt."); st.rerun()
+                line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                st.markdown('<div class="pending-card">', unsafe_allow_html=True)
+                col_info, col_acc, col_rej = st.columns([7,1,1])
+                col_info.markdown(line, unsafe_allow_html=True)
+                if col_acc.button("✅", key=f"conf_d_{r['id']}"):
+                    confirm_pending_double(r); clear_table_cache(); st.success("Doppel bestätigt."); st.rerun()
+                if col_rej.button("❌", key=f"rej_d_{r['id']}"):
+                    reject_pending("pending_doubles", r["id"]); clear_table_cache(); st.info("Doppel abgelehnt."); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         if not pr.empty:
             has_c_r = table_has_creator("pending_rounds")
@@ -813,15 +815,16 @@ def logged_in_ui():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
                 fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
                 winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-                fin_text = f"  – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
-                line = f"**Rundlauf** &nbsp;&nbsp; {', '.join(teiln)}{fin_text}"
-                with st.container():
-                    col_info, col_acc, col_rej = st.columns([7,1,1])
-                    col_info.markdown(f'<div class="pending-card">{line}</div>', unsafe_allow_html=True)
-                    if col_acc.button("✅", key=f"conf_r_{r['id']}"):
-                        confirm_pending_round(r); clear_table_cache(); st.success("Rundlauf bestätigt."); st.rerun()
-                    if col_rej.button("❌", key=f"rej_r_{r['id']}"):
-                        reject_pending("pending_rounds", r["id"]); clear_table_cache(); st.info("Rundlauf abgelehnt."); st.rerun()
+                fin_text = f" – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')}"
+                line = f"Rundlauf  {', '.join(teiln)}{fin_text}"
+                st.markdown('<div class="pending-card">', unsafe_allow_html=True)
+                col_info, col_acc, col_rej = st.columns([7,1,1])
+                col_info.markdown(line, unsafe_allow_html=True)
+                if col_acc.button("✅", key=f"conf_r_{r['id']}"):
+                    confirm_pending_round(r); clear_table_cache(); st.success("Rundlauf bestätigt."); st.rerun()
+                if col_rej.button("❌", key=f"rej_r_{r['id']}"):
+                    reject_pending("pending_rounds", r["id"]); clear_table_cache(); st.info("Rundlauf abgelehnt."); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         st.divider()
 
