@@ -200,7 +200,7 @@ def update_round_after_confirm_id(participant_ids: list[str], fin1_id: str, fin2
     # 1) Aktuelle Werte holen
     current = {}
     for pid in participant_ids:
-        rec = sp.table("players").select("id, name, r_elo, r_siege, r_zweite, r_niederlagen, r_spiele, elo, d_elo").eq("id", pid).single().execute().data
+        rec = sp.table("players").select("id, name, r_elo, r_siege, r_zweite, r_niederlagen, r_spiele, elo, spiele, d_spiele, d_elo").eq("id", pid).single().execute().data
         if rec:
             current[str(pid)] = rec
     if not current:
@@ -246,8 +246,8 @@ def update_round_after_confirm_id(participant_ids: list[str], fin1_id: str, fin2
 def update_single_after_confirm_id(a_id: str, b_id: str, pa: int, pb: int, k_base: int = 64) -> None:
     if int(pa) == int(pb):
         return
-    a = sp.table("players").select("id, elo, siege, niederlagen, spiele, d_elo, r_elo").eq("id", a_id).single().execute().data
-    b = sp.table("players").select("id, elo, siege, niederlagen, spiele, d_elo, r_elo").eq("id", b_id).single().execute().data
+    a = sp.table("players").select("id, elo, siege, niederlagen, spiele, d_spiele, r_spiele, d_elo, r_elo").eq("id", a_id).single().execute().data
+    b = sp.table("players").select("id, elo, siege, niederlagen, spiele, d_spiele, r_spiele, d_elo, r_elo").eq("id", b_id).single().execute().data
     if not a or not b:
         return
     r_a, r_b = float(a.get("elo", 1200)), float(b.get("elo", 1200))
@@ -291,10 +291,10 @@ def update_single_after_confirm_id(a_id: str, b_id: str, pa: int, pb: int, k_bas
 def update_double_after_confirm_id(a1_id: str, a2_id: str, b1_id: str, b2_id: str, pa: int, pb: int, k_base: int = 48) -> None:
     if int(pa) == int(pb):
         return
-    A1 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", a1_id).single().execute().data
-    A2 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", a2_id).single().execute().data
-    B1 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", b1_id).single().execute().data
-    B2 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, r_elo").eq("id", b2_id).single().execute().data
+    A1 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, spiele, r_spiele, r_elo").eq("id", a1_id).single().execute().data
+    A2 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, spiele, r_spiele, r_elo").eq("id", a2_id).single().execute().data
+    B1 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, spiele, r_spiele, r_elo").eq("id", b1_id).single().execute().data
+    B2 = sp.table("players").select("id, d_elo, d_siege, d_niederlagen, d_spiele, elo, spiele, r_spiele, r_elo").eq("id", b2_id).single().execute().data
     if not A1 or not A2 or not B1 or not B2:
         return
     ra1, ra2 = float(A1.get("d_elo", 1200)), float(A2.get("d_elo", 1200))
