@@ -738,7 +738,7 @@ def logged_in_ui():
         st.divider()
 
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
-        col_head, col_btn = st.columns([6,1])
+        col_head, col_btn = st.columns([1,1])
         with col_head:
             st.markdown("### Offene Bestätigungen")
         with col_btn:
