@@ -762,7 +762,7 @@ def logged_in_ui():
                 b_n = id_to_name.get(str(r["b"]), r["b"])
                 line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
                 with st.container(border=True):
-                    col_info, col_acc, col_rej = st.columns([7,1,1])
+                    col_info, col_acc, col_rej = st.columns((0.7,0.15,0.15))
                     col_info.markdown(line, unsafe_allow_html=True)
                     if col_acc.button("✅", key=f"conf_s_{r['id']}"):
                         confirm_pending_single(r); clear_table_cache(); st.success("Einzel bestätigt."); st.rerun()
@@ -781,7 +781,7 @@ def logged_in_ui():
                 b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
                 line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
                 with st.container(border=True):
-                    col_info, col_acc, col_rej = st.columns([7,1,1])
+                    col_info, col_acc, col_rej = st.columns((0.7,0.15,0.15))
                     col_info.markdown(line, unsafe_allow_html=True)
                     if col_acc.button("✅", key=f"conf_d_{r['id']}"):
                         confirm_pending_double(r); clear_table_cache(); st.success("Doppel bestätigt."); st.rerun()
@@ -807,7 +807,7 @@ def logged_in_ui():
                 fin_text = f" – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')}"
                 line = f"Rundlauf  {', '.join(teiln)}{fin_text}"
                 with st.container(border=True):
-                    col_info, col_acc, col_rej = st.columns([7,1,1])
+                    col_info, col_acc, col_rej = st.columns((0.7,0.15,0.15))
                     col_info.markdown(line, unsafe_allow_html=True)
                     if col_acc.button("✅", key=f"conf_r_{r['id']}"):
                         confirm_pending_round(r); clear_table_cache(); st.success("Rundlauf bestätigt."); st.rerun()
