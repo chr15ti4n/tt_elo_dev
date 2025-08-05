@@ -608,11 +608,119 @@ def logged_in_ui():
     # Übersicht
     with tabs[0]:
         logged_in_header(user)
-        st.markdown("""
-        **Übersicht**
-        
-        Hier bauen wir als Nächstes die Inhalte auf (z. B. letzte Spiele, Win‑Streak, offene Bestätigungen).
-        """)
+
+        # --- Offene Bestätigungen (auch in Übersicht anzeigen) ---
+        id_to_name, name_to_id = get_player_maps()
+        me = st.session_state.get("player_id")
+
+        col_head, col_btn = st.columns([8,1])
+        with col_head:
+            st.markdown("### Offene Bestätigungen")
+        with col_btn:
+            if st.button("🔄", key="btn_refresh_confirmations_ovw"):
+                clear_table_cache()
+                st.rerun()
+
+        pm = load_table("pending_matches")
+        pdbl = load_table("pending_doubles")
+        pr = load_table("pending_rounds")
+
+        # --- Meine offenen Bestätigungen sammeln (pro Modus) ---
+        info_rows_s, info_rows_d, info_rows_r = [], [], []
+        # Einzel
+        if not pm.empty:
+            has_c = table_has_creator("pending_matches")
+            if has_c:
+                my_conf_s = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
+            else:
+                my_conf_s = pm[pm["b"].astype(str) == str(me)]
+            for _, r in my_conf_s.iterrows():
+                info_rows_s.append(r)
+        # Doppel
+        if not pdbl.empty:
+            has_c_d = table_has_creator("pending_doubles")
+            if has_c_d:
+                part_mask = (pdbl[["a1","a2","b1","b2"]].astype(str) == str(me)).any(axis=1)
+                my_conf_d = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
+            else:
+                my_conf_d = pdbl[(pdbl["a1"].astype(str) != str(me)) & ((pdbl["a2"].astype(str) == str(me)) | (pdbl["b1"].astype(str) == str(me)) | (pdbl["b2"].astype(str) == str(me)))]
+            for _, r in my_conf_d.iterrows():
+                info_rows_d.append(r)
+        # Rundlauf
+        if not pr.empty:
+            has_c_r = table_has_creator("pending_rounds")
+            if has_c_r:
+                def _involved_not_creator(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return (str(me) in teiln) and (str(row.get("creator")) != str(me))
+                my_conf_r = pr[pr.apply(_involved_not_creator, axis=1)]
+            else:
+                def _is_involved_not_creator(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
+                my_conf_r = pr[pr.apply(_is_involved_not_creator, axis=1)]
+            for _, r in my_conf_r.iterrows():
+                info_rows_r.append(r)
+
+        # --- Global: Alle bestätigen (unter dem Refresh-Button) ---
+        if any([info_rows_s, info_rows_d, info_rows_r]):
+            if st.button("✅ Alle bestätigen", key="btn_accept_all_pending_ovw", type="primary"):
+                try:
+                    # Einzel
+                    for r in info_rows_s:
+                        confirm_pending_single(r)
+                    # Doppel
+                    for r in info_rows_d:
+                        confirm_pending_double(r)
+                    # Rundlauf
+                    for r in info_rows_r:
+                        confirm_pending_round(r)
+                    clear_table_cache()
+                    st.success("Alle bestätigbaren Spiele bestätigt.")
+                    st.rerun()
+                except Exception:
+                    clear_table_cache()
+                    st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
+        else:
+            st.info("Keine offenen Bestätigungen.")
+
+        # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
+        # Einzel-Karten
+        for r in info_rows_s:
+            a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
+            line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
+            with st.container(border=True):
+                c1, c2 = st.columns([8,1])
+                c1.markdown(line, unsafe_allow_html=True)
+                if c2.button("❌", key=f"trej_s_{r['id']}_ovw"):
+                    reject_pending("pending_matches", r["id"])
+                    clear_table_cache(); st.rerun()
+
+        # Doppel-Karten
+        for r in info_rows_d:
+            a1 = id_to_name.get(str(r["a1"]), r["a1"]) ; a2 = id_to_name.get(str(r["a2"]), r["a2"]) 
+            b1 = id_to_name.get(str(r["b1"]), r["b1"]) ; b2 = id_to_name.get(str(r["b2"]), r["b2"]) 
+            line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
+            with st.container(border=True):
+                c1, c2 = st.columns([8,1])
+                c1.markdown(line, unsafe_allow_html=True)
+                if c2.button("❌", key=f"trej_d_{r['id']}_ovw"):
+                    reject_pending("pending_doubles", r["id"])
+                    clear_table_cache(); st.rerun()
+
+        # Rundlauf-Karten
+        for r in info_rows_r:
+            teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
+            fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
+            winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
+            second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+            line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
+            with st.container(border=True):
+                c1, c2 = st.columns([8,1])
+                c1.markdown(line, unsafe_allow_html=True)
+                if c2.button("❌", key=f"trej_r_{r['id']}_ovw"):
+                    reject_pending("pending_rounds", r["id"])
+                    clear_table_cache(); st.rerun()
 
     # Spielen – neue UI für Spiele erstellen und verwalten
     with tabs[1]:
