@@ -605,7 +605,7 @@ def logged_in_ui():
     # Tabs: Übersicht (zuerst), Spielen, Account (Logout)
     tabs = st.tabs(["Übersicht", "Spielen", "Account"])  
 
-    # Übersicht
+    # region Übersicht
     with tabs[0]:
         logged_in_header(user)
 
@@ -620,6 +620,8 @@ def logged_in_ui():
             if st.button("🔄", key="btn_refresh_confirmations_ovw"):
                 clear_table_cache()
                 st.rerun()
+        
+        st.divider()
 
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
@@ -691,7 +693,7 @@ def logged_in_ui():
             line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
             exp = st.expander(line, expanded=False)
             with exp:
-                if st.button("❌", key=f"trej_s_{r['id']}_ovw"):
+                if st.button("❌ Ablehnen", key=f"trej_s_{r['id']}_ovw"):
                     reject_pending("pending_matches", r["id"])
                     clear_table_cache(); st.rerun()
 
@@ -702,7 +704,7 @@ def logged_in_ui():
             line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
             exp = st.expander(line, expanded=False)
             with exp:
-                if st.button("❌", key=f"trej_d_{r['id']}_ovw"):
+                if st.button("❌ Ablehnen", key=f"trej_d_{r['id']}_ovw"):
                     reject_pending("pending_doubles", r["id"])
                     clear_table_cache(); st.rerun()
 
@@ -715,7 +717,7 @@ def logged_in_ui():
             line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
             exp = st.expander(line, expanded=False)
             with exp:
-                if st.button("❌", key=f"trej_r_{r['id']}_ovw"):
+                if st.button("❌ Ablehnen", key=f"trej_r_{r['id']}_ovw"):
                     reject_pending("pending_rounds", r["id"])
                     clear_table_cache(); st.rerun()
 
@@ -724,14 +726,6 @@ def logged_in_ui():
         st.subheader("Spielen")
         id_to_name, name_to_id = get_player_maps()
         me = st.session_state.get("player_id")
-
-        # Optional: Info-Hinweis, falls creator-Spalte fehlt
-        missing = []
-        for t in ("pending_matches","pending_doubles","pending_rounds"):
-            if not table_has_creator(t):
-                missing.append(t)
-        if missing:
-            st.info("Tipp: Für volle Funktion (Ersteller-Ansicht & richtige Bestätigungslogik) füge in Supabase eine Spalte **creator uuid** zu den Tabellen hinzu: " + ", ".join(missing))
 
         # --- Erstellung: Modus per Tabs ---
         m_tabs = st.tabs(["Einzel", "Doppel", "Rundlauf"]) 
@@ -921,7 +915,7 @@ def logged_in_ui():
             line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
             exp = st.expander(line, expanded=False)
             with exp:
-                if st.button("❌", key=f"trej_s_{r['id']}"):
+                if st.button("❌ Ablehnen", key=f"trej_s_{r['id']}"):
                     reject_pending("pending_matches", r["id"])
                     clear_table_cache(); st.rerun()
 
@@ -932,7 +926,7 @@ def logged_in_ui():
             line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
             exp = st.expander(line, expanded=False)
             with exp:
-                if st.button("❌", key=f"trej_d_{r['id']}"):
+                if st.button("❌ Ablehnen", key=f"trej_d_{r['id']}"):
                     reject_pending("pending_doubles", r["id"])
                     clear_table_cache(); st.rerun()
 
@@ -945,12 +939,12 @@ def logged_in_ui():
             line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
             exp = st.expander(line, expanded=False)
             with exp:
-                if st.button("❌", key=f"trej_r_{r['id']}"):
+                if st.button("❌ Ablehnen", key=f"trej_r_{r['id']}"):
                     reject_pending("pending_rounds", r["id"])
                     clear_table_cache(); st.rerun()
 
         # --- Von mir erstellt (ich kann abbrechen) ---
-        st.markdown("### Von dir erstellt")
+        st.markdown("### Ausstehende Bestätigungen")
         if not pm.empty:
             if table_has_creator("pending_matches"):
                 mine = pm[pm["creator"].astype(str) == str(me)]
@@ -961,7 +955,7 @@ def logged_in_ui():
                 line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
                 exp = st.expander(line, expanded=False)
                 with exp:
-                    if st.button("❌", key=f"cancel_s_{r['id']}"):
+                    if st.button("❌ Ablehnen", key=f"cancel_s_{r['id']}"):
                         reject_pending("pending_matches", r["id"])
                         clear_table_cache()
                         st.info("Einladung verworfen.")
@@ -978,7 +972,7 @@ def logged_in_ui():
                 line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
                 exp = st.expander(line, expanded=False)
                 with exp:
-                    if st.button("❌", key=f"cancel_d_{r['id']}"):
+                    if st.button("❌ Ablehnen", key=f"cancel_d_{r['id']}"):
                         reject_pending("pending_doubles", r["id"])
                         clear_table_cache()
                         st.info("Einladung verworfen.")
