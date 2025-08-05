@@ -1039,9 +1039,10 @@ def logged_in_ui():
             selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
             if len(selected) >= 2:
                 c1, c2 = st.columns(2)
-                winner_name = c1.selectbox("Sieger (1.)", selected, key="round_winner")
-                second_candidates = [n for n in selected if n != winner_name]
-                second_name = c2.selectbox("Zweiter (2.)", second_candidates, key="round_second")
+                second_name = c2.selectbox("Zweiter", selected, key="round_second")    
+                winner_candidate = [n for n in selected if n != second_name]
+                winner_name = c1.selectbox("Sieger", winner_candidate, key="round_winner")
+
             else:
                 winner_name, second_name = None, None
             if st.button("✅", key="btn_send_round"):
