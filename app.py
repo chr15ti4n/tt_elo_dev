@@ -737,8 +737,7 @@ def logged_in_ui():
             tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
             tmp = tmp.rename(columns={"name": "Name", col: title})
 
-            # Index praktisch unsichtbar machen: leere Labels + minimale Breite via Styler
-            tmp.index = [""] * len(tmp)
+            # Index praktisch unsichtbar machen: minimale Breite via Styler und transparente Farbe
             primary = st.get_option("theme.primaryColor") or "#dc2626"
 
             def _style_row(row: pd.Series):
@@ -748,10 +747,16 @@ def logged_in_ui():
 
             sty = tmp.style.apply(_style_row, axis=1)
             sty = sty.set_table_styles([
-                {"selector": "th.row_heading", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
-                                                        ("padding","0"),("border","none"),("overflow","hidden")]},
-                {"selector": "tbody th", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
-                                                ("padding","0"),("border","none"),("overflow","hidden")]},
+                {"selector": "th.row_heading", "props": [
+                    ("width","1px"),("min-width","1px"),("max-width","1px"),
+                    ("padding","0"),("border","none"),("overflow","hidden"),
+                    ("color","transparent")
+                ]},
+                {"selector": "tbody th", "props": [
+                    ("width","1px"),("min-width","1px"),("max-width","1px"),
+                    ("padding","0"),("border","none"),("overflow","hidden"),
+                    ("color","transparent")
+                ]},
                 {"selector": "th.blank", "props": [("display","none"),("width","0"),("padding","0")]},
             ], overwrite=False)
             st.table(sty)
@@ -823,14 +828,19 @@ def logged_in_ui():
                         return [f"color: {primary}; font-weight: 700" for _ in row.index]
                     return ["" for _ in row.index]
 
-                # Index unsichtbar machen: leere Labels + minimale Breite
-                show_df.index = [""] * len(show_df)
+                # Index unsichtbar machen: minimale Breite und transparente Farbe
                 sty = show_df.style.apply(_style_last, axis=1)
                 sty = sty.set_table_styles([
-                    {"selector": "th.row_heading", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
-                                                            ("padding","0"),("border","none"),("overflow","hidden")]},
-                    {"selector": "tbody th", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
-                                                    ("padding","0"),("border","none"),("overflow","hidden")]},
+                    {"selector": "th.row_heading", "props": [
+                        ("width","1px"),("min-width","1px"),("max-width","1px"),
+                        ("padding","0"),("border","none"),("overflow","hidden"),
+                        ("color","transparent")
+                    ]},
+                    {"selector": "tbody th", "props": [
+                        ("width","1px"),("min-width","1px"),("max-width","1px"),
+                        ("padding","0"),("border","none"),("overflow","hidden"),
+                        ("color","transparent")
+                    ]},
                     {"selector": "th.blank", "props": [("display","none"),("width","0"),("padding","0")]},
                 ], overwrite=False)
                 st.table(sty)
