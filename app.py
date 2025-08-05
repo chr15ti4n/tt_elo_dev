@@ -522,6 +522,27 @@ def login_register_ui():
 
 # region layout_header
 st.header("🏓 AK-Tischtennis")
+st.markdown(
+    """
+    <style>
+      /* Make all Streamlit tab bars span full width and distribute tabs evenly */
+      div.stTabs > div[role="tablist"],
+      div.stTabs [data-baseweb="tab-list"] {
+        display: flex !important;
+        width: 100% !important;
+      }
+      div.stTabs > div[role="tablist"] > div[role="tab"],
+      div.stTabs [data-baseweb="tab-list"] [data-baseweb="tab"] {
+        flex: 1 1 0 !important;
+        justify-content: center !important;
+        text-align: center !important;
+      }
+      /* Optional: reduce default gaps for tighter fit on mobile */
+      div.stTabs [data-baseweb="tab-list"] { gap: 0 !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 # endregion
 
 # region session_init
