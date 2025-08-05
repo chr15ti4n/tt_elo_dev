@@ -834,6 +834,9 @@ def logged_in_ui():
                     ("padding","0"),("border","none"),("overflow","hidden"),
                     ("color","transparent")
                 ]},
+                {"selector": "tbody td", "props": [
+                    ("text-align","center")
+                ]},
                 {"selector": "th.col_heading", "props": [
                     ("white-space","nowrap"), ("text-align","center")
                 ]},
