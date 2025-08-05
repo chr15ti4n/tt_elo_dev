@@ -608,7 +608,7 @@ def render_single_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str
     pa, pb = int(r.get("punktea", 0)), int(r.get("punkteb", 0))
     left_medal = "🥇 " if pa > pb else ""
     right_medal = "🥇 " if pb > pa else ""
-    title = f"{left_medal}{a_n} (Team A)  {pa}:{pb}  {right_medal}{b_n} (Team B)"
+    title = f"{left_medal}{a_n} - {pa}:{pb} - {right_medal}{b_n}"
     exp = st.expander(title, expanded=False)
     with exp:
         if st.button(button_label, key=key):
@@ -621,11 +621,11 @@ def render_double_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str
     a1 = id_to_name.get(str(r["a1"]), r["a1"]) ; a2 = id_to_name.get(str(r["a2"]), r["a2"]) 
     b1 = id_to_name.get(str(r["b1"]), r["b1"]) ; b2 = id_to_name.get(str(r["b2"]), r["b2"]) 
     pa, pb = int(r.get("punktea", 0)), int(r.get("punkteb", 0))
-    team_a = f"{a1}/{a2} (Team A)"
-    team_b = f"{b1}/{b2} (Team B)"
+    team_a = f"{a1}/{a2}"
+    team_b = f"{b1}/{b2}"
     left_medal = "🥇 " if pa > pb else ""
     right_medal = "🥇 " if pb > pa else ""
-    title = f"{left_medal}{team_a}  {pa}:{pb}  {right_medal}{team_b}"
+    title = f"{left_medal}{team_a} - {pa}:{pb} - {right_medal}{team_b}"
     exp = st.expander(title, expanded=False)
     with exp:
         if st.button(button_label, key=key):
