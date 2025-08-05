@@ -582,13 +582,8 @@ def logged_in_header(user: dict):
     )
 
 
-# --- Helper: Rundlauf-Karte im VS-Layout mit Chips (Sieger in Gold, Zweiter in Silber) ---
 def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
-    """Rendert eine Rundlauf-Karte (Variante C) als Expander mit Chips.
-    - Teilnehmer links als Chips (eigener Name farblich)
-    - Mitte: Chips für 1. (Gold) und 2. (Silber)
-    - Unten rechts: Ablehnen-Button
-    """
+    """Rendert eine Rundlauf-Karte als Expander – **nur** mit Titel + Ablehnen-Button."""
     teiln_ids = [pid for pid in str(r.get("teilnehmer") or "").split(";") if pid]
     teiln = [id_to_name.get(pid, pid) for pid in teiln_ids]
     fin_list = [pid for pid in str(r.get("finalisten") or "").split(";") if pid]
@@ -597,60 +592,45 @@ def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str 
     second_id = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_id else (fin_list[0] if len(fin_list) > 0 else None)
     second_n = id_to_name.get(second_id, second_id) if second_id else "-"
 
-    # Expander-Titel (Text) – mit Medaillen‑Emojis (HTML wird im Label nicht gerendert)
-    title = f"Rundlauf  {', '.join(teiln)} – 🥇 {winner_n}, 🥈 {second_n}"
+    # Expander-Titel (ohne Modus, Medaillen vor den Namen)
+    title = f"{', '.join(teiln)} – 🥇 {winner_n}, 🥈 {second_n}"
     exp = st.expander(title, expanded=False)
 
-    # CSS einmalig injizieren (pro Session)
-    if not st.session_state.get("_vs_round_css_v2"):
-        primary = st.get_option("theme.primaryColor") or "#dc2626"
-        st.markdown(f"""
-        <style>
-          .vs-card {{ display:flex; gap:12px; align-items:stretch; border:1px solid rgba(255,255,255,.15);
-                     border-radius:10px; padding:10px; }}
-          .vs-left {{ flex:1 1 60%; }}
-          .chips {{ display:flex; flex-wrap:wrap; gap:6px; }}
-          .chip {{ border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:2px 10px; font-size:12px; line-height:1.4; }}
-          .chip.me {{ font-weight:700; color:{primary}; border-color:{primary}55; }}
-          .vs-center {{ flex:0 0 200px; text-align:center; border-left:1px solid rgba(255,255,255,.15);
-                       border-right:1px solid rgba(255,255,255,.15); padding:0 10px; display:flex; flex-direction:column; gap:8px; justify-content:center; }}
-          .chip.badge {{ border:none; color:#111; font-weight:700; }}
-          .chip.badge.winner {{ background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%); }} /* Gold */
-          .chip.badge.second {{ background: linear-gradient(135deg, #e5e7eb 0%, #9ca3af 100%); }} /* Silber */
-          .vs-actions {{ display:flex; justify-content:flex-end; margin-top:8px; }}
-          @media (max-width: 520px){{
-            .vs-card {{ flex-direction:column; }}
-            .vs-center {{ border:none; padding:0; }}
-            .vs-actions {{ justify-content:stretch; }}
-          }}
-        </style>
-        """, unsafe_allow_html=True)
-        st.session_state["_vs_round_css_v2"] = True
-
     with exp:
-        # Card Body
-        st.markdown(
-            "<div class='vs-card'>"
-            "  <div class='vs-left'><div class='chips'>"
-            + "".join([
-                f"<span class='chip{' me' if str(n)==str(highlight_name) else ''}'>" + str(n) + "</span>"
-                for n in teiln
-              ])
-            + "  </div></div>"
-            + "  <div class='vs-center'>"
-            + f"    <span class='chip badge winner'>🥇 {winner_n}</span>"
-            + f"    <span class='chip badge second'>🥈 {second_n}</span>"
-            + "  </div>"
-            + "</div>",
-            unsafe_allow_html=True,
-        )
+        if st.button(button_label, key=key):
+            if on_reject:
+                on_reject(r["id"])  # erwartet Tabellen-ID
 
-        # Aktionen
-        c_space, c_btn = st.columns([1,1])
-        with c_btn:
-            if st.button(button_label, key=key):
-                if on_reject:
-                    on_reject(r["id"])  # erwartet Tabellen-ID
+
+# --- Helper: Einzel-Karte im VS-Layout (mit Sieger-Medaille) ---
+def render_single_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
+    a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"])
+    pa, pb = int(r.get("punktea", 0)), int(r.get("punkteb", 0))
+    left_medal = "🥇 " if pa > pb else ""
+    right_medal = "🥇 " if pb > pa else ""
+    title = f"{left_medal}{a_n} (Team A)  {pa}:{pb}  {right_medal}{b_n} (Team B)"
+    exp = st.expander(title, expanded=False)
+    with exp:
+        if st.button(button_label, key=key):
+            if on_reject:
+                on_reject(r["id"])  # erwartet Tabellen-ID
+
+
+# --- Helper: Doppel-Karte im VS-Layout (mit Sieger-Medaille) ---
+def render_double_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
+    a1 = id_to_name.get(str(r["a1"]), r["a1"]) ; a2 = id_to_name.get(str(r["a2"]), r["a2"]) 
+    b1 = id_to_name.get(str(r["b1"]), r["b1"]) ; b2 = id_to_name.get(str(r["b2"]), r["b2"]) 
+    pa, pb = int(r.get("punktea", 0)), int(r.get("punkteb", 0))
+    team_a = f"{a1}/{a2} (Team A)"
+    team_b = f"{b1}/{b2} (Team B)"
+    left_medal = "🥇 " if pa > pb else ""
+    right_medal = "🥇 " if pb > pa else ""
+    title = f"{left_medal}{team_a}  {pa}:{pb}  {right_medal}{team_b}"
+    exp = st.expander(title, expanded=False)
+    with exp:
+        if st.button(button_label, key=key):
+            if on_reject:
+                on_reject(r["id"])  # erwartet Tabellen-ID
 
 
 def get_current_user() -> dict | None:
