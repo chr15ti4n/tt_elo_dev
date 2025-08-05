@@ -736,19 +736,25 @@ def logged_in_ui():
             tmp[col] = pd.to_numeric(tmp[col], errors="coerce").fillna(0).astype(int)
             tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
             tmp = tmp.rename(columns={"name": "Name", col: title})
+
             primary = st.get_option("theme.primaryColor") or "#dc2626"
             def _style_row(row: pd.Series):
                 if str(row["Name"]) == str(highlight_name):
                     return [f"color: {primary}; font-weight: 700" for _ in row.index]
                 return ["" for _ in row.index]
+
             sty = tmp.style.apply(_style_row, axis=1)
-            # Index ausblenden (Styler.hide für Pandas>=1.4; Fallback für ältere Versionen)
+            # Index ausblenden für verschiedene Pandas-Versionen
             try:
-                sty = sty.hide(axis='index')
+                sty = sty.hide(axis='index')  # pandas >= 1.4
             except Exception:
-                tmp.index = [""] * len(tmp)
-                sty = tmp.style.apply(_style_row, axis=1)
-            st.table(sty)
+                try:
+                    sty = sty.hide_index()   # pandas < 1.4
+                except Exception:
+                    # Fallback: leerer Index, neu stylen
+                    tmp.index = [""] * len(tmp)
+                    sty = tmp.style.apply(_style_row, axis=1)
+            st.dataframe(sty, hide_index=True, use_container_width=True)
 
         players_df = load_table("players")
 
@@ -811,17 +817,22 @@ def logged_in_ui():
                 df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
                 show_df = df_last[["Modus","Teilnehmer","Ergebnis"]].copy()
                 primary = st.get_option("theme.primaryColor") or "#dc2626"
+
                 def _style_last(row: pd.Series):
                     if me_name and str(me_name) in str(row["Teilnehmer"]):
                         return [f"color: {primary}; font-weight: 700" for _ in row.index]
                     return ["" for _ in row.index]
+
                 sty = show_df.style.apply(_style_last, axis=1)
                 try:
                     sty = sty.hide(axis='index')
                 except Exception:
-                    show_df.index = [""] * len(show_df)
-                    sty = show_df.style.apply(_style_last, axis=1)
-                st.table(sty)
+                    try:
+                        sty = sty.hide_index()
+                    except Exception:
+                        show_df.index = [""] * len(show_df)
+                        sty = show_df.style.apply(_style_last, axis=1)
+                st.dataframe(sty, hide_index=True, use_container_width=True)
             else:
                 st.info("Noch keine Spiele vorhanden.")
 
