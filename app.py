@@ -817,7 +817,12 @@ def logged_in_ui():
                 return ["" for _ in row.index]
 
             sty = tmp.style.apply(_style_row, axis=1)
-            sty = sty.set_properties(**{"text-align": "center"})
+            # Erzwinge Zentrierung explizit pro Spalte (wirkt zuverlässiger als global)
+            for _c in ["Name", title]:
+                try:
+                    sty = sty.set_properties(subset=[_c], **{"text-align": "center"})
+                except Exception:
+                    pass
             sty = sty.set_table_styles([
                 {"selector": "th.row_heading", "props": [
                     ("width","1px"),("min-width","1px"),("max-width","1px"),
@@ -834,11 +839,14 @@ def logged_in_ui():
                     ("padding","0"),("border","none"),("overflow","hidden"),
                     ("color","transparent")
                 ]},
-                {"selector": "tbody td", "props": [
-                    ("text-align","center")
+                {"selector": "thead th", "props": [
+                    ("text-align","center !important")
                 ]},
                 {"selector": "th.col_heading", "props": [
-                    ("white-space","nowrap"), ("text-align","center")
+                    ("white-space","nowrap"), ("text-align","center !important")
+                ]},
+                {"selector": "tbody td", "props": [
+                    ("text-align","center !important")
                 ]},
             ], overwrite=False)
             st.table(sty)
