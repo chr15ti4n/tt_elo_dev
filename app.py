@@ -721,6 +721,86 @@ def logged_in_ui():
                     reject_pending("pending_rounds", r["id"])
                     clear_table_cache(); st.rerun()
 
+        # --- Leaderboards & Letzte Spiele ---
+        st.divider()
+        st.markdown("### Leaderboards & Letzte Spiele")
+
+        lb_tabs = st.tabs(["Gesamt‑ELO", "Einzel‑ELO", "Doppel‑ELO", "Rundlauf‑ELO", "Letzte Spiele"])
+
+        # --- Helper: safe sorting and display of leaderboard ---
+        def _show_lb(df_players: pd.DataFrame, col: str, title: str):
+            if df_players.empty or col not in df_players.columns:
+                st.info("Noch keine Daten.")
+                return
+            tmp = df_players[["name", col]].copy()
+            tmp[col] = pd.to_numeric(tmp[col], errors="coerce").fillna(0).astype(int)
+            tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
+            tmp.index = tmp.index + 1
+            tmp = tmp.rename(columns={"name": "Name", col: title})
+            st.table(tmp[["Name", title]])
+
+        players_df = load_table("players")
+
+        with lb_tabs[0]:  # Gesamt‑ELO
+            _show_lb(players_df, "g_elo", "Gesamt‑ELO")
+        with lb_tabs[1]:  # Einzel‑ELO
+            _show_lb(players_df, "elo", "Einzel‑ELO")
+        with lb_tabs[2]:  # Doppel‑ELO
+            _show_lb(players_df, "d_elo", "Doppel‑ELO")
+        with lb_tabs[3]:  # Rundlauf‑ELO
+            _show_lb(players_df, "r_elo", "Rundlauf‑ELO")
+
+        with lb_tabs[4]:  # Letzte Spiele
+            m = load_table("matches")
+            d = load_table("doubles")
+            r = load_table("rounds")
+            rows = []
+            # Einzel
+            if not m.empty:
+                for _, x in m.iterrows():
+                    a_n = id_to_name.get(str(x.get("a")), str(x.get("a")))
+                    b_n = id_to_name.get(str(x.get("b")), str(x.get("b")))
+                    rows.append({
+                        "datum": x.get("datum"),
+                        "Modus": "Einzel",
+                        "Teilnehmer": f"{a_n} vs {b_n}",
+                        "Ergebnis": f"{int(x.get('punktea',0))}:{int(x.get('punkteb',0))}",
+                    })
+            # Doppel
+            if not d.empty:
+                for _, x in d.iterrows():
+                    a1 = id_to_name.get(str(x.get("a1")), str(x.get("a1")))
+                    a2 = id_to_name.get(str(x.get("a2")), str(x.get("a2")))
+                    b1 = id_to_name.get(str(x.get("b1")), str(x.get("b1")))
+                    b2 = id_to_name.get(str(x.get("b2")), str(x.get("b2")))
+                    rows.append({
+                        "datum": x.get("datum"),
+                        "Modus": "Doppel",
+                        "Teilnehmer": f"{a1}/{a2} vs {b1}/{b2}",
+                        "Ergebnis": f"{int(x.get('punktea',0))}:{int(x.get('punkteb',0))}",
+                    })
+            # Rundlauf
+            if not r.empty:
+                for _, x in r.iterrows():
+                    teiln = [id_to_name.get(pid, pid) for pid in str(x.get("teilnehmer") or "").split(";") if pid]
+                    fin_list = [id_to_name.get(pid, pid) for pid in str(x.get("finalisten") or "").split(";") if pid]
+                    winner_n = id_to_name.get(str(x.get("sieger")), str(x.get("sieger")))
+                    second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+                    rows.append({
+                        "datum": x.get("datum"),
+                        "Modus": "Rundlauf",
+                        "Teilnehmer": ", ".join(teiln),
+                        "Ergebnis": f"Sieger: {winner_n}, Zweiter: {second_n}",
+                    })
+            if rows:
+                df_last = pd.DataFrame(rows)
+                # sichere Sortierung: fehlende/NaT nach hinten
+                df_last["datum"] = pd.to_datetime(df_last["datum"], errors="coerce")
+                df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
+                st.table(df_last[["Modus","Teilnehmer","Ergebnis"]])
+            else:
+                st.info("Noch keine Spiele vorhanden.")
+
     # Spielen – neue UI für Spiele erstellen und verwalten
     with tabs[1]:
         st.subheader("Spielen")
