@@ -742,7 +742,7 @@ def logged_in_ui():
                     return [f"color: {primary}; font-weight: 700" for _ in row.index]
                 return ["" for _ in row.index]
             sty = tmp.style.apply(_style_row, axis=1)
-            # Index ausblenden (falls Styler.hide nicht verfügbar, Fallback über leeren Index)
+            # Index ausblenden (Styler.hide für Pandas>=1.4; Fallback für ältere Versionen)
             try:
                 sty = sty.hide(axis='index')
             except Exception:
