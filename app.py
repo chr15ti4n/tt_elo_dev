@@ -739,25 +739,26 @@ def logged_in_ui():
 
         # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
         # Einzel-Karten
+        me_name = user.get("name")
         for r in info_rows_s:
-            a_n = id_to_name.get(str(r["a"]), r["a"]); b_n = id_to_name.get(str(r["b"]), r["b"])
-            line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
-            exp = st.expander(line, expanded=False)
-            with exp:
-                if st.button("❌ Ablehnen", key=f"trej_s_{r['id']}_ovw"):
-                    reject_pending("pending_matches", r["id"])
-                    clear_table_cache(); st.rerun()
+            render_single_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_s_{r['id']}_ovw",
+                on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # Doppel-Karten
+        me_name = user.get("name")
         for r in info_rows_d:
-            a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
-            b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
-            line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
-            exp = st.expander(line, expanded=False)
-            with exp:
-                if st.button("❌ Ablehnen", key=f"trej_d_{r['id']}_ovw"):
-                    reject_pending("pending_doubles", r["id"])
-                    clear_table_cache(); st.rerun()
+            render_double_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_d_{r['id']}_ovw",
+                on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # Rundlauf-Karten
         me_name = user.get("name")
@@ -1104,25 +1105,26 @@ def logged_in_ui():
 
         # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
         # Einzel-Karten
+        me_name = user.get("name")
         for r in info_rows_s:
-            a_n = id_to_name.get(str(r["a"]), r["a"]); b_n = id_to_name.get(str(r["b"]), r["b"])
-            line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
-            exp = st.expander(line, expanded=False)
-            with exp:
-                if st.button("❌ Ablehnen", key=f"trej_s_{r['id']}"):
-                    reject_pending("pending_matches", r["id"])
-                    clear_table_cache(); st.rerun()
+            render_single_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_s_{r['id']}",
+                on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # Doppel-Karten
+        me_name = user.get("name")
         for r in info_rows_d:
-            a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
-            b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
-            line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
-            exp = st.expander(line, expanded=False)
-            with exp:
-                if st.button("❌ Ablehnen", key=f"trej_d_{r['id']}"):
-                    reject_pending("pending_doubles", r["id"])
-                    clear_table_cache(); st.rerun()
+            render_double_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_d_{r['id']}",
+                on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # Rundlauf-Karten
         me_name = user.get("name")
@@ -1142,33 +1144,30 @@ def logged_in_ui():
                 mine = pm[pm["creator"].astype(str) == str(me)]
             else:
                 mine = pm[pm["a"].astype(str) == str(me)]
+            me_name = user.get("name")
             for _, r in mine.iterrows():
-                a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
-                line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
-                exp = st.expander(line, expanded=False)
-                with exp:
-                    if st.button("❌ Ablehnen", key=f"cancel_s_{r['id']}"):
-                        reject_pending("pending_matches", r["id"])
-                        clear_table_cache()
-                        st.info("Einladung verworfen.")
-                        st.rerun()
+                render_single_vs_card(
+                    r, id_to_name,
+                    highlight_name=me_name,
+                    key=f"cancel_s_{r['id']}",
+                    on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
+                    button_label="❌ Ablehnen",
+                )
 
         if not pdbl.empty:
             if table_has_creator("pending_doubles"):
                 mine = pdbl[pdbl["creator"].astype(str) == str(me)]
             else:
                 mine = pdbl[pdbl["a1"].astype(str) == str(me)]
+            me_name = user.get("name")
             for _, r in mine.iterrows():
-                a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
-                b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
-                line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
-                exp = st.expander(line, expanded=False)
-                with exp:
-                    if st.button("❌ Ablehnen", key=f"cancel_d_{r['id']}"):
-                        reject_pending("pending_doubles", r["id"])
-                        clear_table_cache()
-                        st.info("Einladung verworfen.")
-                        st.rerun()
+                render_double_vs_card(
+                    r, id_to_name,
+                    highlight_name=me_name,
+                    key=f"cancel_d_{r['id']}",
+                    on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
+                    button_label="❌ Ablehnen",
+                )
 
         if not pr.empty:
             if table_has_creator("pending_rounds"):
