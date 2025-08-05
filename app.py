@@ -1224,6 +1224,72 @@ def logged_in_ui():
     with tabs[2]:
         st.subheader("Account")
         st.write(f"Angemeldet als **{user.get('name','Unbekannt')}**")
+
+        # --- Profil: Name ändern ---
+        st.markdown("### Profil")
+        with st.form("form_change_name"):
+            new_name = st.text_input("Neuer Anzeigename", value=user.get("name", ""))
+            save_name = st.form_submit_button("Name speichern", type="primary")
+        if save_name:
+            nn = (new_name or "").strip()
+            if not nn:
+                st.warning("Bitte einen gültigen Namen eingeben.")
+            else:
+                # Duplikate ignorieren Groß/Kleinschreibung & Leerzeichen
+                try:
+                    rows = sp.table("players").select("id,name").execute().data or []
+                except Exception:
+                    rows = []
+                def _norm(s: str) -> str:
+                    return "".join(str(s or "").split()).lower()
+                me_id = str(user.get("id"))
+                if any(_norm(r.get("name")) == _norm(nn) and str(r.get("id")) != me_id for r in rows):
+                    st.error("Name bereits vergeben (Groß-/Kleinschreibung & Leerzeichen ignoriert).")
+                else:
+                    try:
+                        sp.table("players").update({"name": nn}).eq("id", me_id).execute()
+                        # Caches leeren & Session aktualisieren
+                        try:
+                            load_table.clear()
+                        except Exception:
+                            pass
+                        try:
+                            get_player_maps.clear()
+                        except Exception:
+                            pass
+                        st.session_state.player_name = nn
+                        st.success("Name aktualisiert.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Konnte Namen nicht speichern: {e}")
+
+        # --- Sicherheit: PIN ändern ---
+        st.markdown("### Sicherheit")
+        with st.form("form_change_pin"):
+            old_pin = st.text_input("Aktuelle PIN", type="password")
+            new_pin1 = st.text_input("Neue PIN (4-stellig)", type="password")
+            new_pin2 = st.text_input("Neue PIN bestätigen", type="password")
+            save_pin = st.form_submit_button("PIN speichern", type="primary")
+        if save_pin:
+            cur_stored = str(user.get("pin", ""))
+            if not old_pin or not new_pin1 or not new_pin2:
+                st.warning("Bitte alle Felder ausfüllen.")
+            elif not check_pin(old_pin, cur_stored):
+                st.error("Aktuelle PIN ist falsch.")
+            elif new_pin1 != new_pin2:
+                st.error("Neue PINs stimmen nicht überein.")
+            elif len(new_pin1) != 4 or not new_pin1.isdigit():
+                st.warning("Die neue PIN muss 4 Ziffern haben.")
+            else:
+                try:
+                    hp = hash_pin(new_pin1)
+                    sp.table("players").update({"pin": hp}).eq("id", user.get("id")).execute()
+                    st.success("PIN aktualisiert.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Konnte PIN nicht speichern: {e}")
+
+        # Logout bleibt am Ende
         if st.button("Logout", key="btn_logout_account", type="primary"):
             try:
                 sp.table("players").update({"auto_token": None}).eq("id", user.get("id")).execute()
