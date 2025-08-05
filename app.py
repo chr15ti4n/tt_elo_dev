@@ -898,8 +898,8 @@ def logged_in_ui():
                 for _, x in r.iterrows():
                     teiln = [id_to_name.get(pid, pid) for pid in str(x.get("teilnehmer") or "").split(";") if pid]
                     fin_list = [id_to_name.get(pid, pid) for pid in str(x.get("finalisten") or "").split(";") if pid]
-                    winner_n = id_to_name.get(str(x.get("sieger")), str(x.get("sieger")))
                     second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+                    winner_n = id_to_name.get(str(x.get("sieger")), str(x.get("sieger")))
                     rows.append({
                         "datum": x.get("datum"),
                         "Modus": "Rundlauf",
