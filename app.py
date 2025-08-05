@@ -725,30 +725,36 @@ def logged_in_ui():
         st.divider()
         st.markdown("### Leaderboards & Letzte Spiele")
 
-        lb_tabs = st.tabs(["Gesamt‑ELO", "Einzel‑ELO", "Doppel‑ELO", "Rundlauf‑ELO", "Letzte Spiele"])
+        lb_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf", "Letzte Spiele"])
 
         # --- Helper: safe sorting and display of leaderboard ---
-        def _show_lb(df_players: pd.DataFrame, col: str, title: str):
+        def _show_lb(df_players: pd.DataFrame, col: str, title: str, highlight_name: str):
             if df_players.empty or col not in df_players.columns:
                 st.info("Noch keine Daten.")
                 return
             tmp = df_players[["name", col]].copy()
             tmp[col] = pd.to_numeric(tmp[col], errors="coerce").fillna(0).astype(int)
             tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
-            tmp.index = tmp.index + 1
             tmp = tmp.rename(columns={"name": "Name", col: title})
-            st.table(tmp[["Name", title]])
+            primary = st.get_option("theme.primaryColor") or "#dc2626"
+            def _style_row(row):
+                if str(row["Name"]) == str(highlight_name):
+                    return [f"color: {primary}; font-weight: 700" for _ in row.index]
+                return ["" for _ in row.index]
+            st.dataframe(tmp.style.apply(_style_row, axis=1), hide_index=True, use_container_width=True)
 
         players_df = load_table("players")
 
+        me_name = user.get("name")
+
         with lb_tabs[0]:  # Gesamt‑ELO
-            _show_lb(players_df, "g_elo", "Gesamt‑ELO")
+            _show_lb(players_df, "g_elo", "Gesamt‑ELO", me_name)
         with lb_tabs[1]:  # Einzel‑ELO
-            _show_lb(players_df, "elo", "Einzel‑ELO")
+            _show_lb(players_df, "elo", "Einzel‑ELO", me_name)
         with lb_tabs[2]:  # Doppel‑ELO
-            _show_lb(players_df, "d_elo", "Doppel‑ELO")
+            _show_lb(players_df, "d_elo", "Doppel‑ELO", me_name)
         with lb_tabs[3]:  # Rundlauf‑ELO
-            _show_lb(players_df, "r_elo", "Rundlauf‑ELO")
+            _show_lb(players_df, "r_elo", "Rundlauf‑ELO", me_name)
 
         with lb_tabs[4]:  # Letzte Spiele
             m = load_table("matches")
@@ -794,10 +800,15 @@ def logged_in_ui():
                     })
             if rows:
                 df_last = pd.DataFrame(rows)
-                # sichere Sortierung: fehlende/NaT nach hinten
                 df_last["datum"] = pd.to_datetime(df_last["datum"], errors="coerce")
                 df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
-                st.table(df_last[["Modus","Teilnehmer","Ergebnis"]])
+                show_df = df_last[["Modus","Teilnehmer","Ergebnis"]].copy()
+                primary = st.get_option("theme.primaryColor") or "#dc2626"
+                def _style_last(row):
+                    if me_name and str(me_name) in str(row["Teilnehmer"]):
+                        return [f"color: {primary}; font-weight: 700" for _ in row.index]
+                    return ["" for _ in row.index]
+                st.dataframe(show_df.style.apply(_style_last, axis=1), hide_index=True, use_container_width=True)
             else:
                 st.info("Noch keine Spiele vorhanden.")
 
