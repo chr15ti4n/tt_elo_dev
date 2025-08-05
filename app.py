@@ -817,6 +817,7 @@ def logged_in_ui():
                 return ["" for _ in row.index]
 
             sty = tmp.style.apply(_style_row, axis=1)
+            sty = sty.set_properties(**{"text-align": "center"})
             sty = sty.set_table_styles([
                 {"selector": "th.row_heading", "props": [
                     ("width","1px"),("min-width","1px"),("max-width","1px"),
@@ -834,7 +835,7 @@ def logged_in_ui():
                     ("color","transparent")
                 ]},
                 {"selector": "th.col_heading", "props": [
-                    ("white-space","nowrap"), ("text-align","left")
+                    ("white-space","nowrap"), ("text-align","center")
                 ]},
             ], overwrite=False)
             st.table(sty)
