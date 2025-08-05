@@ -737,24 +737,24 @@ def logged_in_ui():
             tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
             tmp = tmp.rename(columns={"name": "Name", col: title})
 
+            # Index praktisch unsichtbar machen: leere Labels + minimale Breite via Styler
+            tmp.index = [""] * len(tmp)
             primary = st.get_option("theme.primaryColor") or "#dc2626"
+
             def _style_row(row: pd.Series):
                 if str(row["Name"]) == str(highlight_name):
                     return [f"color: {primary}; font-weight: 700" for _ in row.index]
                 return ["" for _ in row.index]
 
             sty = tmp.style.apply(_style_row, axis=1)
-            # Index ausblenden für verschiedene Pandas-Versionen
-            try:
-                sty = sty.hide(axis='index')  # pandas >= 1.4
-            except Exception:
-                try:
-                    sty = sty.hide_index()   # pandas < 1.4
-                except Exception:
-                    # Fallback: leerer Index, neu stylen
-                    tmp.index = [""] * len(tmp)
-                    sty = tmp.style.apply(_style_row, axis=1)
-            st.dataframe(sty, hide_index=True, use_container_width=True)
+            sty = sty.set_table_styles([
+                {"selector": "th.row_heading", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
+                                                        ("padding","0"),("border","none"),("overflow","hidden")]},
+                {"selector": "tbody th", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
+                                                ("padding","0"),("border","none"),("overflow","hidden")]},
+                {"selector": "th.blank", "props": [("display","none"),("width","0"),("padding","0")]},
+            ], overwrite=False)
+            st.table(sty)
 
         players_df = load_table("players")
 
@@ -815,7 +815,7 @@ def logged_in_ui():
                 df_last = pd.DataFrame(rows)
                 df_last["datum"] = pd.to_datetime(df_last["datum"], errors="coerce")
                 df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
-                show_df = df_last[["Modus","Teilnehmer","Ergebnis"]].copy()
+                show_df = df_last [["Modus","Teilnehmer","Ergebnis"]].copy()
                 primary = st.get_option("theme.primaryColor") or "#dc2626"
 
                 def _style_last(row: pd.Series):
@@ -823,19 +823,19 @@ def logged_in_ui():
                         return [f"color: {primary}; font-weight: 700" for _ in row.index]
                     return ["" for _ in row.index]
 
+                # Index unsichtbar machen: leere Labels + minimale Breite
+                show_df.index = [""] * len(show_df)
                 sty = show_df.style.apply(_style_last, axis=1)
-                try:
-                    sty = sty.hide(axis='index')
-                except Exception:
-                    try:
-                        sty = sty.hide_index()
-                    except Exception:
-                        show_df.index = [""] * len(show_df)
-                        sty = show_df.style.apply(_style_last, axis=1)
-                st.dataframe(sty, hide_index=True, use_container_width=True)
+                sty = sty.set_table_styles([
+                    {"selector": "th.row_heading", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
+                                                            ("padding","0"),("border","none"),("overflow","hidden")]},
+                    {"selector": "tbody th", "props": [("width","1px"),("min-width","1px"),("max-width","1px"),
+                                                    ("padding","0"),("border","none"),("overflow","hidden")]},
+                    {"selector": "th.blank", "props": [("display","none"),("width","0"),("padding","0")]},
+                ], overwrite=False)
+                st.table(sty)
             else:
                 st.info("Noch keine Spiele vorhanden.")
-
     # Spielen – neue UI für Spiele erstellen und verwalten
     with tabs[1]:
         st.subheader("Spielen")
