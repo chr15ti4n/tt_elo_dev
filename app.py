@@ -750,48 +750,27 @@ def logged_in_ui():
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
 
-        # Konsolidierte tabellarische Darstellung aller offenen Bestätigungen
-        # (Hier wird die folgende Block ersetzt)
-        # Zunächst: alle offenen Bestätigungen für mich sammeln
-        import itertools
-        info_rows = []
+        # --- Meine offenen Bestätigungen sammeln (pro Modus) ---
+        info_rows_s, info_rows_d, info_rows_r = [], [], []
         # Einzel
         if not pm.empty:
             has_c = table_has_creator("pending_matches")
             if has_c:
-                my_conf = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
+                my_conf_s = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
             else:
-                my_conf = pm[pm["b"].astype(str) == str(me)]
-            for _, r in my_conf.iterrows():
-                a_n = id_to_name.get(str(r["a"]), r["a"])
-                b_n = id_to_name.get(str(r["b"]), r["b"])
-                info_rows.append([
-                    f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}",
-                    "Einzel",
-                    r["datum"],
-                    "s",
-                    r["id"],
-                ])
+                my_conf_s = pm[pm["b"].astype(str) == str(me)]
+            for _, r in my_conf_s.iterrows():
+                info_rows_s.append(r)
         # Doppel
         if not pdbl.empty:
             has_c_d = table_has_creator("pending_doubles")
             if has_c_d:
                 part_mask = (pdbl[["a1","a2","b1","b2"]].astype(str) == str(me)).any(axis=1)
-                my_conf = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
+                my_conf_d = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
             else:
-                my_conf = pdbl[(pdbl["a1"].astype(str) != str(me)) & ((pdbl["a2"].astype(str) == str(me)) | (pdbl["b1"].astype(str) == str(me)) | (pdbl["b2"].astype(str) == str(me)))]
-            for _, r in my_conf.iterrows():
-                a1 = id_to_name.get(str(r["a1"]), r["a1"])
-                a2 = id_to_name.get(str(r["a2"]), r["a2"])
-                b1 = id_to_name.get(str(r["b1"]), r["b1"])
-                b2 = id_to_name.get(str(r["b2"]), r["b2"])
-                info_rows.append([
-                    f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}",
-                    "Doppel",
-                    r["datum"],
-                    "d",
-                    r["id"],
-                ])
+                my_conf_d = pdbl[(pdbl["a1"].astype(str) != str(me)) & ((pdbl["a2"].astype(str) == str(me)) | (pdbl["b1"].astype(str) == str(me)) | (pdbl["b2"].astype(str) == str(me)))]
+            for _, r in my_conf_d.iterrows():
+                info_rows_d.append(r)
         # Rundlauf
         if not pr.empty:
             has_c_r = table_has_creator("pending_rounds")
@@ -799,78 +778,74 @@ def logged_in_ui():
                 def _involved_not_creator(row):
                     teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
                     return (str(me) in teiln) and (str(row.get("creator")) != str(me))
-                my_conf = pr[pr.apply(_involved_not_creator, axis=1)]
+                my_conf_r = pr[pr.apply(_involved_not_creator, axis=1)]
             else:
                 def _is_involved_not_creator(row):
                     teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
                     return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
-                my_conf = pr[pr.apply(_is_involved_not_creator, axis=1)]
-            for _, r in my_conf.iterrows():
-                teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
-                fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
-                winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-                fin_text = f" – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')}"
-                info_rows.append([
-                    f"Rundlauf  {', '.join(teiln)}{fin_text}",
-                    "Rundlauf",
-                    r["datum"],
-                    "r",
-                    r["id"],
-                ])
-        # Tabelle bauen
-        if info_rows:
-            info_df = pd.DataFrame(info_rows, columns=["Spiel", "Modus", "Datum", "typ", "id"])
-            left, right = st.columns([8,2])
-            with left:
-                st.markdown("**Spiel**")
-                for row in info_df.itertuples(index=False):
-                    st.write(row[0])
-            with right:
-                st.markdown("**Aktionen**")
-                # Global: alle meine bestätigbaren Spiele annehmen
-                if st.button("✅ Alle bestätigen", key="btn_accept_all_pending", type="primary"):
-                    try:
-                        for row in info_df.itertuples(index=False):
-                            typ = row[3]  # 'typ'
-                            pid = row[4]  # 'id'
-                            if typ == "s":
-                                src = pm[pm["id"].astype(str) == str(pid)]
-                                if not src.empty:
-                                    confirm_pending_single(src.iloc[0])
-                            elif typ == "d":
-                                src = pdbl[pdbl["id"].astype(str) == str(pid)]
-                                if not src.empty:
-                                    confirm_pending_double(src.iloc[0])
-                            else:  # 'r'
-                                src = pr[pr["id"].astype(str) == str(pid)]
-                                if not src.empty:
-                                    confirm_pending_round(src.iloc[0])
-                        clear_table_cache()
-                        st.success("Alle bestätigbaren Spiele bestätigt.")
-                        st.rerun()
-                    except Exception:
-                        clear_table_cache()
-                        st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
+                my_conf_r = pr[pr.apply(_is_involved_not_creator, axis=1)]
+            for _, r in my_conf_r.iterrows():
+                info_rows_r.append(r)
 
-                st.markdown("Nur einzelne **Ablehnungen**:")
-                # In gleicher Reihenfolge wie die Tabelle die Ablehnen-Buttons rendern
-                for row in info_df.itertuples(index=False):
-                    typ = row[3]
-                    pid = row[4]
-                    c_blank, c_x = st.columns(2)
-                    with c_blank:
-                        st.write("")  # Platzhalter für visuelle Ausrichtung
-                    with c_x:
-                        if st.button("❌", key=f"trej_{typ}_{pid}"):
-                            if typ == "s":
-                                reject_pending("pending_matches", pid)
-                            elif typ == "d":
-                                reject_pending("pending_doubles", pid)
-                            else:
-                                reject_pending("pending_rounds", pid)
-                            clear_table_cache(); st.rerun()
+        # --- Global: Alle bestätigen (unter dem Refresh-Button) ---
+        if any([info_rows_s, info_rows_d, info_rows_r]):
+            if st.button("✅ Alle bestätigen", key="btn_accept_all_pending", type="primary"):
+                try:
+                    # Einzel
+                    for r in info_rows_s:
+                        confirm_pending_single(r)
+                    # Doppel
+                    for r in info_rows_d:
+                        confirm_pending_double(r)
+                    # Rundlauf
+                    for r in info_rows_r:
+                        confirm_pending_round(r)
+                    clear_table_cache()
+                    st.success("Alle bestätigbaren Spiele bestätigt.")
+                    st.rerun()
+                except Exception:
+                    clear_table_cache()
+                    st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
+        else:
+            st.info("Keine offenen Bestätigungen.")
 
-        st.divider()
+        # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
+        # Einzel-Karten
+        for r in info_rows_s:
+            a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
+            line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
+            with st.container(border=True):
+                c1, c2 = st.columns([8,1])
+                c1.markdown(line, unsafe_allow_html=True)
+                if c2.button("❌", key=f"trej_s_{r['id']}"):
+                    reject_pending("pending_matches", r["id"])
+                    clear_table_cache(); st.rerun()
+
+        # Doppel-Karten
+        for r in info_rows_d:
+            a1 = id_to_name.get(str(r["a1"]), r["a1"]) ; a2 = id_to_name.get(str(r["a2"]), r["a2"]) 
+            b1 = id_to_name.get(str(r["b1"]), r["b1"]) ; b2 = id_to_name.get(str(r["b2"]), r["b2"]) 
+            line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
+            with st.container(border=True):
+                c1, c2 = st.columns([8,1])
+                c1.markdown(line, unsafe_allow_html=True)
+                if c2.button("❌", key=f"trej_d_{r['id']}"):
+                    reject_pending("pending_doubles", r["id"])
+                    clear_table_cache(); st.rerun()
+
+        # Rundlauf-Karten
+        for r in info_rows_r:
+            teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
+            fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
+            winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
+            second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+            line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
+            with st.container(border=True):
+                c1, c2 = st.columns([8,1])
+                c1.markdown(line, unsafe_allow_html=True)
+                if c2.button("❌", key=f"trej_r_{r['id']}"):
+                    reject_pending("pending_rounds", r["id"])
+                    clear_table_cache(); st.rerun()
 
         # --- Von mir erstellt (ich kann abbrechen) ---
         st.markdown("### Von dir erstellt")
