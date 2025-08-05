@@ -856,14 +856,15 @@ def logged_in_ui():
                 mine = pm[pm["a"].astype(str) == str(me)]
             for _, r in mine.iterrows():
                 a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
-                line = f"Einzel: {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
-                c1, c2 = st.columns([3,1])
-                c1.write(line)
-                if c2.button("Abbrechen", key=f"cancel_s_{r['id']}"):
-                    reject_pending("pending_matches", r["id"])
-                    clear_table_cache()
-                    st.info("Einladung verworfen.")
-                    st.rerun()
+                line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                with st.container(border=True):
+                    c1, c2 = st.columns([8,1])
+                    c1.markdown(line, unsafe_allow_html=True)
+                    if c2.button("❌", key=f"cancel_s_{r['id']}"):
+                        reject_pending("pending_matches", r["id"])
+                        clear_table_cache()
+                        st.info("Einladung verworfen.")
+                        st.rerun()
 
         if not pdbl.empty:
             if table_has_creator("pending_doubles"):
@@ -873,14 +874,15 @@ def logged_in_ui():
             for _, r in mine.iterrows():
                 a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
                 b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
-                line = f"Doppel: {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
-                c1, c2 = st.columns([3,1])
-                c1.write(line)
-                if c2.button("Abbrechen", key=f"cancel_d_{r['id']}"):
-                    reject_pending("pending_doubles", r["id"])
-                    clear_table_cache()
-                    st.info("Einladung verworfen.")
-                    st.rerun()
+                line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
+                with st.container(border=True):
+                    c1, c2 = st.columns([8,1])
+                    c1.markdown(line, unsafe_allow_html=True)
+                    if c2.button("❌", key=f"cancel_d_{r['id']}"):
+                        reject_pending("pending_doubles", r["id"])
+                        clear_table_cache()
+                        st.info("Einladung verworfen.")
+                        st.rerun()
 
         if not pr.empty:
             if table_has_creator("pending_rounds"):
@@ -894,15 +896,16 @@ def logged_in_ui():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
                 fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
                 winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-                fin_text = f"  – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
-                line = f"Rundlauf: {', '.join(teiln)}" + fin_text
-                c1, c2 = st.columns([3,1])
-                c1.write(line)
-                if c2.button("Abbrechen", key=f"cancel_r_{r['id']}"):
-                    reject_pending("pending_rounds", r["id"])
-                    clear_table_cache()
-                    st.info("Rundlauf verworfen.")
-                    st.rerun()
+                fin_text = f" – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
+                line = f"Rundlauf  {', '.join(teiln)}" + fin_text
+                with st.container(border=True):
+                    c1, c2 = st.columns([8,1])
+                    c1.markdown(line, unsafe_allow_html=True)
+                    if c2.button("❌", key=f"cancel_r_{r['id']}"):
+                        reject_pending("pending_rounds", r["id"])
+                        clear_table_cache()
+                        st.info("Rundlauf verworfen.")
+                        st.rerun()
 
     # Account – mit Logout‑Button
     with tabs[2]:
