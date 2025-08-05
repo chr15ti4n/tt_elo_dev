@@ -1306,18 +1306,25 @@ def logged_in_ui():
 # Login/Registrierung als eigenes Fenster. Wenn nicht eingeloggt, zeigen wir NUR dieses Fenster
 # und stoppen danach das Rendering der restlichen Seite.
 if not st.session_state.get("logged_in"):
-    st.markdown(
-        """
-        <style>
-        .auth-card { max-width: 520px; margin: 6vh auto; padding: 1.25rem 1.25rem 0.5rem; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; background: rgba(0,0,0,0.25); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
-        .auth-title { text-align:center; font-size: 1.1rem; margin: 0.25rem 0 0.75rem; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="auth-card"><div class="auth-title">🔐 Login & Registrierung</div>', unsafe_allow_html=True)
-    login_register_ui()
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Versuche, die gesamte Login/Registrierung in einen echten Streamlit-Container mit Rahmen zu legen
+    try:
+        with st.container(border=True):
+            st.markdown('<div class="auth-title">🔐 Login & Registrierung</div>', unsafe_allow_html=True)
+            login_register_ui()
+    except TypeError:
+        # Fallback für ältere Streamlit-Versionen ohne `border=True`
+        st.markdown(
+            """
+            <style>
+            .auth-card { max-width: 520px; margin: 6vh auto; padding: 1.0rem 1.0rem 0.75rem; border: 1px solid rgba(255,255,255,0.20); border-radius: 12px; background: rgba(0,0,0,0.25); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+            .auth-title { text-align:center; font-size: 1.1rem; margin: 0.25rem 0 0.75rem; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="auth-card"><div class="auth-title">🔐 Login & Registrierung</div>', unsafe_allow_html=True)
+        login_register_ui()
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 else:
     logged_in_ui()
