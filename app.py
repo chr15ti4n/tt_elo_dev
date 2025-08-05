@@ -898,8 +898,8 @@ def logged_in_ui():
                 for _, x in r.iterrows():
                     teiln = [id_to_name.get(pid, pid) for pid in str(x.get("teilnehmer") or "").split(";") if pid]
                     fin_list = [id_to_name.get(pid, pid) for pid in str(x.get("finalisten") or "").split(";") if pid]
-                    second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
                     winner_n = id_to_name.get(str(x.get("sieger")), str(x.get("sieger")))
+                    second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
                     rows.append({
                         "datum": x.get("datum"),
                         "Modus": "Rundlauf",
@@ -1039,10 +1039,10 @@ def logged_in_ui():
             selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
             if len(selected) >= 2:
                 c1, c2 = st.columns(2)
-                second_name = c2.selectbox("Zweiter", selected, key="round_second")    
+                # Eingabereihenfolge getauscht: erst 2., dann 1. (Sieger)
+                second_name = c1.selectbox("Zweiter", selected, key="round_second")
                 winner_candidate = [n for n in selected if n != second_name]
-                winner_name = c1.selectbox("Sieger", winner_candidate, key="round_winner")
-
+                winner_name = c2.selectbox("Sieger", winner_candidate, key="round_winner")
             else:
                 winner_name, second_name = None, None
             if st.button("✅", key="btn_send_round"):
