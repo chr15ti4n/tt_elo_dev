@@ -750,67 +750,6 @@ def logged_in_ui():
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
 
-        # Inline-Action-Buttons (Emoji-Links, bleiben auch mobil nebeneinander)
-        st.markdown(
-            """
-            <style>
-            .pa { display:flex; gap:8px; align-items:center; margin-top:6px; }
-            .pa a { text-decoration:none; padding:6px 10px; border:1px solid rgba(255,255,255,.2);
-                    border-radius:8px; font-size:18px; line-height:1; display:inline-block; }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        # Aktionen über Query-Parameter verarbeiten (?act=conf|rej&t=s|d|r&pid=<id>)
-        qp = st.query_params
-        act = qp.get("act"); typ = qp.get("t"); pid_q = qp.get("pid")
-
-        def _allowed_single(row):
-            if table_has_creator("pending_matches"):
-                return (str(me) in {str(row["a"]), str(row["b"])}) and (str(row.get("creator")) != str(me))
-            return str(row["b"]) == str(me)
-
-        def _allowed_double(row):
-            if table_has_creator("pending_doubles"):
-                return (str(me) in {str(row["a1"]), str(row["a2"]), str(row["b1"]), str(row["b2"])}) and (str(row.get("creator")) != str(me))
-            return (str(row["a1"]) != str(me)) and (str(me) in {str(row["a2"]), str(row["b1"]), str(row["b2"])})
-
-        def _allowed_round(row):
-            teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
-            if table_has_creator("pending_rounds"):
-                return (str(me) in teiln) and (str(row.get("creator")) != str(me))
-            return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
-
-        if act in ("conf","rej") and typ in ("s","d","r") and pid_q:
-            try:
-                if typ == "s":
-                    rowdf = pm[pm["id"].astype(str) == str(pid_q)]
-                    if not rowdf.empty and _allowed_single(rowdf.iloc[0]):
-                        if act == "conf":
-                            confirm_pending_single(rowdf.iloc[0])
-                        else:
-                            reject_pending("pending_matches", rowdf.iloc[0]["id"])
-                        clear_table_cache(); st.query_params.clear(); st.rerun()
-                elif typ == "d":
-                    rowdf = pdbl[pdbl["id"].astype(str) == str(pid_q)]
-                    if not rowdf.empty and _allowed_double(rowdf.iloc[0]):
-                        if act == "conf":
-                            confirm_pending_double(rowdf.iloc[0])
-                        else:
-                            reject_pending("pending_doubles", rowdf.iloc[0]["id"])
-                        clear_table_cache(); st.query_params.clear(); st.rerun()
-                else:  # typ == "r"
-                    rowdf = pr[pr["id"].astype(str) == str(pid_q)]
-                    if not rowdf.empty and _allowed_round(rowdf.iloc[0]):
-                        if act == "conf":
-                            confirm_pending_round(rowdf.iloc[0])
-                        else:
-                            reject_pending("pending_rounds", rowdf.iloc[0]["id"])
-                        clear_table_cache(); st.query_params.clear(); st.rerun()
-            except Exception:
-                st.warning("Aktion fehlgeschlagen. Bitte erneut versuchen.")
-
         if not pm.empty:
             has_c = table_has_creator("pending_matches")
             if has_c:
@@ -825,12 +764,23 @@ def logged_in_ui():
                 with st.container(border=True):
                     st.markdown(line, unsafe_allow_html=True)
                     st.markdown(
-                        f'<div class="pa">'
-                        f'  <a href="?act=conf&t=s&pid={r["id"]}">✅</a>'
-                        f'  <a href="?act=rej&t=s&pid={r["id"]}">❌</a>'
-                        f'</div>',
+                        f"""
+                        <style>
+                        #pa-s-{r['id']} + div.stButton,
+                        #pa-s-{r['id']} + div.stButton + div.stButton {{ display:inline-block; margin-right:8px; vertical-align:middle; }}
+                        #pa-s-{r['id']} + div.stButton > button,
+                        #pa-s-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; }}
+                        </style>
+                        """,
                         unsafe_allow_html=True,
                     )
+                    st.markdown(f'<div id="pa-s-{r["id"]}"></div>', unsafe_allow_html=True)
+                    if st.button("✅", key=f"conf_s_{r['id']}"):
+                        confirm_pending_single(r)
+                        clear_table_cache(); st.success("Einzel bestätigt."); st.rerun()
+                    if st.button("❌", key=f"rej_s_{r['id']}"):
+                        reject_pending("pending_matches", r["id"])
+                        clear_table_cache(); st.info("Einzel abgelehnt."); st.rerun()
 
         if not pdbl.empty:
             has_c_d = table_has_creator("pending_doubles")
@@ -846,12 +796,23 @@ def logged_in_ui():
                 with st.container(border=True):
                     st.markdown(line, unsafe_allow_html=True)
                     st.markdown(
-                        f'<div class="pa">'
-                        f'  <a href="?act=conf&t=d&pid={r["id"]}">✅</a>'
-                        f'  <a href="?act=rej&t=d&pid={r["id"]}">❌</a>'
-                        f'</div>',
+                        f"""
+                        <style>
+                        #pa-d-{r['id']} + div.stButton,
+                        #pa-d-{r['id']} + div.stButton + div.stButton {{ display:inline-block; margin-right:8px; vertical-align:middle; }}
+                        #pa-d-{r['id']} + div.stButton > button,
+                        #pa-d-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; }}
+                        </style>
+                        """,
                         unsafe_allow_html=True,
                     )
+                    st.markdown(f'<div id="pa-d-{r["id"]}"></div>', unsafe_allow_html=True)
+                    if st.button("✅", key=f"conf_d_{r['id']}"):
+                        confirm_pending_double(r)
+                        clear_table_cache(); st.success("Doppel bestätigt."); st.rerun()
+                    if st.button("❌", key=f"rej_d_{r['id']}"):
+                        reject_pending("pending_doubles", r["id"])
+                        clear_table_cache(); st.info("Doppel abgelehnt."); st.rerun()
 
         if not pr.empty:
             has_c_r = table_has_creator("pending_rounds")
@@ -874,12 +835,23 @@ def logged_in_ui():
                 with st.container(border=True):
                     st.markdown(line, unsafe_allow_html=True)
                     st.markdown(
-                        f'<div class="pa">'
-                        f'  <a href="?act=conf&t=r&pid={r["id"]}">✅</a>'
-                        f'  <a href="?act=rej&t=r&pid={r["id"]}">❌</a>'
-                        f'</div>',
+                        f"""
+                        <style>
+                        #pa-r-{r['id']} + div.stButton,
+                        #pa-r-{r['id']} + div.stButton + div.stButton {{ display:inline-block; margin-right:8px; vertical-align:middle; }}
+                        #pa-r-{r['id']} + div.stButton > button,
+                        #pa-r-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; }}
+                        </style>
+                        """,
                         unsafe_allow_html=True,
                     )
+                    st.markdown(f'<div id="pa-r-{r["id"]}"></div>', unsafe_allow_html=True)
+                    if st.button("✅", key=f"conf_r_{r['id']}"):
+                        confirm_pending_round(r)
+                        clear_table_cache(); st.success("Rundlauf bestätigt."); st.rerun()
+                    if st.button("❌", key=f"rej_r_{r['id']}"):
+                        reject_pending("pending_rounds", r["id"])
+                        clear_table_cache(); st.info("Rundlauf abgelehnt."); st.rerun()
 
         st.divider()
 
