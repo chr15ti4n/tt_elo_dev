@@ -547,7 +547,23 @@ def login_register_ui():
 # endregion
 
 # region layout_header
+# region layout_header
 st.header("🏓 AK-Tischtennis")
+st.markdown(
+    """
+    <style>
+      /* Hide the default chevron/triangle in all expanders */
+      [data-testid="stExpander"] details summary svg { display: none !important; }
+      [data-testid="stExpander"] details > summary::-webkit-details-marker { display: none !important; }
+      [data-testid="stExpander"] details summary { padding-left: 0 !important; }
+      /* Ensure option-menu lists never show markers (fallback) */
+      ul.nav.nav-pills, ul.nav.nav-pills li { list-style: none !important; }
+      ul.nav.nav-pills li::marker { content: '' !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+# endregion
 # endregion
 
 # region session_init
@@ -626,7 +642,7 @@ def main_nav() -> str:
         orientation="horizontal",
         styles={
             "container": {"padding": "0", "background-color": "rgba(0,0,0,0)"},
-            "icon": {"color": primary, "font-size": "16px"},
+            # "icon": {"color": primary, "font-size": "16px"},  # removed per global style
             "nav-link": {"font-size": "16px", "padding": "6px 12px", "margin": "0 4px", "border-radius": "8px", "color": "inherit"},
             "nav-link-selected": {"background-color": primary}
         },
@@ -838,7 +854,7 @@ def logged_in_ui():
                 orientation="horizontal",
                 styles={
                     "container": {"padding": "0", "background-color": "rgba(0,0,0,0)"},
-                    "icon": {"font-size": "14px"},
+                    # "icon": {"font-size": "14px"},  # removed per global style
                     "nav-link": {"font-size": "14px", "padding": "4px 10px", "margin": "0 4px", "border-radius": "8px"},
                     "nav-link-selected": {"background-color": st.get_option("theme.primaryColor") or "#dc2626"},
                 },
