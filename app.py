@@ -621,8 +621,7 @@ def main_nav() -> str:
     selected = option_menu(
         None,
         labels,
-        icons=["house", "controller", "person-fill"],
-        menu_icon="cast",
+        menu_icon=None,
         default_index=default_index,
         orientation="horizontal",
         styles={
@@ -834,7 +833,6 @@ def logged_in_ui():
             lb_selected = option_menu(
                 None,
                 lb_labels,
-                icons=["bar-chart-line", "person", "people", "shuffle", "clock-history"],
                 menu_icon=None,
                 default_index=lb_default,
                 orientation="horizontal",
