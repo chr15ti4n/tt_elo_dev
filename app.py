@@ -7,7 +7,6 @@ from typing import Optional
 import bcrypt
 import uuid
 from supabase import create_client
-from streamlit_option_menu import option_menu
 # endregion
 
 # region app_setup
@@ -38,31 +37,6 @@ def load_table(table_name: str) -> pd.DataFrame:
     """
     try:
         res = sp.table(table_name).select("*").execute()
-        data = res.data or []
-    except Exception:
-        return pd.DataFrame()
-    df = pd.DataFrame(data)
-    if df.empty:
-        return df
-    df.columns = [str(c).lower() for c in df.columns]
-    if "datum" in df.columns:
-        df["datum"] = pd.to_datetime(df["datum"], errors="coerce", utc=True).dt.tz_convert(TZ)
-    return df
-
-# --- Lightweight helper: load only recent rows for "Letzte Spiele" ---
-@st.cache_data(ttl=30)
-def load_recent(table_name: str, columns: str = "*", limit: int = 5) -> pd.DataFrame:
-    """Lädt nur die letzten `limit` Zeilen (nach `datum` absteigend) aus einer Tabelle.
-    Minimiert Datenmenge gegenüber `load_table`.
-    """
-    try:
-        res = (
-            sp.table(table_name)
-              .select(columns)
-              .order("datum", desc=True)
-              .limit(limit)
-              .execute()
-        )
         data = res.data or []
     except Exception:
         return pd.DataFrame()
@@ -547,23 +521,7 @@ def login_register_ui():
 # endregion
 
 # region layout_header
-# region layout_header
 st.header("🏓 AK-Tischtennis")
-st.markdown(
-    """
-    <style>
-      /* Hide the default chevron/triangle in all expanders */
-      [data-testid="stExpander"] details summary svg { display: none !important; }
-      [data-testid="stExpander"] details > summary::-webkit-details-marker { display: none !important; }
-      [data-testid="stExpander"] details summary { padding-left: 0 !important; }
-      /* Ensure option-menu lists never show markers (fallback) */
-      ul.nav.nav-pills, ul.nav.nav-pills li { list-style: none !important; }
-      ul.nav.nav-pills li::marker { content: '' !important; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-# endregion
 # endregion
 
 # region session_init
@@ -622,33 +580,6 @@ def logged_in_header(user: dict):
         """,
         unsafe_allow_html=True,
     )
-
-
-# Helper: horizontales Hauptmenü (Option Menu) für Übersicht/Spielen/Account
-def main_nav() -> str:
-    """Horizontales Hauptmenü (Option Menu) für Übersicht/Spielen/Account.
-    Merkt die Auswahl in Session State.
-    """
-    labels = ["Übersicht", "Spielen", "Account"]
-    if "main_nav" not in st.session_state:
-        st.session_state.main_nav = labels[0]
-    default_index = labels.index(st.session_state.main_nav)
-    primary = st.get_option("theme.primaryColor") or "#dc2626"
-    selected = option_menu(
-        None,
-        labels,
-        menu_icon=None,
-        default_index=default_index,
-        orientation="horizontal",
-        styles={
-            "container": {"padding": "0", "background-color": "rgba(0,0,0,0)"},
-            # "icon": {"color": primary, "font-size": "16px"},  # removed per global style
-            "nav-link": {"font-size": "16px", "padding": "6px 12px", "margin": "0 4px", "border-radius": "8px", "color": "inherit"},
-            "nav-link-selected": {"background-color": primary}
-        },
-    )
-    st.session_state.main_nav = selected
-    return selected
 
 
 def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
@@ -722,164 +653,246 @@ def logged_in_ui():
         st.rerun()
         return
 
-    # Hauptnavigation per Option Menu (statt Tabs)
-    selected = main_nav()
+    # Tabs: Übersicht (zuerst), Spielen, Account (Logout)
+    tabs = st.tabs(["Übersicht", "Spielen", "Account"])  
 
     # region Übersicht
-    if selected == "Übersicht":
+    with tabs[0]:
         logged_in_header(user)
 
         # --- Offene Bestätigungen (auch in Übersicht anzeigen) ---
-        with st.spinner("Lade offene Bestätigungen…"):
-            id_to_name, name_to_id = get_player_maps()
-            me = st.session_state.get("player_id")
+        id_to_name, name_to_id = get_player_maps()
+        me = st.session_state.get("player_id")
 
-            # Reuse creator flags for pending tables
-            has_c_matches = table_has_creator("pending_matches")
-            has_c_doubles = table_has_creator("pending_doubles")
-            has_c_rounds = table_has_creator("pending_rounds")
+        st.divider()
 
-            st.divider()
+        col_head, col_btn = st.columns([100,1])
+        with col_head:
+            st.markdown("### Offene Bestätigungen")
+        with col_btn:
+            if st.button("🔄", key="btn_refresh_confirmations_ovw"):
+                clear_table_cache()
+                st.rerun()
+        
+        pm = load_table("pending_matches")
+        pdbl = load_table("pending_doubles")
+        pr = load_table("pending_rounds")
 
-            col_head, col_btn = st.columns([100,1])
-            with col_head:
-                st.markdown("### Offene Bestätigungen")
-            with col_btn:
-                if st.button("🔄", key="btn_refresh_confirmations_ovw"):
-                    clear_table_cache()
-                    st.rerun()
-            
-            pm = load_table("pending_matches")
-            pdbl = load_table("pending_doubles")
-            pr = load_table("pending_rounds")
-
-            # --- Meine offenen Bestätigungen sammeln (pro Modus) ---
-            info_rows_s, info_rows_d, info_rows_r = [], [], []
-            # Einzel
-            if not pm.empty:
-                if has_c_matches:
-                    my_conf_s = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
-                else:
-                    my_conf_s = pm[pm["b"].astype(str) == str(me)]
-                for _, r in my_conf_s.iterrows():
-                    info_rows_s.append(r)
-            # Doppel
-            if not pdbl.empty:
-                if has_c_doubles:
-                    part_mask = (pdbl[["a1","a2","b1","b2"]].astype(str) == str(me)).any(axis=1)
-                    my_conf_d = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
-                else:
-                    my_conf_d = pdbl[(pdbl["a1"].astype(str) != str(me)) & ((pdbl["a2"].astype(str) == str(me)) | (pdbl["b1"].astype(str) == str(me)) | (pdbl["b2"].astype(str) == str(me)))]
-                for _, r in my_conf_d.iterrows():
-                    info_rows_d.append(r)
-            # Rundlauf
-            if not pr.empty:
-                if has_c_rounds:
-                    def _involved_not_creator(row):
-                        teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
-                        return (str(me) in teiln) and (str(row.get("creator")) != str(me))
-                    my_conf_r = pr[pr.apply(_involved_not_creator, axis=1)]
-                else:
-                    def _is_involved_not_creator(row):
-                        teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
-                        return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
-                    my_conf_r = pr[pr.apply(_is_involved_not_creator, axis=1)]
-                for _, r in my_conf_r.iterrows():
-                    info_rows_r.append(r)
-
-            # --- Global: Alle bestätigen (unter dem Refresh-Button) ---
-            if any([info_rows_s, info_rows_d, info_rows_r]):
-                if st.button("✅ Alle bestätigen", key="btn_accept_all_pending_ovw", type="primary"):
-                    try:
-                        # Einzel
-                        for r in info_rows_s:
-                            confirm_pending_single(r)
-                        # Doppel
-                        for r in info_rows_d:
-                            confirm_pending_double(r)
-                        # Rundlauf
-                        for r in info_rows_r:
-                            confirm_pending_round(r)
-                        clear_table_cache()
-                        st.success("Alle bestätigbaren Spiele bestätigt.")
-                        st.rerun()
-                    except Exception:
-                        clear_table_cache()
-                        st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
+        # --- Meine offenen Bestätigungen sammeln (pro Modus) ---
+        info_rows_s, info_rows_d, info_rows_r = [], [], []
+        # Einzel
+        if not pm.empty:
+            has_c = table_has_creator("pending_matches")
+            if has_c:
+                my_conf_s = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
             else:
-                st.info("Keine offenen Bestätigungen.")
+                my_conf_s = pm[pm["b"].astype(str) == str(me)]
+            for _, r in my_conf_s.iterrows():
+                info_rows_s.append(r)
+        # Doppel
+        if not pdbl.empty:
+            has_c_d = table_has_creator("pending_doubles")
+            if has_c_d:
+                part_mask = (pdbl[["a1","a2","b1","b2"]].astype(str) == str(me)).any(axis=1)
+                my_conf_d = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
+            else:
+                my_conf_d = pdbl[(pdbl["a1"].astype(str) != str(me)) & ((pdbl["a2"].astype(str) == str(me)) | (pdbl["b1"].astype(str) == str(me)) | (pdbl["b2"].astype(str) == str(me)))]
+            for _, r in my_conf_d.iterrows():
+                info_rows_d.append(r)
+        # Rundlauf
+        if not pr.empty:
+            has_c_r = table_has_creator("pending_rounds")
+            if has_c_r:
+                def _involved_not_creator(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return (str(me) in teiln) and (str(row.get("creator")) != str(me))
+                my_conf_r = pr[pr.apply(_involved_not_creator, axis=1)]
+            else:
+                def _is_involved_not_creator(row):
+                    teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
+                    return (str(me) in teiln) and (len(teiln) > 0 and teiln[0] != str(me))
+                my_conf_r = pr[pr.apply(_is_involved_not_creator, axis=1)]
+            for _, r in my_conf_r.iterrows():
+                info_rows_r.append(r)
 
-            # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
-            me_name = user.get("name")
-            for r in info_rows_s:
-                render_single_vs_card(
-                    r, id_to_name,
-                    highlight_name=me_name,
-                    key=f"trej_s_{r['id']}_ovw",
-                    on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
-                    button_label="❌ Ablehnen",
-                )
-            for r in info_rows_d:
-                render_double_vs_card(
-                    r, id_to_name,
-                    highlight_name=me_name,
-                    key=f"trej_d_{r['id']}_ovw",
-                    on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
-                    button_label="❌ Ablehnen",
-                )
-            for r in info_rows_r:
-                render_round_vs_card(
-                    r, id_to_name,
-                    highlight_name=me_name,
-                    key=f"trej_r_{r['id']}_ovw",
-                    on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
-                    button_label="❌ Ablehnen",
-                )
+        # --- Global: Alle bestätigen (unter dem Refresh-Button) ---
+        if any([info_rows_s, info_rows_d, info_rows_r]):
+            if st.button("✅ Alle bestätigen", key="btn_accept_all_pending_ovw", type="primary"):
+                try:
+                    # Einzel
+                    for r in info_rows_s:
+                        confirm_pending_single(r)
+                    # Doppel
+                    for r in info_rows_d:
+                        confirm_pending_double(r)
+                    # Rundlauf
+                    for r in info_rows_r:
+                        confirm_pending_round(r)
+                    clear_table_cache()
+                    st.success("Alle bestätigbaren Spiele bestätigt.")
+                    st.rerun()
+                except Exception:
+                    clear_table_cache()
+                    st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
+        else:
+            st.info("Keine offenen Bestätigungen.")
+
+        # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
+        # Einzel-Karten
+        me_name = user.get("name")
+        for r in info_rows_s:
+            render_single_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_s_{r['id']}_ovw",
+                on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
+
+        # Doppel-Karten
+        me_name = user.get("name")
+        for r in info_rows_d:
+            render_double_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_d_{r['id']}_ovw",
+                on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
+
+        # Rundlauf-Karten
+        me_name = user.get("name")
+        for r in info_rows_r:
+            render_round_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_r_{r['id']}_ovw",
+                on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # --- Leaderboards & Letzte Spiele ---
-        with st.spinner("Lade Leaderboards & letzte Spiele…"):
-            st.divider()
-            st.markdown("### Leaderboards & Letzte Spiele")
+        st.divider()
+        st.markdown("### Leaderboards & Letzte Spiele")
 
-            # Sub-Navigation statt Tabs (merkt Auswahl in Session State)
-            lb_labels = ["Gesamt", "Einzel", "Doppel", "Rundlauf", "Letzte Spiele"]
-            if "lb_nav" not in st.session_state:
-                st.session_state.lb_nav = lb_labels[0]
-            lb_default = lb_labels.index(st.session_state.lb_nav)
-            lb_selected = option_menu(
-                None,
-                lb_labels,
-                menu_icon=None,
-                default_index=lb_default,
-                orientation="horizontal",
-                styles={
-                    "container": {"padding": "0", "background-color": "rgba(0,0,0,0)"},
-                    # "icon": {"font-size": "14px"},  # removed per global style
-                    "nav-link": {"font-size": "14px", "padding": "4px 10px", "margin": "0 4px", "border-radius": "8px"},
-                    "nav-link-selected": {"background-color": st.get_option("theme.primaryColor") or "#dc2626"},
-                },
-            )
-            st.session_state.lb_nav = lb_selected
+        lb_tabs = st.tabs(["Gesamt", "Einzel", "Doppel", "Rundlauf", "Letzte Spiele"])
 
-            # --- Helper: safe sorting and display of leaderboard ---
-            def _show_lb(df_players: pd.DataFrame, col: str, title: str, highlight_name: str):
-                if df_players.empty or col not in df_players.columns:
-                    st.info("Noch keine Daten.")
-                    return
-                tmp = df_players[["name", col]].copy()
-                tmp[col] = pd.to_numeric(tmp[col], errors="coerce").fillna(0).astype(int)
-                tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
-                tmp = tmp.rename(columns={"name": "Name", col: title})
+        # --- Helper: safe sorting and display of leaderboard ---
+        def _show_lb(df_players: pd.DataFrame, col: str, title: str, highlight_name: str):
+            if df_players.empty or col not in df_players.columns:
+                st.info("Noch keine Daten.")
+                return
+            tmp = df_players[["name", col]].copy()
+            tmp[col] = pd.to_numeric(tmp[col], errors="coerce").fillna(0).astype(int)
+            tmp = tmp.sort_values(col, ascending=False).reset_index(drop=True)
+            tmp = tmp.rename(columns={"name": "Name", col: title})
 
-                # Index praktisch unsichtbar machen: minimale Breite via Styler und transparente Farbe
+            # Index praktisch unsichtbar machen: minimale Breite via Styler und transparente Farbe
+            primary = st.get_option("theme.primaryColor") or "#dc2626"
+
+            def _style_row(row: pd.Series):
+                if str(row["Name"]) == str(highlight_name):
+                    return [f"color: {primary}; font-weight: 700" for _ in row.index]
+                return ["" for _ in row.index]
+
+            sty = tmp.style.apply(_style_row, axis=1)
+            sty = sty.set_table_styles([
+                {"selector": "th.row_heading", "props": [
+                    ("width","1px"),("min-width","1px"),("max-width","1px"),
+                    ("padding","0"),("border","none"),("overflow","hidden"),
+                    ("color","transparent")
+                ]},
+                {"selector": "tbody th", "props": [
+                    ("width","1px"),("min-width","1px"),("max-width","1px"),
+                    ("padding","0"),("border","none"),("overflow","hidden"),
+                    ("color","transparent")
+                ]},
+                {"selector": "th.blank", "props": [
+                    ("width","1px"),("min-width","1px"),("max-width","1px"),
+                    ("padding","0"),("border","none"),("overflow","hidden"),
+                    ("color","transparent")
+                ]},
+                {"selector": "th.col_heading", "props": [
+                    ("white-space","nowrap"), ("text-align","left")
+                ]},
+            ], overwrite=False)
+            st.table(sty)
+
+        players_df = load_table("players")
+
+        me_name = user.get("name")
+
+        with lb_tabs[0]:  # Gesamt‑ELO
+            _show_lb(players_df, "g_elo", "Gesamt‑ELO", me_name)
+        with lb_tabs[1]:  # Einzel‑ELO
+            _show_lb(players_df, "elo", "Einzel‑ELO", me_name)
+        with lb_tabs[2]:  # Doppel‑ELO
+            _show_lb(players_df, "d_elo", "Doppel‑ELO", me_name)
+        with lb_tabs[3]:  # Rundlauf‑ELO
+            _show_lb(players_df, "r_elo", "Rundlauf‑ELO", me_name)
+
+        with lb_tabs[4]:  # Letzte Spiele
+            m = load_table("matches")
+            d = load_table("doubles")
+            r = load_table("rounds")
+            rows = []
+            # Einzel
+            if not m.empty:
+                for _, x in m.iterrows():
+                    a_n = id_to_name.get(str(x.get("a")), str(x.get("a")))
+                    b_n = id_to_name.get(str(x.get("b")), str(x.get("b")))
+                    rows.append({
+                        "datum": x.get("datum"),
+                        "Modus": "Einzel",
+                        "Teilnehmer": f"{a_n} vs {b_n}",
+                        "Ergebnis": f"{int(x.get('punktea',0))}:{int(x.get('punkteb',0))}",
+                    })
+            # Doppel
+            if not d.empty:
+                for _, x in d.iterrows():
+                    a1 = id_to_name.get(str(x.get("a1")), str(x.get("a1")))
+                    a2 = id_to_name.get(str(x.get("a2")), str(x.get("a2")))
+                    b1 = id_to_name.get(str(x.get("b1")), str(x.get("b1")))
+                    b2 = id_to_name.get(str(x.get("b2")), str(x.get("b2")))
+                    rows.append({
+                        "datum": x.get("datum"),
+                        "Modus": "Doppel",
+                        "Teilnehmer": f"{a1}/{a2} vs {b1}/{b2}",
+                        "Ergebnis": f"{int(x.get('punktea',0))}:{int(x.get('punkteb',0))}",
+                    })
+            # Rundlauf
+            if not r.empty:
+                for _, x in r.iterrows():
+                    teiln = [id_to_name.get(pid, pid) for pid in str(x.get("teilnehmer") or "").split(";") if pid]
+                    fin_list = [id_to_name.get(pid, pid) for pid in str(x.get("finalisten") or "").split(";") if pid]
+                    winner_n = id_to_name.get(str(x.get("sieger")), str(x.get("sieger")))
+                    second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+                    rows.append({
+                        "datum": x.get("datum"),
+                        "Modus": "Rundlauf",
+                        "Teilnehmer": ", ".join(teiln),
+                        "Ergebnis": f"1.: {winner_n}\n2.: {second_n}",
+                    })
+            if rows:
+                df_last = pd.DataFrame(rows)
+                df_last["datum"] = pd.to_datetime(df_last["datum"], errors="coerce")
+                df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
+                show_df = df_last [["Modus","Teilnehmer","Ergebnis"]].copy()
                 primary = st.get_option("theme.primaryColor") or "#dc2626"
 
-                def _style_row(row: pd.Series):
-                    if str(row["Name"]) == str(highlight_name):
+                def _style_last(row: pd.Series):
+                    if me_name and str(me_name) in str(row["Teilnehmer"]):
                         return [f"color: {primary}; font-weight: 700" for _ in row.index]
                     return ["" for _ in row.index]
 
-                sty = tmp.style.apply(_style_row, axis=1)
+                # Index unsichtbar machen: minimale Breite und transparente Farbe
+                sty = show_df.style.apply(_style_last, axis=1)
+                # Modus: nicht umbrechen; Ergebnis: Zeilenumbrüche via "\n" darstellen
+                try:
+                    sty = sty.set_properties(subset=["Modus"], **{"white-space": "nowrap"})
+                    sty = sty.set_properties(subset=["Ergebnis"], **{"white-space": "pre-line"})
+                except Exception:
+                    pass
                 sty = sty.set_table_styles([
                     {"selector": "th.row_heading", "props": [
                         ("width","1px"),("min-width","1px"),("max-width","1px"),
@@ -901,211 +914,123 @@ def logged_in_ui():
                     ]},
                 ], overwrite=False)
                 st.table(sty)
-
-            players_df = load_table("players")
-            me_name = user.get("name")
-
-            if lb_selected == "Gesamt":
-                _show_lb(players_df, "g_elo", "Gesamt‑ELO", me_name)
-            elif lb_selected == "Einzel":
-                _show_lb(players_df, "elo", "Einzel‑ELO", me_name)
-            elif lb_selected == "Doppel":
-                _show_lb(players_df, "d_elo", "Doppel‑ELO", me_name)
-            elif lb_selected == "Rundlauf":
-                _show_lb(players_df, "r_elo", "Rundlauf‑ELO", me_name)
-            elif lb_selected == "Letzte Spiele":
-                m = load_recent("matches", columns="datum,a,b,punktea,punkteb", limit=5)
-                d = load_recent("doubles", columns="datum,a1,a2,b1,b2,punktea,punkteb", limit=5)
-                r = load_recent("rounds", columns="datum,teilnehmer,finalisten,sieger", limit=5)
-                rows = []
-                # Einzel
-                if not m.empty:
-                    for _, x in m.iterrows():
-                        a_n = id_to_name.get(str(x.get("a")), str(x.get("a")))
-                        b_n = id_to_name.get(str(x.get("b")), str(x.get("b")))
-                        rows.append({
-                            "datum": x.get("datum"),
-                            "Modus": "Einzel",
-                            "Teilnehmer": f"{a_n} vs {b_n}",
-                            "Ergebnis": f"{int(x.get('punktea',0))}:{int(x.get('punkteb',0))}",
-                        })
-                # Doppel
-                if not d.empty:
-                    for _, x in d.iterrows():
-                        a1 = id_to_name.get(str(x.get("a1")), str(x.get("a1")))
-                        a2 = id_to_name.get(str(x.get("a2")), str(x.get("a2")))
-                        b1 = id_to_name.get(str(x.get("b1")), str(x.get("b1")))
-                        b2 = id_to_name.get(str(x.get("b2")), str(x.get("b2")))
-                        rows.append({
-                            "datum": x.get("datum"),
-                            "Modus": "Doppel",
-                            "Teilnehmer": f"{a1}/{a2} vs {b1}/{b2}",
-                            "Ergebnis": f"{int(x.get('punktea',0))}:{int(x.get('punkteb',0))}",
-                        })
-                # Rundlauf
-                if not r.empty:
-                    for _, x in r.iterrows():
-                        teiln = [id_to_name.get(pid, pid) for pid in str(x.get("teilnehmer") or "").split(";") if pid]
-                        fin_list = [id_to_name.get(pid, pid) for pid in str(x.get("finalisten") or "").split(";") if pid]
-                        winner_n = id_to_name.get(str(x.get("sieger")), str(x.get("sieger")))
-                        second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
-                        rows.append({
-                            "datum": x.get("datum"),
-                            "Modus": "Rundlauf",
-                            "Teilnehmer": ", ".join(teiln),
-                            "Ergebnis": f"1.: {winner_n}\n2.: {second_n}",
-                        })
-                if rows:
-                    df_last = pd.DataFrame(rows)
-                    df_last["datum"] = pd.to_datetime(df_last["datum"], errors="coerce")
-                    df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
-                    show_df = df_last [["Modus","Teilnehmer","Ergebnis"]].copy()
-                    primary = st.get_option("theme.primaryColor") or "#dc2626"
-
-                    def _style_last(row: pd.Series):
-                        if me_name and str(me_name) in str(row["Teilnehmer"]):
-                            return [f"color: {primary}; font-weight: 700" for _ in row.index]
-                        return ["" for _ in row.index]
-
-                    sty = show_df.style.apply(_style_last, axis=1)
-                    try:
-                        sty = sty.set_properties(subset=["Modus"], **{"white-space": "nowrap"})
-                        sty = sty.set_properties(subset=["Ergebnis"], **{"white-space": "pre-line"})
-                    except Exception:
-                        pass
-                    sty = sty.set_table_styles([
-                        {"selector": "th.row_heading", "props": [
-                            ("width","1px"),("min-width","1px"),("max-width","1px"),
-                            ("padding","0"),("border","none"),("overflow","hidden"),
-                            ("color","transparent")
-                        ]},
-                        {"selector": "tbody th", "props": [
-                            ("width","1px"),("min-width","1px"),("max-width","1px"),
-                            ("padding","0"),("border","none"),("overflow","hidden"),
-                            ("color","transparent")
-                        ]},
-                        {"selector": "th.blank", "props": [
-                            ("width","1px"),("min-width","1px"),("max-width","1px"),
-                            ("padding","0"),("border","none"),("overflow","hidden"),
-                            ("color","transparent")
-                        ]},
-                        {"selector": "th.col_heading", "props": [
-                            ("white-space","nowrap"), ("text-align","left")
-                        ]},
-                    ], overwrite=False)
-                    st.table(sty)
-                else:
-                    st.info("Noch keine Spiele vorhanden.")
+            else:
+                st.info("Noch keine Spiele vorhanden.")
     # Spielen – neue UI für Spiele erstellen und verwalten
-    elif selected == "Spielen":
+    with tabs[1]:
         st.subheader("Spielen")
-        with st.spinner("Lade Daten…"):
-            id_to_name, name_to_id = get_player_maps()
-            me = st.session_state.get("player_id")
-            # --- Erstellung: Modus per Tabs ---
-            m_tabs = st.tabs(["Einzel", "Doppel", "Rundlauf"]) 
-            # Einzel
-            with m_tabs[0]:
-                play_myself = st.checkbox("Ich spiele mit", value=True, help="Dein Name als Teilnehmer A. Deaktiviere, um ein Match für andere anzulegen.")
-                if play_myself:
-                    opponent = st.selectbox("Gegner", [n for n in name_to_id.keys() if name_to_id[n] != me], key="einzel_opponent")
-                    c1, c2 = st.columns(2)
-                    s_a = c1.number_input("Deine Punkte", min_value=0, step=1, value=11, key="einzel_s_a")
-                    s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=9, key="einzel_s_b")
-                    if st.button("✅", key="btn_send_single_me"):
-                        create_pending_single(me, name_to_id[opponent], s_a, s_b)
-                        clear_table_cache()
-                        st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
-                        st.rerun()
+        id_to_name, name_to_id = get_player_maps()
+        me = st.session_state.get("player_id")
+
+        # --- Erstellung: Modus per Tabs ---
+        m_tabs = st.tabs(["Einzel", "Doppel", "Rundlauf"]) 
+
+        # Einzel
+        with m_tabs[0]:
+            play_myself = st.checkbox("Ich spiele mit", value=True, help="Dein Name als Teilnehmer A. Deaktiviere, um ein Match für andere anzulegen.")
+            if play_myself:
+                opponent = st.selectbox("Gegner", [n for n in name_to_id.keys() if name_to_id[n] != me], key="einzel_opponent")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Deine Punkte", min_value=0, step=1, value=11, key="einzel_s_a")
+                s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=9, key="einzel_s_b")
+                if st.button("✅", key="btn_send_single_me"):
+                    create_pending_single(me, name_to_id[opponent], s_a, s_b)
+                    clear_table_cache()
+                    st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+            else:
+                a_player = st.selectbox("Spieler A", [n for n in name_to_id.keys()], key="einzel_a")
+                b_player = st.selectbox("Spieler B", [n for n in name_to_id.keys() if n != a_player], key="einzel_b")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Punkte A", min_value=0, step=1, value=11, key="einzel2_s_a")
+                s_b = c2.number_input("Punkte B", min_value=0, step=1, value=9, key="einzel2_s_b")
+                if st.button("✅", key="btn_send_single_others"):
+                    create_pending_single(me, name_to_id[b_player], s_a, s_b, a_id=name_to_id[a_player])
+                    clear_table_cache()
+                    st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+
+        # Doppel
+        with m_tabs[1]:
+            play_myself_d = st.checkbox("Ich spiele mit", value=True, key="doppel_play_myself")
+            if play_myself_d:
+                partner = st.selectbox("Partner", [n for n in name_to_id.keys() if name_to_id[n] != me], key="d_partner")
+                right1 = st.selectbox("Gegner 1", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner])], key="d_opp1")
+                right2 = st.selectbox("Gegner 2", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner], name_to_id[right1])], key="d_opp2")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Eure Punkte", min_value=0, step=1, value=11, key="d_s_a")
+                s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=8, key="d_s_b")
+                if st.button("✅", key="btn_send_double_me"):
+                    # Direktes Insert mit fertigem Payload
+                    payload = {
+                        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+                        "a1": me, "a2": name_to_id[partner], "b1": name_to_id[right1], "b2": name_to_id[right2],
+                        "punktea": int(s_a), "punkteb": int(s_b),
+                        "confa": False, "confb": False,
+                    }
+                    if table_has_creator("pending_doubles"):
+                        payload["creator"] = me
+                    sp.table("pending_doubles").insert(payload).execute()
+                    clear_table_cache()
+                    st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+            else:
+                a1 = st.selectbox("Spieler A1", [n for n in name_to_id.keys()], key="d_a1")
+                a2 = st.selectbox("Spieler A2", [n for n in name_to_id.keys() if n != a1], key="d_a2")
+                b1 = st.selectbox("Spieler B1", [n for n in name_to_id.keys() if n not in (a1, a2)], key="d_b1")
+                b2 = st.selectbox("Spieler B2", [n for n in name_to_id.keys() if n not in (a1, a2, b1)], key="d_b2")
+                c1, c2 = st.columns(2)
+                s_a = c1.number_input("Punkte Team A", min_value=0, step=1, value=11, key="d2_s_a")
+                s_b = c2.number_input("Punkte Team B", min_value=0, step=1, value=8, key="d2_s_b")
+                if st.button("✅", key="btn_send_double_others"):
+                    payload = {
+                        "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
+                        "a1": name_to_id[a1], "a2": name_to_id[a2], "b1": name_to_id[b1], "b2": name_to_id[b2],
+                        "punktea": int(s_a), "punkteb": int(s_b),
+                        "confa": False, "confb": False,
+                    }
+                    if table_has_creator("pending_doubles"):
+                        payload["creator"] = me
+                    sp.table("pending_doubles").insert(payload).execute()
+                    clear_table_cache()
+                    st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+
+        # Rundlauf
+        with m_tabs[2]:
+            play_myself_r = st.checkbox("Ich spiele mit", value=True, key="round_play_myself")
+            selectable = list(name_to_id.keys())
+            default_sel = []
+            if play_myself_r and st.session_state.get("player_name") in selectable:
+                default_sel = [st.session_state.get("player_name")]
+            selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
+            if len(selected) >= 2:
+                c1, c2 = st.columns(2)
+                winner_name = c1.selectbox("Sieger (1.)", selected, key="round_winner")
+                second_candidates = [n for n in selected if n != winner_name]
+                second_name = c2.selectbox("Zweiter (2.)", second_candidates, key="round_second")
+            else:
+                winner_name, second_name = None, None
+            if st.button("✅", key="btn_send_round"):
+                pids = [name_to_id[n] for n in selected]
+                if len(pids) < 2:
+                    st.warning("Mindestens 2 Teilnehmer.")
+                elif not winner_name or not second_name:
+                    st.warning("Bitte Sieger und Zweiten wählen.")
                 else:
-                    a_player = st.selectbox("Spieler A", [n for n in name_to_id.keys()], key="einzel_a")
-                    b_player = st.selectbox("Spieler B", [n for n in name_to_id.keys() if n != a_player], key="einzel_b")
-                    c1, c2 = st.columns(2)
-                    s_a = c1.number_input("Punkte A", min_value=0, step=1, value=11, key="einzel2_s_a")
-                    s_b = c2.number_input("Punkte B", min_value=0, step=1, value=9, key="einzel2_s_b")
-                    if st.button("✅", key="btn_send_single_others"):
-                        create_pending_single(me, name_to_id[b_player], s_a, s_b, a_id=name_to_id[a_player])
-                        clear_table_cache()
-                        st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
-                        st.rerun()
-            # Doppel
-            with m_tabs[1]:
-                play_myself_d = st.checkbox("Ich spiele mit", value=True, key="doppel_play_myself")
-                if play_myself_d:
-                    partner = st.selectbox("Partner", [n for n in name_to_id.keys() if name_to_id[n] != me], key="d_partner")
-                    right1 = st.selectbox("Gegner 1", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner])], key="d_opp1")
-                    right2 = st.selectbox("Gegner 2", [n for n in name_to_id.keys() if name_to_id[n] not in (me, name_to_id[partner], name_to_id[right1])], key="d_opp2")
-                    c1, c2 = st.columns(2)
-                    s_a = c1.number_input("Eure Punkte", min_value=0, step=1, value=11, key="d_s_a")
-                    s_b = c2.number_input("Gegner Punkte", min_value=0, step=1, value=8, key="d_s_b")
-                    if st.button("✅", key="btn_send_double_me"):
-                        # Direktes Insert mit fertigem Payload
-                        payload = {
-                            "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
-                            "a1": me, "a2": name_to_id[partner], "b1": name_to_id[right1], "b2": name_to_id[right2],
-                            "punktea": int(s_a), "punkteb": int(s_b),
-                            "confa": False, "confb": False,
-                        }
-                        if table_has_creator("pending_doubles"):
-                            payload["creator"] = me
-                        sp.table("pending_doubles").insert(payload).execute()
-                        clear_table_cache()
-                        st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
-                        st.rerun()
-                else:
-                    a1 = st.selectbox("Spieler A1", [n for n in name_to_id.keys()], key="d_a1")
-                    a2 = st.selectbox("Spieler A2", [n for n in name_to_id.keys() if n != a1], key="d_a2")
-                    b1 = st.selectbox("Spieler B1", [n for n in name_to_id.keys() if n not in (a1, a2)], key="d_b1")
-                    b2 = st.selectbox("Spieler B2", [n for n in name_to_id.keys() if n not in (a1, a2, b1)], key="d_b2")
-                    c1, c2 = st.columns(2)
-                    s_a = c1.number_input("Punkte Team A", min_value=0, step=1, value=11, key="d2_s_a")
-                    s_b = c2.number_input("Punkte Team B", min_value=0, step=1, value=8, key="d2_s_b")
-                    if st.button("✅", key="btn_send_double_others"):
-                        payload = {
-                            "datum": _utc_iso(pd.Timestamp.now(tz=TZ)),
-                            "a1": name_to_id[a1], "a2": name_to_id[a2], "b1": name_to_id[b1], "b2": name_to_id[b2],
-                            "punktea": int(s_a), "punkteb": int(s_b),
-                            "confa": False, "confb": False,
-                        }
-                        if table_has_creator("pending_doubles"):
-                            payload["creator"] = me
-                        sp.table("pending_doubles").insert(payload).execute()
-                        clear_table_cache()
-                        st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
-                        st.rerun()
-            # Rundlauf
-            with m_tabs[2]:
-                play_myself_r = st.checkbox("Ich spiele mit", value=True, key="round_play_myself")
-                selectable = list(name_to_id.keys())
-                default_sel = []
-                if play_myself_r and st.session_state.get("player_name") in selectable:
-                    default_sel = [st.session_state.get("player_name")]
-                selected = st.multiselect("Teilnehmer wählen", selectable, default=default_sel, help="Wähle alle Teilnehmer (inkl. dir selbst, falls du mitspielst).", key="round_multi")
-                if len(selected) >= 2:
-                    c1, c2 = st.columns(2)
-                    winner_name = c1.selectbox("Sieger (1.)", selected, key="round_winner")
-                    second_candidates = [n for n in selected if n != winner_name]
-                    second_name = c2.selectbox("Zweiter (2.)", second_candidates, key="round_second")
-                else:
-                    winner_name, second_name = None, None
-                if st.button("✅", key="btn_send_round"):
-                    pids = [name_to_id[n] for n in selected]
-                    if len(pids) < 2:
-                        st.warning("Mindestens 2 Teilnehmer.")
-                    elif not winner_name or not second_name:
-                        st.warning("Bitte Sieger und Zweiten wählen.")
-                    else:
-                        create_pending_round(
-                            me,
-                            pids,
-                            fin1_id=name_to_id[winner_name],
-                            fin2_id=name_to_id[second_name],
-                            winner_id=name_to_id[winner_name],
-                        )
-                        clear_table_cache()
-                        st.success("Rundlauf erstellt (mit Sieger/Zweiter). Ein Teilnehmer muss bestätigen.")
-                        st.rerun()
+                    create_pending_round(
+                        me,
+                        pids,
+                        fin1_id=name_to_id[winner_name],
+                        fin2_id=name_to_id[second_name],
+                        winner_id=name_to_id[winner_name],
+                    )
+                    clear_table_cache()
+                    st.success("Rundlauf erstellt (mit Sieger/Zweiter). Ein Teilnehmer muss bestätigen.")
+                    st.rerun()
+
         st.divider()
+
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
         col_head, col_btn = st.columns([8,1])  # heading wide, button stays tiny – fits better on mobile
         with col_head:
@@ -1114,19 +1039,17 @@ def logged_in_ui():
             if st.button("🔄", key="btn_refresh_confirmations"):
                 clear_table_cache()
                 st.rerun()
-        # Refresh nur für die Pending-Listen
-        # Reuse creator flags for pending tables
-        has_c_matches = table_has_creator("pending_matches")
-        has_c_doubles = table_has_creator("pending_doubles")
-        has_c_rounds = table_has_creator("pending_rounds")
+                # Refresh nur für die Pending-Listen
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
+
         # --- Meine offenen Bestätigungen sammeln (pro Modus) ---
         info_rows_s, info_rows_d, info_rows_r = [], [], []
         # Einzel
         if not pm.empty:
-            if has_c_matches:
+            has_c = table_has_creator("pending_matches")
+            if has_c:
                 my_conf_s = pm[(pm["a"].astype(str).eq(str(me)) | pm["b"].astype(str).eq(str(me))) & (pm["creator"].astype(str) != str(me))]
             else:
                 my_conf_s = pm[pm["b"].astype(str) == str(me)]
@@ -1134,7 +1057,8 @@ def logged_in_ui():
                 info_rows_s.append(r)
         # Doppel
         if not pdbl.empty:
-            if has_c_doubles:
+            has_c_d = table_has_creator("pending_doubles")
+            if has_c_d:
                 part_mask = (pdbl[["a1","a2","b1","b2"]].astype(str) == str(me)).any(axis=1)
                 my_conf_d = pdbl[part_mask & (pdbl["creator"].astype(str) != str(me))]
             else:
@@ -1143,7 +1067,8 @@ def logged_in_ui():
                 info_rows_d.append(r)
         # Rundlauf
         if not pr.empty:
-            if has_c_rounds:
+            has_c_r = table_has_creator("pending_rounds")
+            if has_c_r:
                 def _involved_not_creator(row):
                     teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
                     return (str(me) in teiln) and (str(row.get("creator")) != str(me))
@@ -1155,6 +1080,7 @@ def logged_in_ui():
                 my_conf_r = pr[pr.apply(_is_involved_not_creator, axis=1)]
             for _, r in my_conf_r.iterrows():
                 info_rows_r.append(r)
+
         # --- Global: Alle bestätigen (unter dem Refresh-Button) ---
         if any([info_rows_s, info_rows_d, info_rows_r]):
             if st.button("✅ Alle bestätigen", key="btn_accept_all_pending", type="primary"):
@@ -1176,7 +1102,9 @@ def logged_in_ui():
                     st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
         else:
             st.info("Keine offenen Bestätigungen.")
+
         # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
+        # Einzel-Karten
         me_name = user.get("name")
         for r in info_rows_s:
             render_single_vs_card(
@@ -1186,6 +1114,9 @@ def logged_in_ui():
                 on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
                 button_label="❌ Ablehnen",
             )
+
+        # Doppel-Karten
+        me_name = user.get("name")
         for r in info_rows_d:
             render_double_vs_card(
                 r, id_to_name,
@@ -1194,6 +1125,9 @@ def logged_in_ui():
                 on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
                 button_label="❌ Ablehnen",
             )
+
+        # Rundlauf-Karten
+        me_name = user.get("name")
         for r in info_rows_r:
             render_round_vs_card(
                 r, id_to_name,
@@ -1202,10 +1136,11 @@ def logged_in_ui():
                 on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
                 button_label="❌ Ablehnen",
             )
+
         # --- Von mir erstellt (ich kann abbrechen) ---
         st.markdown("### Ausstehende Bestätigungen")
         if not pm.empty:
-            if has_c_matches:
+            if table_has_creator("pending_matches"):
                 mine = pm[pm["creator"].astype(str) == str(me)]
             else:
                 mine = pm[pm["a"].astype(str) == str(me)]
@@ -1218,8 +1153,9 @@ def logged_in_ui():
                     on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
                     button_label="❌ Ablehnen",
                 )
+
         if not pdbl.empty:
-            if has_c_doubles:
+            if table_has_creator("pending_doubles"):
                 mine = pdbl[pdbl["creator"].astype(str) == str(me)]
             else:
                 mine = pdbl[pdbl["a1"].astype(str) == str(me)]
@@ -1232,8 +1168,9 @@ def logged_in_ui():
                     on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
                     button_label="❌ Ablehnen",
                 )
+
         if not pr.empty:
-            if has_c_rounds:
+            if table_has_creator("pending_rounds"):
                 mine = pr[pr["creator"].astype(str) == str(me)]
             else:
                 def _created_by_me(row):
@@ -1249,8 +1186,9 @@ def logged_in_ui():
                     on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
                     button_label="❌ Ablehnen",
                 )
+
     # Account – mit Logout‑Button
-    elif selected == "Account":
+    with tabs[2]:
         st.subheader("Account")
         st.write(f"Angemeldet als **{user.get('name','Unbekannt')}**")
         if st.button("Logout", key="btn_logout_account", type="primary"):
