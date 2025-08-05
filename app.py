@@ -582,6 +582,78 @@ def logged_in_header(user: dict):
     )
 
 
+# --- Reusable helper: Rundlauf-Karte im VS-Layout (Variante C) ---
+def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
+    """Rendert eine Rundlauf-Karte im VS-Layout (Variante C) innerhalb eines Expanders.
+    - r: Zeile aus pending_rounds (oder ähnliche Struktur)
+    - id_to_name: Mapping PlayerID -> Name
+    - highlight_name: Spielername, der im Teilnehmer-Chip hervorgehoben wird
+    - key: Streamlit-Widget-Key für den Ablehnen-Button
+    - on_reject: Callable, das mit (row_id) aufgerufen wird
+    """
+    teiln_ids = [pid for pid in str(r.get("teilnehmer") or "").split(";") if pid]
+    teiln = [id_to_name.get(pid, pid) for pid in teiln_ids]
+    fin_list = [pid for pid in str(r.get("finalisten") or "").split(";") if pid]
+    winner_id = str(r.get("sieger")) if r.get("sieger") else None
+    winner_n = id_to_name.get(winner_id, winner_id)
+    second_id = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_id else (fin_list[0] if len(fin_list) > 0 else None)
+    second_n = id_to_name.get(second_id, second_id) if second_id else "-"
+
+    # Expander-Titel
+    title = f"Rundlauf  {', '.join(teiln)} – 1.: {winner_n}, 2.: {second_n}"
+    exp = st.expander(title, expanded=False)
+
+    # CSS einmalig injizieren
+    if not st.session_state.get("_vs_round_css"):
+        primary = st.get_option("theme.primaryColor") or "#dc2626"
+        st.markdown(f"""
+        <style>
+          .vs-card {{ display:flex; gap:12px; align-items:stretch; border:1px solid rgba(255,255,255,.15);
+                     border-radius:10px; padding:10px; }}
+          .vs-left {{ flex:1 1 60%; }}
+          .chips {{ display:flex; flex-wrap:wrap; gap:6px; }}
+          .chip {{ border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:2px 8px; font-size:12px; }}
+          .chip.me {{ font-weight:700; color:{primary}; }}
+          .vs-center {{ flex:0 0 180px; text-align:center; border-left:1px solid rgba(255,255,255,.15);
+                       border-right:1px solid rgba(255,255,255,.15); padding:0 10px; }}
+          .vs-score .line1 {{ font-size:20px; font-weight:700; line-height:1.2; }}
+          .vs-score .line2 {{ font-size:16px; opacity:.9; }}
+          .vs-actions {{ display:flex; justify-content:flex-end; margin-top:8px; }}
+          @media (max-width: 520px){{
+            .vs-card {{ flex-direction:column; }}
+            .vs-center {{ border:none; padding:0; }}
+            .vs-actions {{ justify-content:stretch; }}
+          }}
+        </style>
+        """, unsafe_allow_html=True)
+        st.session_state["_vs_round_css"] = True
+
+    with exp:
+        # Card-Body
+        st.markdown(
+            "<div class='vs-card'>"
+            "<div class='vs-left'><div class='chips'>"
+            + "".join([
+                f"<span class='chip{' me' if str(n)==str(highlight_name) else ''}'>{n}</span>"
+                for n in teiln
+              ])
+            + "</div></div>"
+            + f"<div class='vs-center'><div class='vs-score'>"
+              + f"<div class='line1'>1.: {winner_n}</div>"
+              + f"<div class='line2'>2.: {second_n}</div>"
+            + "</div></div>"
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+        # Aktionen
+        c_space, c_btn = st.columns([1,1])
+        with c_btn:
+            if st.button(button_label, key=key):
+                if on_reject:
+                    on_reject(r["id"])  # erwartet Tabellen-ID
+
+
 def get_current_user() -> dict | None:
     try:
         pid = st.session_state.get("player_id")
@@ -708,18 +780,16 @@ def logged_in_ui():
                     reject_pending("pending_doubles", r["id"])
                     clear_table_cache(); st.rerun()
 
-        # Rundlauf-Karten
+        # Rundlauf-Karten (VS-Layout)
+        me_name = user.get("name")
         for r in info_rows_r:
-            teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
-            fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
-            winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-            second_n = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_n else (fin_list[0] if len(fin_list) > 0 else '-')
-            line = f"Rundlauf  {', '.join(teiln)} – 1.: {winner_n}, 2.: {second_n}"
-            exp = st.expander(line, expanded=False)
-            with exp:
-                if st.button("❌ Ablehnen", key=f"trej_r_{r['id']}_ovw"):
-                    reject_pending("pending_rounds", r["id"])
-                    clear_table_cache(); st.rerun()
+            render_round_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_r_{r['id']}_ovw",
+                on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # --- Leaderboards & Letzte Spiele ---
         st.divider()
@@ -1075,18 +1145,16 @@ def logged_in_ui():
                     reject_pending("pending_doubles", r["id"])
                     clear_table_cache(); st.rerun()
 
-        # Rundlauf-Karten
+        # Rundlauf-Karten (VS-Layout)
+        me_name = user.get("name")
         for r in info_rows_r:
-            teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
-            fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
-            winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-            second_n = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_n else (fin_list[0] if len(fin_list) > 0 else '-')
-            line = f"Rundlauf  {', '.join(teiln)} – 1.: {winner_n}, 2.: {second_n}"
-            exp = st.expander(line, expanded=False)
-            with exp:
-                if st.button("❌ Ablehnen", key=f"trej_r_{r['id']}"):
-                    reject_pending("pending_rounds", r["id"])
-                    clear_table_cache(); st.rerun()
+            render_round_vs_card(
+                r, id_to_name,
+                highlight_name=me_name,
+                key=f"trej_r_{r['id']}",
+                on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
+                button_label="❌ Ablehnen",
+            )
 
         # --- Von mir erstellt (ich kann abbrechen) ---
         st.markdown("### Ausstehende Bestätigungen")
@@ -1131,19 +1199,15 @@ def logged_in_ui():
                     teiln = [x for x in str(row.get("teilnehmer","")) .split(";") if x]
                     return len(teiln) > 0 and teiln[0] == str(me)
                 mine = pr[pr.apply(_created_by_me, axis=1)]
+            me_name = user.get("name")
             for _, r in mine.iterrows():
-                teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
-                fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
-                winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-                fin_text = f" – 1.: {winner_n}, 2.: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
-                line = f"Rundlauf  {', '.join(teiln)}" + fin_text
-                exp = st.expander(line, expanded=False)
-                with exp:
-                    if st.button("❌", key=f"cancel_r_{r['id']}"):
-                        reject_pending("pending_rounds", r["id"])
-                        clear_table_cache()
-                        st.info("Rundlauf verworfen.")
-                        st.rerun()
+                render_round_vs_card(
+                    r, id_to_name,
+                    highlight_name=me_name,
+                    key=f"cancel_r_{r['id']}",
+                    on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
+                    button_label="❌ Ablehnen",
+                )
 
     # Account – mit Logout‑Button
     with tabs[2]:
