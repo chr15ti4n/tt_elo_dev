@@ -757,7 +757,14 @@ def logged_in_ui():
                     ("padding","0"),("border","none"),("overflow","hidden"),
                     ("color","transparent")
                 ]},
-                {"selector": "th.blank", "props": [("display","none"),("width","0"),("padding","0")]},
+                {"selector": "th.blank", "props": [
+                    ("width","1px"),("min-width","1px"),("max-width","1px"),
+                    ("padding","0"),("border","none"),("overflow","hidden"),
+                    ("color","transparent")
+                ]},
+                {"selector": "th.col_heading", "props": [
+                    ("white-space","nowrap"), ("text-align","left")
+                ]},
             ], overwrite=False)
             st.table(sty)
 
@@ -841,7 +848,14 @@ def logged_in_ui():
                         ("padding","0"),("border","none"),("overflow","hidden"),
                         ("color","transparent")
                     ]},
-                    {"selector": "th.blank", "props": [("display","none"),("width","0"),("padding","0")]},
+                    {"selector": "th.blank", "props": [
+                        ("width","1px"),("min-width","1px"),("max-width","1px"),
+                        ("padding","0"),("border","none"),("overflow","hidden"),
+                        ("color","transparent")
+                    ]},
+                    {"selector": "th.col_heading", "props": [
+                        ("white-space","nowrap"), ("text-align","left")
+                    ]},
                 ], overwrite=False)
                 st.table(sty)
             else:
