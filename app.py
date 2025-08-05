@@ -613,7 +613,9 @@ def logged_in_ui():
         id_to_name, name_to_id = get_player_maps()
         me = st.session_state.get("player_id")
 
-        col_head, col_btn = st.columns([8,1])
+        st.divider()
+
+        col_head, col_btn = st.columns([100,1])
         with col_head:
             st.markdown("### Offene Bestätigungen")
         with col_btn:
@@ -621,8 +623,6 @@ def logged_in_ui():
                 clear_table_cache()
                 st.rerun()
         
-        st.divider()
-
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
