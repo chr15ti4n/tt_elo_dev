@@ -714,7 +714,7 @@ def logged_in_ui():
             fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
             winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
             second_n = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_n else (fin_list[0] if len(fin_list) > 0 else '-')
-            line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
+            line = f"Rundlauf  {', '.join(teiln)} – 1.: {winner_n}, 2.: {second_n}"
             exp = st.expander(line, expanded=False)
             with exp:
                 if st.button("❌ Ablehnen", key=f"trej_r_{r['id']}_ovw"):
@@ -821,7 +821,7 @@ def logged_in_ui():
                         "datum": x.get("datum"),
                         "Modus": "Rundlauf",
                         "Teilnehmer": ", ".join(teiln),
-                        "Ergebnis": f"Sieger: {winner_n}, Zweiter: {second_n}",
+                        "Ergebnis": f"1.: {winner_n}\n2.: {second_n}",
                     })
             if rows:
                 df_last = pd.DataFrame(rows)
@@ -837,6 +837,12 @@ def logged_in_ui():
 
                 # Index unsichtbar machen: minimale Breite und transparente Farbe
                 sty = show_df.style.apply(_style_last, axis=1)
+                # Modus: nicht umbrechen; Ergebnis: Zeilenumbrüche via "\n" darstellen
+                try:
+                    sty = sty.set_properties(subset=["Modus"], **{"white-space": "nowrap"})
+                    sty = sty.set_properties(subset=["Ergebnis"], **{"white-space": "pre-line"})
+                except Exception:
+                    pass
                 sty = sty.set_table_styles([
                     {"selector": "th.row_heading", "props": [
                         ("width","1px"),("min-width","1px"),("max-width","1px"),
@@ -1075,7 +1081,7 @@ def logged_in_ui():
             fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
             winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
             second_n = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_n else (fin_list[0] if len(fin_list) > 0 else '-')
-            line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
+            line = f"Rundlauf  {', '.join(teiln)} – 1.: {winner_n}, 2.: {second_n}"
             exp = st.expander(line, expanded=False)
             with exp:
                 if st.button("❌ Ablehnen", key=f"trej_r_{r['id']}"):
@@ -1129,7 +1135,7 @@ def logged_in_ui():
                 teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
                 fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
                 winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-                fin_text = f" – Sieger: {winner_n}, Zweiter: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
+                fin_text = f" – 1.: {winner_n}, 2.: {fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-') }"
                 line = f"Rundlauf  {', '.join(teiln)}" + fin_text
                 exp = st.expander(line, expanded=False)
                 with exp:
