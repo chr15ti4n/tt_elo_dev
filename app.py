@@ -687,40 +687,40 @@ def logged_in_ui():
         # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
         # Einzel-Karten
         for r in info_rows_s:
-            a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
+            a_n = id_to_name.get(str(r["a"]), r["a"]); b_n = id_to_name.get(str(r["b"]), r["b"])
             line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
             with st.container(border=True):
-                c1, c2 = st.columns([8,1])
-                c1.markdown(line, unsafe_allow_html=True)
-                if c2.button("❌", key=f"trej_s_{r['id']}_ovw"):
-                    reject_pending("pending_matches", r["id"])
-                    clear_table_cache(); st.rerun()
+                exp = st.expander(line, expanded=False)
+                with exp:
+                    if st.button("❌", key=f"trej_s_{r['id']}_ovw"):
+                        reject_pending("pending_matches", r["id"])
+                        clear_table_cache(); st.rerun()
 
         # Doppel-Karten
         for r in info_rows_d:
-            a1 = id_to_name.get(str(r["a1"]), r["a1"]) ; a2 = id_to_name.get(str(r["a2"]), r["a2"]) 
-            b1 = id_to_name.get(str(r["b1"]), r["b1"]) ; b2 = id_to_name.get(str(r["b2"]), r["b2"]) 
+            a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
+            b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
             line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
             with st.container(border=True):
-                c1, c2 = st.columns([8,1])
-                c1.markdown(line, unsafe_allow_html=True)
-                if c2.button("❌", key=f"trej_d_{r['id']}_ovw"):
-                    reject_pending("pending_doubles", r["id"])
-                    clear_table_cache(); st.rerun()
+                exp = st.expander(line, expanded=False)
+                with exp:
+                    if st.button("❌", key=f"trej_d_{r['id']}_ovw"):
+                        reject_pending("pending_doubles", r["id"])
+                        clear_table_cache(); st.rerun()
 
         # Rundlauf-Karten
         for r in info_rows_r:
             teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
             fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
             winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-            second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+            second_n = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_n else (fin_list[0] if len(fin_list) > 0 else '-')
             line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
             with st.container(border=True):
-                c1, c2 = st.columns([8,1])
-                c1.markdown(line, unsafe_allow_html=True)
-                if c2.button("❌", key=f"trej_r_{r['id']}_ovw"):
-                    reject_pending("pending_rounds", r["id"])
-                    clear_table_cache(); st.rerun()
+                exp = st.expander(line, expanded=False)
+                with exp:
+                    if st.button("❌", key=f"trej_r_{r['id']}_ovw"):
+                        reject_pending("pending_rounds", r["id"])
+                        clear_table_cache(); st.rerun()
 
     # Spielen – neue UI für Spiele erstellen und verwalten
     with tabs[1]:
@@ -920,40 +920,40 @@ def logged_in_ui():
         # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
         # Einzel-Karten
         for r in info_rows_s:
-            a_n = id_to_name.get(str(r["a"]), r["a"]) ; b_n = id_to_name.get(str(r["b"]), r["b"]) 
+            a_n = id_to_name.get(str(r["a"]), r["a"]); b_n = id_to_name.get(str(r["b"]), r["b"])
             line = f"Einzel  {a_n} vs {b_n}  {int(r['punktea'])}:{int(r['punkteb'])}"
             with st.container(border=True):
-                c1, c2 = st.columns([8,1])
-                c1.markdown(line, unsafe_allow_html=True)
-                if c2.button("❌", key=f"trej_s_{r['id']}"):
-                    reject_pending("pending_matches", r["id"])
-                    clear_table_cache(); st.rerun()
+                exp = st.expander(line, expanded=False)
+                with exp:
+                    if st.button("❌", key=f"trej_s_{r['id']}"):
+                        reject_pending("pending_matches", r["id"])
+                        clear_table_cache(); st.rerun()
 
         # Doppel-Karten
         for r in info_rows_d:
-            a1 = id_to_name.get(str(r["a1"]), r["a1"]) ; a2 = id_to_name.get(str(r["a2"]), r["a2"]) 
-            b1 = id_to_name.get(str(r["b1"]), r["b1"]) ; b2 = id_to_name.get(str(r["b2"]), r["b2"]) 
+            a1 = id_to_name.get(str(r["a1"]), r["a1"]); a2 = id_to_name.get(str(r["a2"]), r["a2"])
+            b1 = id_to_name.get(str(r["b1"]), r["b1"]); b2 = id_to_name.get(str(r["b2"]), r["b2"])
             line = f"Doppel  {a1}/{a2} vs {b1}/{b2}  {int(r['punktea'])}:{int(r['punkteb'])}"
             with st.container(border=True):
-                c1, c2 = st.columns([8,1])
-                c1.markdown(line, unsafe_allow_html=True)
-                if c2.button("❌", key=f"trej_d_{r['id']}"):
-                    reject_pending("pending_doubles", r["id"])
-                    clear_table_cache(); st.rerun()
+                exp = st.expander(line, expanded=False)
+                with exp:
+                    if st.button("❌", key=f"trej_d_{r['id']}"):
+                        reject_pending("pending_doubles", r["id"])
+                        clear_table_cache(); st.rerun()
 
         # Rundlauf-Karten
         for r in info_rows_r:
             teiln = [id_to_name.get(pid, pid) for pid in str(r["teilnehmer"]).split(";") if pid]
             fin_list = [id_to_name.get(pid, pid) for pid in str(r.get("finalisten") or "").split(";") if pid]
             winner_n = id_to_name.get(str(r.get("sieger")), str(r.get("sieger")))
-            second_n = fin_list[1] if len(fin_list)>1 and fin_list[0]==winner_n else (fin_list[0] if len(fin_list)>0 else '-')
+            second_n = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_n else (fin_list[0] if len(fin_list) > 0 else '-')
             line = f"Rundlauf  {', '.join(teiln)} – Sieger: {winner_n}, Zweiter: {second_n}"
             with st.container(border=True):
-                c1, c2 = st.columns([8,1])
-                c1.markdown(line, unsafe_allow_html=True)
-                if c2.button("❌", key=f"trej_r_{r['id']}"):
-                    reject_pending("pending_rounds", r["id"])
-                    clear_table_cache(); st.rerun()
+                exp = st.expander(line, expanded=False)
+                with exp:
+                    if st.button("❌", key=f"trej_r_{r['id']}"):
+                        reject_pending("pending_rounds", r["id"])
+                        clear_table_cache(); st.rerun()
 
         # --- Von mir erstellt (ich kann abbrechen) ---
         st.markdown("### Von dir erstellt")
