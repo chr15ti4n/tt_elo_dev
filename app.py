@@ -769,16 +769,16 @@ def logged_in_ui():
                         #pa-s-{r['id']} + div.stButton,
                         #pa-s-{r['id']} + div.stButton + div.stButton {{ display:inline-block; margin-right:8px; vertical-align:middle; }}
                         #pa-s-{r['id']} + div.stButton > button,
-                        #pa-s-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; }}
+                        #pa-s-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; width:auto !important; display:inline-block; }}
                         </style>
                         """,
                         unsafe_allow_html=True,
                     )
-                    st.markdown(f'<div id="pa-s-{r["id"]}"></div>', unsafe_allow_html=True)
-                    if st.button("✅", key=f"conf_s_{r['id']}"):
+                    btn_ok, btn_cancel = st.columns(2)
+                    if btn_ok.button("✅", key=f"conf_s_{r['id']}"):
                         confirm_pending_single(r)
                         clear_table_cache(); st.success("Einzel bestätigt."); st.rerun()
-                    if st.button("❌", key=f"rej_s_{r['id']}"):
+                    if btn_cancel.button("❌", key=f"rej_s_{r['id']}"):
                         reject_pending("pending_matches", r["id"])
                         clear_table_cache(); st.info("Einzel abgelehnt."); st.rerun()
 
@@ -801,16 +801,16 @@ def logged_in_ui():
                         #pa-d-{r['id']} + div.stButton,
                         #pa-d-{r['id']} + div.stButton + div.stButton {{ display:inline-block; margin-right:8px; vertical-align:middle; }}
                         #pa-d-{r['id']} + div.stButton > button,
-                        #pa-d-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; }}
+                        #pa-d-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; width:auto !important; display:inline-block; }}
                         </style>
                         """,
                         unsafe_allow_html=True,
                     )
-                    st.markdown(f'<div id="pa-d-{r["id"]}"></div>', unsafe_allow_html=True)
-                    if st.button("✅", key=f"conf_d_{r['id']}"):
+                    btn_ok, btn_cancel = st.columns(2)
+                    if btn_ok.button("✅", key=f"conf_d_{r['id']}"):
                         confirm_pending_double(r)
                         clear_table_cache(); st.success("Doppel bestätigt."); st.rerun()
-                    if st.button("❌", key=f"rej_d_{r['id']}"):
+                    if btn_cancel.button("❌", key=f"rej_d_{r['id']}"):
                         reject_pending("pending_doubles", r["id"])
                         clear_table_cache(); st.info("Doppel abgelehnt."); st.rerun()
 
@@ -840,16 +840,16 @@ def logged_in_ui():
                         #pa-r-{r['id']} + div.stButton,
                         #pa-r-{r['id']} + div.stButton + div.stButton {{ display:inline-block; margin-right:8px; vertical-align:middle; }}
                         #pa-r-{r['id']} + div.stButton > button,
-                        #pa-r-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; }}
+                        #pa-r-{r['id']} + div.stButton + div.stButton > button {{ padding:6px 10px; font-size:18px; width:auto !important; display:inline-block; }}
                         </style>
                         """,
                         unsafe_allow_html=True,
                     )
-                    st.markdown(f'<div id="pa-r-{r["id"]}"></div>', unsafe_allow_html=True)
-                    if st.button("✅", key=f"conf_r_{r['id']}"):
+                    btn_ok, btn_cancel = st.columns(2)
+                    if btn_ok.button("✅", key=f"conf_r_{r['id']}"):
                         confirm_pending_round(r)
                         clear_table_cache(); st.success("Rundlauf bestätigt."); st.rerun()
-                    if st.button("❌", key=f"rej_r_{r['id']}"):
+                    if btn_cancel.button("❌", key=f"rej_r_{r['id']}"):
                         reject_pending("pending_rounds", r["id"])
                         clear_table_cache(); st.info("Rundlauf abgelehnt."); st.rerun()
 
