@@ -582,29 +582,27 @@ def logged_in_header(user: dict):
     )
 
 
-# --- Reusable helper: Rundlauf-Karte im VS-Layout (Variante C) ---
+# --- Helper: Rundlauf-Karte im VS-Layout mit Chips (Sieger in Gold, Zweiter in Silber) ---
 def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
-    """Rendert eine Rundlauf-Karte im VS-Layout (Variante C) innerhalb eines Expanders.
-    - r: Zeile aus pending_rounds (oder ähnliche Struktur)
-    - id_to_name: Mapping PlayerID -> Name
-    - highlight_name: Spielername, der im Teilnehmer-Chip hervorgehoben wird
-    - key: Streamlit-Widget-Key für den Ablehnen-Button
-    - on_reject: Callable, das mit (row_id) aufgerufen wird
+    """Rendert eine Rundlauf-Karte (Variante C) als Expander mit Chips.
+    - Teilnehmer links als Chips (eigener Name farblich)
+    - Mitte: Chips für 1. (Gold) und 2. (Silber)
+    - Unten rechts: Ablehnen-Button
     """
     teiln_ids = [pid for pid in str(r.get("teilnehmer") or "").split(";") if pid]
     teiln = [id_to_name.get(pid, pid) for pid in teiln_ids]
     fin_list = [pid for pid in str(r.get("finalisten") or "").split(";") if pid]
     winner_id = str(r.get("sieger")) if r.get("sieger") else None
-    winner_n = id_to_name.get(winner_id, winner_id)
+    winner_n = id_to_name.get(winner_id, winner_id) or "-"
     second_id = fin_list[1] if len(fin_list) > 1 and fin_list[0] == winner_id else (fin_list[0] if len(fin_list) > 0 else None)
     second_n = id_to_name.get(second_id, second_id) if second_id else "-"
 
-    # Expander-Titel
-    title = f"Rundlauf  {', '.join(teiln)} – 1.: {winner_n}, 2.: {second_n}"
+    # Expander-Titel (Text) – mit Medaillen‑Emojis (HTML wird im Label nicht gerendert)
+    title = f"Rundlauf  {', '.join(teiln)} – 🥇 {winner_n}, 🥈 {second_n}"
     exp = st.expander(title, expanded=False)
 
-    # CSS einmalig injizieren
-    if not st.session_state.get("_vs_round_css"):
+    # CSS einmalig injizieren (pro Session)
+    if not st.session_state.get("_vs_round_css_v2"):
         primary = st.get_option("theme.primaryColor") or "#dc2626"
         st.markdown(f"""
         <style>
@@ -612,12 +610,13 @@ def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str 
                      border-radius:10px; padding:10px; }}
           .vs-left {{ flex:1 1 60%; }}
           .chips {{ display:flex; flex-wrap:wrap; gap:6px; }}
-          .chip {{ border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:2px 8px; font-size:12px; }}
-          .chip.me {{ font-weight:700; color:{primary}; }}
-          .vs-center {{ flex:0 0 180px; text-align:center; border-left:1px solid rgba(255,255,255,.15);
-                       border-right:1px solid rgba(255,255,255,.15); padding:0 10px; }}
-          .vs-score .line1 {{ font-size:20px; font-weight:700; line-height:1.2; }}
-          .vs-score .line2 {{ font-size:16px; opacity:.9; }}
+          .chip {{ border:1px solid rgba(255,255,255,.25); border-radius:999px; padding:2px 10px; font-size:12px; line-height:1.4; }}
+          .chip.me {{ font-weight:700; color:{primary}; border-color:{primary}55; }}
+          .vs-center {{ flex:0 0 200px; text-align:center; border-left:1px solid rgba(255,255,255,.15);
+                       border-right:1px solid rgba(255,255,255,.15); padding:0 10px; display:flex; flex-direction:column; gap:8px; justify-content:center; }}
+          .chip.badge {{ border:none; color:#111; font-weight:700; }}
+          .chip.badge.winner {{ background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%); }} /* Gold */
+          .chip.badge.second {{ background: linear-gradient(135deg, #e5e7eb 0%, #9ca3af 100%); }} /* Silber */
           .vs-actions {{ display:flex; justify-content:flex-end; margin-top:8px; }}
           @media (max-width: 520px){{
             .vs-card {{ flex-direction:column; }}
@@ -626,22 +625,22 @@ def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str 
           }}
         </style>
         """, unsafe_allow_html=True)
-        st.session_state["_vs_round_css"] = True
+        st.session_state["_vs_round_css_v2"] = True
 
     with exp:
-        # Card-Body
+        # Card Body
         st.markdown(
             "<div class='vs-card'>"
-            "<div class='vs-left'><div class='chips'>"
+            "  <div class='vs-left'><div class='chips'>"
             + "".join([
-                f"<span class='chip{' me' if str(n)==str(highlight_name) else ''}'>{n}</span>"
+                f"<span class='chip{' me' if str(n)==str(highlight_name) else ''}'>" + str(n) + "</span>"
                 for n in teiln
               ])
-            + "</div></div>"
-            + f"<div class='vs-center'><div class='vs-score'>"
-              + f"<div class='line1'>1.: {winner_n}</div>"
-              + f"<div class='line2'>2.: {second_n}</div>"
-            + "</div></div>"
+            + "  </div></div>"
+            + "  <div class='vs-center'>"
+            + f"    <span class='chip badge winner'>🥇 {winner_n}</span>"
+            + f"    <span class='chip badge second'>🥈 {second_n}</span>"
+            + "  </div>"
             + "</div>",
             unsafe_allow_html=True,
         )
@@ -780,7 +779,7 @@ def logged_in_ui():
                     reject_pending("pending_doubles", r["id"])
                     clear_table_cache(); st.rerun()
 
-        # Rundlauf-Karten (VS-Layout)
+        # Rundlauf-Karten
         me_name = user.get("name")
         for r in info_rows_r:
             render_round_vs_card(
@@ -1145,7 +1144,7 @@ def logged_in_ui():
                     reject_pending("pending_doubles", r["id"])
                     clear_table_cache(); st.rerun()
 
-        # Rundlauf-Karten (VS-Layout)
+        # Rundlauf-Karten
         me_name = user.get("name")
         for r in info_rows_r:
             render_round_vs_card(
