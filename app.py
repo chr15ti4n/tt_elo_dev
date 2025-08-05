@@ -7,6 +7,7 @@ from typing import Optional
 import bcrypt
 import uuid
 from supabase import create_client
+from streamlit_option_menu import option_menu
 # endregion
 
 # region app_setup
@@ -582,6 +583,34 @@ def logged_in_header(user: dict):
     )
 
 
+# Helper: horizontales Hauptmenü (Option Menu) für Übersicht/Spielen/Account
+def main_nav() -> str:
+    """Horizontales Hauptmenü (Option Menu) für Übersicht/Spielen/Account.
+    Merkt die Auswahl in Session State.
+    """
+    labels = ["Übersicht", "Spielen", "Account"]
+    if "main_nav" not in st.session_state:
+        st.session_state.main_nav = labels[0]
+    default_index = labels.index(st.session_state.main_nav)
+    primary = st.get_option("theme.primaryColor") or "#dc2626"
+    selected = option_menu(
+        None,
+        labels,
+        icons=["house", "controller", "person-fill"],
+        menu_icon="cast",
+        default_index=default_index,
+        orientation="horizontal",
+        styles={
+            "container": {"padding": "0", "background-color": "rgba(0,0,0,0)"},
+            "icon": {"color": primary, "font-size": "16px"},
+            "nav-link": {"font-size": "16px", "padding": "6px 12px", "margin": "0 4px", "border-radius": "8px", "color": "inherit"},
+            "nav-link-selected": {"background-color": primary}
+        },
+    )
+    st.session_state.main_nav = selected
+    return selected
+
+
 def render_round_vs_card(r: pd.Series, id_to_name: dict, *, highlight_name: str = "", key: str = "", on_reject=None, button_label: str = "❌ Ablehnen"):
     """Rendert eine Rundlauf-Karte als Expander – **nur** mit Titel + Ablehnen-Button."""
     teiln_ids = [pid for pid in str(r.get("teilnehmer") or "").split(";") if pid]
@@ -653,11 +682,11 @@ def logged_in_ui():
         st.rerun()
         return
 
-    # Tabs: Übersicht (zuerst), Spielen, Account (Logout)
-    tabs = st.tabs(["Übersicht", "Spielen", "Account"])  
+    # Hauptnavigation per Option Menu (statt Tabs)
+    selected = main_nav()
 
     # region Übersicht
-    with tabs[0]:
+    if selected == "Übersicht":
         logged_in_header(user)
 
         # --- Offene Bestätigungen (auch in Übersicht anzeigen) ---
@@ -917,14 +946,12 @@ def logged_in_ui():
             else:
                 st.info("Noch keine Spiele vorhanden.")
     # Spielen – neue UI für Spiele erstellen und verwalten
-    with tabs[1]:
+    elif selected == "Spielen":
         st.subheader("Spielen")
         id_to_name, name_to_id = get_player_maps()
         me = st.session_state.get("player_id")
-
         # --- Erstellung: Modus per Tabs ---
         m_tabs = st.tabs(["Einzel", "Doppel", "Rundlauf"]) 
-
         # Einzel
         with m_tabs[0]:
             play_myself = st.checkbox("Ich spiele mit", value=True, help="Dein Name als Teilnehmer A. Deaktiviere, um ein Match für andere anzulegen.")
@@ -949,7 +976,6 @@ def logged_in_ui():
                     clear_table_cache()
                     st.success("Einzel erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
-
         # Doppel
         with m_tabs[1]:
             play_myself_d = st.checkbox("Ich spiele mit", value=True, key="doppel_play_myself")
@@ -995,7 +1021,6 @@ def logged_in_ui():
                     clear_table_cache()
                     st.success("Doppel erstellt. Ein Teilnehmer muss bestätigen.")
                     st.rerun()
-
         # Rundlauf
         with m_tabs[2]:
             play_myself_r = st.checkbox("Ich spiele mit", value=True, key="round_play_myself")
@@ -1028,9 +1053,7 @@ def logged_in_ui():
                     clear_table_cache()
                     st.success("Rundlauf erstellt (mit Sieger/Zweiter). Ein Teilnehmer muss bestätigen.")
                     st.rerun()
-
         st.divider()
-
         # --- Bestätigen (ich bin Teilnehmer, nicht Ersteller) ---
         col_head, col_btn = st.columns([8,1])  # heading wide, button stays tiny – fits better on mobile
         with col_head:
@@ -1043,7 +1066,6 @@ def logged_in_ui():
         pm = load_table("pending_matches")
         pdbl = load_table("pending_doubles")
         pr = load_table("pending_rounds")
-
         # --- Meine offenen Bestätigungen sammeln (pro Modus) ---
         info_rows_s, info_rows_d, info_rows_r = [], [], []
         # Einzel
@@ -1080,7 +1102,6 @@ def logged_in_ui():
                 my_conf_r = pr[pr.apply(_is_involved_not_creator, axis=1)]
             for _, r in my_conf_r.iterrows():
                 info_rows_r.append(r)
-
         # --- Global: Alle bestätigen (unter dem Refresh-Button) ---
         if any([info_rows_s, info_rows_d, info_rows_r]):
             if st.button("✅ Alle bestätigen", key="btn_accept_all_pending", type="primary"):
@@ -1102,7 +1123,6 @@ def logged_in_ui():
                     st.warning("Massenbestätigung teilweise fehlgeschlagen. Seite neu laden und prüfen.")
         else:
             st.info("Keine offenen Bestätigungen.")
-
         # --- Karten-Ansicht der einzelnen Spiele (nur Ablehnen pro Karte) ---
         # Einzel-Karten
         me_name = user.get("name")
@@ -1114,7 +1134,6 @@ def logged_in_ui():
                 on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
                 button_label="❌ Ablehnen",
             )
-
         # Doppel-Karten
         me_name = user.get("name")
         for r in info_rows_d:
@@ -1125,7 +1144,6 @@ def logged_in_ui():
                 on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
                 button_label="❌ Ablehnen",
             )
-
         # Rundlauf-Karten
         me_name = user.get("name")
         for r in info_rows_r:
@@ -1136,7 +1154,6 @@ def logged_in_ui():
                 on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
                 button_label="❌ Ablehnen",
             )
-
         # --- Von mir erstellt (ich kann abbrechen) ---
         st.markdown("### Ausstehende Bestätigungen")
         if not pm.empty:
@@ -1153,7 +1170,6 @@ def logged_in_ui():
                     on_reject=lambda rid: (reject_pending("pending_matches", rid), clear_table_cache(), st.rerun()),
                     button_label="❌ Ablehnen",
                 )
-
         if not pdbl.empty:
             if table_has_creator("pending_doubles"):
                 mine = pdbl[pdbl["creator"].astype(str) == str(me)]
@@ -1168,7 +1184,6 @@ def logged_in_ui():
                     on_reject=lambda rid: (reject_pending("pending_doubles", rid), clear_table_cache(), st.rerun()),
                     button_label="❌ Ablehnen",
                 )
-
         if not pr.empty:
             if table_has_creator("pending_rounds"):
                 mine = pr[pr["creator"].astype(str) == str(me)]
@@ -1186,9 +1201,8 @@ def logged_in_ui():
                     on_reject=lambda rid: (reject_pending("pending_rounds", rid), clear_table_cache(), st.rerun()),
                     button_label="❌ Ablehnen",
                 )
-
     # Account – mit Logout‑Button
-    with tabs[2]:
+    elif selected == "Account":
         st.subheader("Account")
         st.write(f"Angemeldet als **{user.get('name','Unbekannt')}**")
         if st.button("Logout", key="btn_logout_account", type="primary"):
