@@ -49,7 +49,7 @@ def load_table(table_name: str) -> pd.DataFrame:
 
 
 # region load_recent
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=5)
 def load_recent(table_name: str, columns: list[str] | None = None, limit: int = 5) -> pd.DataFrame:
     """Lädt nur die letzten `limit` Zeilen sortiert nach `datum` absteigend.
     - Spaltennamen -> lower()
@@ -77,7 +77,19 @@ def load_recent(table_name: str, columns: list[str] | None = None, limit: int = 
 # endregion
 
 def clear_table_cache():
-    load_table.clear()
+    # Räumt alle relevanten Cachefunktionen auf, damit ein Refresh wirklich neue Daten holt
+    try:
+        load_table.clear()
+    except Exception:
+        pass
+    try:
+        load_recent.clear()
+    except Exception:
+        pass
+    try:
+        get_player_maps.clear()
+    except Exception:
+        pass
 # endregion
 
 # region auth_helpers
