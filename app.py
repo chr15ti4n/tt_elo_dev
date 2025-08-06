@@ -943,9 +943,10 @@ def logged_in_ui():
                         })
                 if rows:
                     df_last = pd.DataFrame(rows)
-                    df_last["datum"] = pd.to_datetime(df_last["datum"], errors="coerce")
-                    df_last = df_last.sort_values("datum", ascending=False, na_position="last").head(5)
-                    show_df = df_last [["Modus","Teilnehmer","Ergebnis"]].copy()
+                    # Zeitlich streng nach Spiel‑Zeitpunkt sortieren (UTC‑normalisiert)
+                    df_last["sort_ts"] = pd.to_datetime(df_last["datum"], errors="coerce", utc=True)
+                    df_last = df_last.sort_values("sort_ts", ascending=False, na_position="last").head(5)
+                    show_df = df_last[["Modus","Teilnehmer","Ergebnis"]].copy()
                     primary = st.get_option("theme.primaryColor") or "#dc2626"
 
                     def _style_last(row: pd.Series):
