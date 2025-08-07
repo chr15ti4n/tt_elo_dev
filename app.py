@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 from supabase import create_client, Client
 from streamlit_ketcher import st_ketcher
 
@@ -14,21 +14,20 @@ supabase = init_connection()
 
 # Hilfsfunktionen für Datenbank-Operationen
 def get_all_data():
-    """Lädt alle Substanzen, Ansätze und Fraktionen aus der DB und organisiert sie hierarchisch."""
-    # Query all tables
-    substances_resp = supabase.table("substances").select("*").execute()
-    attempts_resp   = supabase.table("attempts").select("*").execute()
-    fractions_resp  = supabase.table("fractions").select("*").execute()
-    if substances_resp.error:
-        st.error(f"Datenbank-Fehler beim Laden der Substanzen: {substances_resp.error}")
+    try:
+        resp_sub = supabase.table("substances").select("*").execute()
+        resp_att = supabase.table("attempts").select("*").execute()
+        resp_frac= supabase.table("fractions").select("*").execute()
+    except Exception as e:
+        st.error(f"Datenbank-Fehler: {e}")
         return [], {}, {}
-    if attempts_resp.error or fractions_resp.error:
-        st.error(f"Datenbank-Fehler beim Laden der Ansätze/Fraktionen: {attempts_resp.error or fractions_resp.error}")
-        return substances_resp.data, {}, {}
-    substances = substances_resp.data  # list of dicts
-    attempts = attempts_resp.data      # list of dicts
-    fractions = fractions_resp.data    # list of dicts
-    # Organisiere Daten in verschachtelten Strukturen für einfacheren Zugriff
+
+    # Statt .error zu prüfen, greifst du auf .data zu:
+    substances = resp_sub.data or []
+    attempts   = resp_att.data   or []
+    fractions  = resp_frac.data  or []
+
+    # Jetzt wie gehabt verschachteln:
     attempts_by_substance = {}
     for att in attempts:
         attempts_by_substance.setdefault(att["substance_id"], []).append(att)
