@@ -1,5 +1,3 @@
 streamlit>=1.30
 supabase>=2.5
-pandas>=2.0
-bcrypt
-pathlib
+streamlit_ketcher
