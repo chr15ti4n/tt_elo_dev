@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 from supabase import create_client, Client
 from streamlit_ketcher import st_ketcher
 
